@@ -11,10 +11,10 @@ The project does not train a recruitment model from scratch. The MVP starts with
 The project is currently in:
 
 ```text
-Phase 01 - Project Foundation
+Phase 02 - Document Loader and Text Input
 ```
 
-This phase only prepares the repository structure and minimal entry points. Business logic such as document loading, resume parsing, skill extraction, matching, evidence detection, scoring, and review card generation will be implemented in later phases.
+This phase adds the first pipeline module: reading `.txt` files for JD and CV inputs. Resume parsing, skill extraction, matching, evidence detection, scoring, and review card generation will be implemented in later phases.
 
 ## Planned Processing Flow
 
@@ -54,7 +54,7 @@ CV / JD text
 `-- tests/
 ```
 
-## Phase 01 Scope
+## Implemented Scope
 
 Included:
 
@@ -63,10 +63,12 @@ Included:
 - Minimal Streamlit entry point.
 - Directory structure for data, source code, tests, outputs, and docs.
 - Development learning log.
+- TXT document loader.
+- Minimal demo JD and CV text files.
+- Unit tests for document loading.
 
 Not included yet:
 
-- TXT document loading.
 - Resume/JD parsing.
 - Skill taxonomy content.
 - Skill matching.
@@ -82,7 +84,19 @@ python main.py --help
 python main.py
 ```
 
-Expected behavior in Phase 01: the command only confirms that the foundation is ready and explains that business logic starts in later phases.
+Expected behavior in Phase 02: the command confirms that the foundation is ready. The document loader is tested separately and is not wired into the CLI flow yet.
+
+## Run Document Loader Tests
+
+```bash
+pytest
+```
+
+Manual loader check:
+
+```bash
+python -c "from src.document_loader import load_text_file; print(load_text_file('data/jobs/jd_backend_java.txt'))"
+```
 
 ## Run Minimal Streamlit Entry Point
 
@@ -98,7 +112,7 @@ Then run:
 streamlit run app.py
 ```
 
-In Phase 01, the app only shows a placeholder page.
+In Phase 02, the app still shows a placeholder page because the functional UI is planned for a later phase.
 
 ## Development Workflow
 
@@ -115,7 +129,7 @@ Work is organized by phase. Each phase should have:
 The next planned phase is:
 
 ```text
-Phase 02 - Document Loader and Text Input
+Phase 03 - Resume Parser and JD Parser
 ```
 
-That phase will implement reading `.txt` files for JD and CV inputs.
+That phase will parse raw text into structured resume profiles and job criteria.
