@@ -914,3 +914,188 @@ python -c "from src.document_loader import load_text_file; from src.resume_parse
 ### 11. Ghi chu cho bao cao
 
 Evidence Detection giup he thong phan biet giua ky nang chi duoc liet ke va ky nang co bang chung su dung trong kinh nghiem/du an. Day la thanh phan quan trong de giam keyword stuffing va tao nen tang cho evidence-based scoring trong Phase 08.
+
+## [2026-06-06] Phase 08 - Scoring and Ranking
+
+### 1. Boi canh
+
+Du an dang o Phase 08 - Scoring and Ranking. Phase 07 da enrich match result bang `evidence_level`, `evidence_text` va `evidence_source`. Tuy nhien, he thong van chua co diem tong hop de sap xep ung vien.
+
+Muc tieu Phase 08 la bien cac tin hieu rieng le thanh score components, final score va recommendation label.
+
+### 2. Van de / chuc nang
+
+Da tao:
+
+- `src/scorer.py`
+- `tests/test_scorer.py`
+
+Scorer ho tro:
+
+- Tinh skill semantic score tu match score.
+- Tinh evidence score tu evidence level.
+- Tinh experience fit.
+- Tinh seniority fit.
+- Tinh domain fit.
+- Tinh nice-to-have coverage.
+- Tinh final score 0-100.
+- Gan recommendation label.
+- Rank nhieu candidate result.
+
+### 3. Vi sao can lam
+
+Recruiter can xem nhanh ung vien nao nen duoc uu tien review. Match result va evidence result la du lieu chi tiet, nhung chua tao thu tu uu tien.
+
+Scoring giup tong hop cac tin hieu:
+
+```text
+matched skills + evidence + experience + seniority + domain + nice-to-have
+  -> final score
+  -> recommendation label
+```
+
+Ket qua van chi la recommendation ho tro review, khong phai quyet dinh tuyen dung tu dong.
+
+### 4. Nguyen nhan / logic nen tang
+
+Cong thuc Phase 08:
+
+```text
+Final Score =
+  40% skill_semantic
++ 20% evidence
++ 15% experience
++ 10% seniority
++ 10% domain
++  5% nice_to_have
+```
+
+Evidence level map sang score:
+
+```text
+Level 0 -> 0.0
+Level 1 -> 0.4
+Level 2 -> 0.7
+Level 3 -> 1.0
+```
+
+Recommendation label:
+
+```text
+>= 85: Strong Review
+>= 70: Review
+>= 55: Maybe Review
+>= 40: Low Priority
+<  40: Not Enough Evidence
+```
+
+### 5. Cach xu ly
+
+`score_candidate(job_criteria, resume_profile, matches, nice_to_have_matches)` tra ve dict co:
+
+- `candidate_name`
+- `final_score`
+- `recommendation`
+- `scores`
+- `matched_skills`
+- `missing_skills`
+- `nice_to_have_matches`
+- `seniority`
+- `experience_years`
+- `domain`
+
+Experience duoc estimate tu duration trong work experience theo pattern `MM/YYYY - MM/YYYY`.
+
+Seniority duoc suy luan tu text va so nam kinh nghiem:
+
+- >= 5 nam: Senior
+- >= 2 nam: Middle
+- >= 0.5 nam hoac co developer/engineer: Junior
+- intern/fresher text: Intern/Fresher neu khong bi rule tren match truoc
+
+Domain duoc suy luan tu keyword trong profile. Rule `Testing` duoc giu tuong doi chat de tranh gan domain testing chi vi co cum "local development and testing".
+
+`rank_candidates(candidate_results)` sap xep theo:
+
+1. `final_score` giam dan.
+2. `scores.evidence` giam dan.
+3. `candidate_name` tang dan.
+
+### 6. File da thay doi
+
+- `src/scorer.py`
+- `tests/test_scorer.py`
+- `README.md`
+- `docs/dev-learning-log.md`
+- `docs/phases/phase-08-scoring-ranking.md`
+
+### 7. Input / Output can nho
+
+Input:
+
+```python
+matches = [
+    {"required_skill": "Java", "score": 1.0, "evidence_level": 3},
+    {"required_skill": "SQL", "score": 0.75, "evidence_level": 3}
+]
+```
+
+Output component:
+
+```python
+skill_semantic = 0.875
+evidence = 1.0
+```
+
+Demo JD/CV output chinh:
+
+```python
+{
+    "candidate_name": "Nguyen Van A",
+    "final_score": 87,
+    "recommendation": "Strong Review",
+    "scores": {
+        "skill_semantic": 0.95,
+        "evidence": 1.0,
+        "experience": 0.5,
+        "seniority": 1.0,
+        "domain": 1.0,
+        "nice_to_have": 0.3333
+    }
+}
+```
+
+### 8. Cach test
+
+Chay:
+
+```bash
+pytest
+```
+
+Test thu cong scoring:
+
+```bash
+python -c "from src.document_loader import load_text_file; from src.resume_parser import parse_resume; from src.jd_parser import parse_jd; from src.skill_taxonomy import load_taxonomy; from src.skill_normalizer import normalize_skills; from src.semantic_matcher import match_skills; from src.evidence_detector import detect_all_evidence; from src.scorer import score_candidate; taxonomy=load_taxonomy('data/taxonomy/skills.json'); profile=parse_resume(load_text_file('data/cvs/cv_strong.txt')); criteria=parse_jd(load_text_file('data/jobs/jd_backend_java.txt')); candidate=normalize_skills(profile['raw_skills'], taxonomy); required=normalize_skills(criteria['must_have_skills'], taxonomy); nice_skills=normalize_skills(criteria['nice_to_have_skills'], taxonomy); matches=detect_all_evidence(match_skills(required, candidate, taxonomy), profile); nice=match_skills(nice_skills, candidate, taxonomy); print(score_candidate(criteria, profile, matches, nice))"
+```
+
+### 9. Ket qua mong doi
+
+- `pytest` pass.
+- Demo CV/JD co final score 87.
+- Demo CV/JD co recommendation `Strong Review`.
+- Score components duoc tra ve rieng de giai thich.
+- Missing skills duoc lay tu match co `match_type == "no_match"`.
+- Ranking gan `rank` bat dau tu 1.
+
+### 10. Loi thuong gap
+
+- Hieu nham final score la pass/fail tu dong. Thuc te day chi la uu tien review.
+- Weight scoring co the can dieu chinh khi co tap CV/JD lon hon.
+- Experience parser hien moi ho tro duration dang `MM/YYYY - MM/YYYY`.
+- Domain/seniority van la baseline rule-based, chua phai suy luan phuc tap.
+- Neu nice-to-have khong co input, scorer dung diem trung tinh `0.5`.
+
+### 11. Ghi chu cho bao cao
+
+Scoring and Ranking la buoc tong hop cua pipeline MVP. He thong ket hop skill match, evidence strength, experience, seniority, domain va nice-to-have bang cong thuc co trong so ro rang. Cach tiep can rule-based giup ket qua deterministic, test duoc va giai thich duoc cho recruiter.
