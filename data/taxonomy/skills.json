@@ -1,0 +1,134 @@
+{
+  "Java": {
+    "aliases": ["Core Java", "Java SE"],
+    "category": "Programming Language",
+    "related": ["Spring Boot", "Hibernate", "Maven", "REST API"],
+    "transferable": ["C#", "Kotlin"]
+  },
+  "Spring Boot": {
+    "aliases": ["SpringBoot", "Spring Framework"],
+    "category": "Backend Framework",
+    "related": ["Java", "REST API", "Microservices"],
+    "transferable": ["ASP.NET Core", "Express.js", "Django"]
+  },
+  "REST API": {
+    "aliases": ["RESTful API", "REST APIs", "RESTful APIs", "API Development"],
+    "category": "Backend",
+    "related": ["HTTP", "Backend API", "Spring Boot", "Express.js"],
+    "transferable": ["GraphQL API"]
+  },
+  "SQL": {
+    "aliases": ["Structured Query Language"],
+    "category": "Database",
+    "related": ["MySQL", "PostgreSQL", "SQL Server", "Relational Database"],
+    "transferable": []
+  },
+  "MySQL": {
+    "aliases": ["MySQL DB", "MySQL Database"],
+    "category": "Database",
+    "related": ["SQL", "Relational Database"],
+    "transferable": ["PostgreSQL", "SQL Server"]
+  },
+  "PostgreSQL": {
+    "aliases": ["Postgres", "PostgreSQL DB", "PostgreSQL Database"],
+    "category": "Database",
+    "related": ["SQL", "Relational Database"],
+    "transferable": ["MySQL", "SQL Server"]
+  },
+  "SQL Server": {
+    "aliases": ["Microsoft SQL Server", "MSSQL", "MS SQL"],
+    "category": "Database",
+    "related": ["SQL", "Relational Database"],
+    "transferable": ["MySQL", "PostgreSQL"]
+  },
+  "Docker": {
+    "aliases": ["Basic Docker", "Docker Compose", "Containerization"],
+    "category": "DevOps",
+    "related": ["Kubernetes", "Deployment"],
+    "transferable": []
+  },
+  "Kubernetes": {
+    "aliases": ["K8s"],
+    "category": "DevOps",
+    "related": ["Docker", "Container Orchestration", "Cloud"],
+    "transferable": []
+  },
+  "AWS": {
+    "aliases": ["Amazon Web Services"],
+    "category": "Cloud",
+    "related": ["Cloud", "EC2", "S3", "Deployment"],
+    "transferable": ["Azure", "Google Cloud"]
+  },
+  "Kafka": {
+    "aliases": ["Apache Kafka"],
+    "category": "Messaging",
+    "related": ["Event Streaming", "Message Queue", "Distributed Systems"],
+    "transferable": ["RabbitMQ"]
+  },
+  "JavaScript": {
+    "aliases": ["JS", "ECMAScript"],
+    "category": "Programming Language",
+    "related": ["TypeScript", "React", "Node.js"],
+    "transferable": []
+  },
+  "TypeScript": {
+    "aliases": ["TS"],
+    "category": "Programming Language",
+    "related": ["JavaScript", "React", "Node.js"],
+    "transferable": []
+  },
+  "React": {
+    "aliases": ["ReactJS", "React.js"],
+    "category": "Frontend Framework",
+    "related": ["JavaScript", "TypeScript", "Redux"],
+    "transferable": ["Vue.js", "Angular"]
+  },
+  "Node.js": {
+    "aliases": ["Node", "NodeJS", "Node.js Runtime"],
+    "category": "Backend Runtime",
+    "related": ["JavaScript", "Express.js", "REST API"],
+    "transferable": ["Spring Boot", "ASP.NET Core", "Django"]
+  },
+  "Express.js": {
+    "aliases": ["Express", "ExpressJS"],
+    "category": "Backend Framework",
+    "related": ["Node.js", "REST API", "JavaScript"],
+    "transferable": ["Spring Boot", "Django", "ASP.NET Core"]
+  },
+  "C#": {
+    "aliases": ["CSharp", "C Sharp"],
+    "category": "Programming Language",
+    "related": ["ASP.NET Core", ".NET"],
+    "transferable": ["Java", "Kotlin"]
+  },
+  "ASP.NET Core": {
+    "aliases": ["ASP.NET", "DotNet Core", ".NET Core"],
+    "category": "Backend Framework",
+    "related": ["C#", "REST API", "SQL Server"],
+    "transferable": ["Spring Boot", "Express.js", "Django"]
+  },
+  "Python": {
+    "aliases": ["Python 3", "Py"],
+    "category": "Programming Language",
+    "related": ["Django", "FastAPI", "Data Analysis"],
+    "transferable": []
+  },
+  "Django": {
+    "aliases": ["Django Framework"],
+    "category": "Backend Framework",
+    "related": ["Python", "REST API", "PostgreSQL"],
+    "transferable": ["Spring Boot", "Express.js", "ASP.NET Core"]
+  },
+  "Testing": {
+    "aliases": ["Software Testing", "QA", "Quality Assurance"],
+    "category": "Testing",
+    "related": ["API Testing", "Automation Testing"],
+    "transferable": []
+  },
+  "API Testing": {
+    "aliases": ["Postman Testing", "REST API Testing"],
+    "category": "Testing",
+    "related": ["Testing", "REST API", "Postman"],
+    "transferable": []
+  }
+}

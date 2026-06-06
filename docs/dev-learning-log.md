@@ -385,3 +385,143 @@ python -c "from src.document_loader import load_text_file; from src.jd_parser im
 ### 11. Ghi chu cho bao cao
 
 Resume Parser va JD Parser la buoc information extraction trong pipeline. Module nay chuyen noi dung CV/JD tu raw text thanh du lieu co cau truc, giup cac module sau lam viec tren truong thong tin ro rang. Cach tiep can rule-based trong MVP giup ket qua deterministic, de test va de giai thich, phu hop voi muc tieu xay dung baseline truoc khi them AI/embedding nang cao.
+
+## [2026-06-06] Phase 04 - Skill Taxonomy and Normalization
+
+### 1. Boi canh
+
+Du an dang o Phase 04 - Skill Taxonomy and Normalization. Phase 03 da parse CV/JD thanh dict co cau truc, trong do co cac field nhu `raw_skills`, `must_have_skills` va `nice_to_have_skills`.
+
+Muc tieu Phase 04 la chuan hoa cac skill text nay ve ten chuan truoc khi so khop o Phase 05.
+
+### 2. Van de / chuc nang
+
+Da tao:
+
+- `data/taxonomy/skills.json`
+- `src/skill_taxonomy.py`
+- `src/skill_normalizer.py`
+- `tests/test_skill_taxonomy.py`
+- `tests/test_skill_normalizer.py`
+
+Taxonomy luu canonical skill, aliases, category, related skills va transferable skills. Normalizer dung alias map de dua skill tho ve ten chuan.
+
+### 3. Vi sao can lam
+
+CV va JD co the viet cung mot skill bang nhieu cach:
+
+```text
+SpringBoot -> Spring Boot
+Postgres -> PostgreSQL
+JS -> JavaScript
+Basic Docker -> Docker
+K8s -> Kubernetes
+```
+
+Neu khong chuan hoa, he thong co the xem cac cach viet nay la skill khac nhau va bo sot ung vien phu hop.
+
+### 4. Nguyen nhan / logic nen tang
+
+Logic nen tang:
+
+- `load_taxonomy` doc file JSON va validate cau truc toi thieu.
+- `build_alias_map` tao mapping case-insensitive tu alias ve canonical skill.
+- `normalize_skill` chuan hoa mot skill.
+- `normalize_skills` chuan hoa list skill, loai duplicate sau normalization va giu thu tu dau tien.
+- Skill khong co trong taxonomy duoc giu nguyen de khong mat thong tin.
+
+### 5. Cach xu ly
+
+Taxonomy duoc luu o JSON de de sua va mo rong. Moi skill co cau truc:
+
+```json
+{
+  "aliases": [],
+  "category": "...",
+  "related": [],
+  "transferable": []
+}
+```
+
+Alias map duoc tao tu ca canonical skill va aliases. Vi du:
+
+```python
+"springboot" -> "Spring Boot"
+"postgres" -> "PostgreSQL"
+"js" -> "JavaScript"
+```
+
+### 6. File da thay doi
+
+- `data/taxonomy/skills.json`
+- `src/skill_taxonomy.py`
+- `src/skill_normalizer.py`
+- `tests/test_skill_taxonomy.py`
+- `tests/test_skill_normalizer.py`
+- `README.md`
+- `docs/dev-learning-log.md`
+
+### 7. Input / Output can nho
+
+Input:
+
+```python
+["JS", "ReactJS", "Postgres", "React.js"]
+```
+
+Output:
+
+```python
+["JavaScript", "React", "PostgreSQL"]
+```
+
+Input tu parser:
+
+```python
+["Java", "Spring Boot", "REST API", "MySQL", "Docker"]
+```
+
+Output:
+
+```python
+["Java", "Spring Boot", "REST API", "MySQL", "Docker"]
+```
+
+### 8. Cach test
+
+Chay:
+
+```bash
+pytest
+```
+
+Test thu cong:
+
+```bash
+python -c "from src.skill_taxonomy import load_taxonomy; from src.skill_normalizer import normalize_skills; taxonomy=load_taxonomy('data/taxonomy/skills.json'); print(normalize_skills(['JS', 'SpringBoot', 'Postgres'], taxonomy))"
+```
+
+Test voi parser output:
+
+```bash
+python -c "from src.document_loader import load_text_file; from src.resume_parser import parse_resume; from src.skill_taxonomy import load_taxonomy; from src.skill_normalizer import normalize_skills; taxonomy=load_taxonomy('data/taxonomy/skills.json'); profile=parse_resume(load_text_file('data/cvs/cv_strong.txt')); print(normalize_skills(profile['raw_skills'], taxonomy))"
+```
+
+### 9. Ket qua mong doi
+
+- `pytest` pass.
+- Alias duoc map ve canonical skill.
+- Duplicate sau normalization duoc loai bo.
+- Unknown skill duoc giu nguyen.
+- Parser output co the normalize duoc ma khong can sua parser.
+
+### 10. Loi thuong gap
+
+- Them alias trung nhau cho hai skill khac nhau lam alias ambiguous.
+- Quen viet alias vao taxonomy nen skill khong duoc chuan hoa.
+- Normalize qua manh va lam mat skill unknown.
+- Lam matching trong Phase 04 se vuot scope.
+
+### 11. Ghi chu cho bao cao
+
+Skill Taxonomy va Normalization giup he thong dua cac ky nang duoc viet theo nhieu cach khac nhau ve ten chuan. Day la nen tang quan trong cua skills-based hiring vi he thong khong chi so sanh keyword tho, ma lam viec tren mot bo ky nang da duoc chuan hoa. Buoc nay giup Phase 05 co the so khop skill CV/JD chinh xac hon.
