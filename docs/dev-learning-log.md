@@ -245,3 +245,143 @@ pythonpath = .
 ```
 
 Cau hinh nay giup pytest tim dung thu muc test va import duoc package `src` khi chay lenh `pytest` truc tiep trong terminal. Day la cach giu test on dinh giua cac moi truong chay khac nhau.
+
+## [2026-06-06] Phase 03 - Resume Parser and JD Parser
+
+### 1. Boi canh
+
+Du an dang o Phase 03 - Resume Parser and JD Parser. Phase 02 da doc duoc file `.txt` thanh raw text. Phase 03 tiep tuc chuyen raw text thanh dict co cau truc.
+
+Muc tieu la tao output on dinh de cac phase sau co the trich xuat skill, chuan hoa skill, so khop va cham diem.
+
+### 2. Van de / chuc nang
+
+Da tao hai parser rule-based:
+
+- `src/resume_parser.py`
+- `src/jd_parser.py`
+
+Resume Parser tao candidate profile dict. JD Parser tao job criteria dict.
+
+### 3. Vi sao can lam
+
+Raw text la chuoi tu do, kho xu ly truc tiep. He thong can biet dau la skill, dau la experience, dau la project, dau la requirement, dau la nice-to-have.
+
+Parser giup bien text thanh du lieu co cau truc. Khi du lieu co cau truc, cac module sau co the xu ly tung truong rieng thay vi doan ca chuoi text dai.
+
+### 4. Nguyen nhan / logic nen tang
+
+Logic nen tang cua parser la section detection:
+
+- Tim heading nhu `Summary:`, `Skills:`, `Work Experience:`, `Projects:`.
+- Tim heading JD nhu `Requirements:`, `Nice to have:`, `Responsibilities:`.
+- Gom cac dong ben duoi heading vao section tuong ung.
+- Tach bullet thanh list item.
+- Giu output dang dict co key on dinh.
+
+Parser khong match skill, khong tinh evidence, khong cham diem.
+
+### 5. Cach xu ly
+
+Resume Parser:
+
+- Lay `candidate_name` tu dong dau tien.
+- Lay `headline` tu dong gioi thieu thu hai neu co.
+- Parse `summary`, `raw_skills`, `work_experience`, `projects`, `education`, `certifications`.
+- Work experience MVP tach title/company bang pattern `Title - Company`.
+- Project MVP tach project name va description bullet.
+
+JD Parser:
+
+- Lay `job_title` tu dong dau tien.
+- Parse `must_have_skills` tu section Requirements.
+- Parse `nice_to_have_skills` tu section Nice to have.
+- Parse `responsibilities`.
+- Tach `minimum_experience_years` tu pattern nhu `1+ year`.
+- Suy luan `seniority` don gian tu title hoac so nam kinh nghiem.
+- Suy luan `domain` don gian tu keyword nhu backend, API, web, testing.
+
+### 6. File da thay doi
+
+- `src/resume_parser.py`
+- `src/jd_parser.py`
+- `tests/test_resume_parser.py`
+- `tests/test_jd_parser.py`
+- `README.md`
+- `docs/dev-learning-log.md`
+
+### 7. Input / Output can nho
+
+Input resume:
+
+```text
+Raw text tu data/cvs/cv_strong.txt
+```
+
+Output resume:
+
+```python
+{
+    "candidate_name": "Nguyen Van A",
+    "headline": "Backend Developer",
+    "raw_skills": ["Java", "Spring Boot", "REST API", "MySQL", "Docker"],
+    "work_experience": [...],
+    "projects": [...]
+}
+```
+
+Input JD:
+
+```text
+Raw text tu data/jobs/jd_backend_java.txt
+```
+
+Output JD:
+
+```python
+{
+    "job_title": "Backend Java Developer",
+    "must_have_skills": ["Java", "Spring Boot", "REST API", "SQL", "Basic Docker"],
+    "nice_to_have_skills": ["AWS", "Kafka", "Kubernetes"],
+    "minimum_experience_years": 1,
+    "seniority": "Junior",
+    "domain": ["Backend", "Web Application"]
+}
+```
+
+### 8. Cach test
+
+Chay:
+
+```bash
+pytest
+```
+
+Test thu cong Resume Parser:
+
+```bash
+python -c "from src.document_loader import load_text_file; from src.resume_parser import parse_resume; print(parse_resume(load_text_file('data/cvs/cv_strong.txt')))"
+```
+
+Test thu cong JD Parser:
+
+```bash
+python -c "from src.document_loader import load_text_file; from src.jd_parser import parse_jd; print(parse_jd(load_text_file('data/jobs/jd_backend_java.txt')))"
+```
+
+### 9. Ket qua mong doi
+
+- `pytest` pass.
+- Resume Parser tra ve candidate profile co `candidate_name`, `raw_skills`, `work_experience`, `projects`.
+- JD Parser tra ve job criteria co `job_title`, `must_have_skills`, `nice_to_have_skills`, `responsibilities`.
+- Parser khong cham diem va khong dua ra recommendation.
+
+### 10. Loi thuong gap
+
+- Format CV/JD khac heading demo co the parse chua tot.
+- Nhieu work experience phuc tap co the can rule rieng o phase sau.
+- Suy luan seniority/domain trong Phase 03 chi la baseline don gian, khong phai scoring cuoi cung.
+
+### 11. Ghi chu cho bao cao
+
+Resume Parser va JD Parser la buoc information extraction trong pipeline. Module nay chuyen noi dung CV/JD tu raw text thanh du lieu co cau truc, giup cac module sau lam viec tren truong thong tin ro rang. Cach tiep can rule-based trong MVP giup ket qua deterministic, de test va de giai thich, phu hop voi muc tieu xay dung baseline truoc khi them AI/embedding nang cao.
