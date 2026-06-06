@@ -11,10 +11,10 @@ The project does not train a recruitment model from scratch. The MVP starts with
 The project is currently in:
 
 ```text
-Phase 04 - Skill Taxonomy and Normalization
+Phase 05 - Rule-based Skill Matching
 ```
 
-This phase adds a JSON skill taxonomy and normalization helpers that map aliases such as `SpringBoot`, `Postgres`, and `JS` to canonical skill names. Skill matching, evidence detection, scoring, and review card generation will be implemented in later phases.
+This phase adds rule-based skill matching between normalized JD skills and normalized candidate skills. Evidence detection, final scoring, ranking, and review card generation will be implemented in later phases.
 
 ## Planned Processing Flow
 
@@ -73,10 +73,11 @@ Included:
 - Skill taxonomy loader and alias map.
 - Skill normalizer.
 - Unit tests for taxonomy and normalization.
+- Rule-based skill matcher.
+- Unit tests for exact, related, transferable, and missing skill matches.
 
 Not included yet:
 
-- Skill matching.
 - Evidence detection.
 - Scoring and ranking.
 - Review card generation.
@@ -89,7 +90,7 @@ python main.py --help
 python main.py
 ```
 
-Expected behavior in Phase 04: the command confirms that the foundation is ready. The document loader, parsers, and skill normalizer are tested separately and are not wired into the CLI flow yet.
+Expected behavior in Phase 05: the command confirms that the foundation is ready. The document loader, parsers, normalizer, and matcher are tested separately and are not wired into the CLI flow yet.
 
 ## Run Document Loader Tests
 
@@ -131,6 +132,14 @@ Normalize parser output:
 python -c "from src.document_loader import load_text_file; from src.resume_parser import parse_resume; from src.skill_taxonomy import load_taxonomy; from src.skill_normalizer import normalize_skills; taxonomy=load_taxonomy('data/taxonomy/skills.json'); profile=parse_resume(load_text_file('data/cvs/cv_strong.txt')); print(normalize_skills(profile['raw_skills'], taxonomy))"
 ```
 
+## Run Skill Matching Check
+
+Match demo JD must-have skills with demo CV skills:
+
+```bash
+python -c "from src.document_loader import load_text_file; from src.resume_parser import parse_resume; from src.jd_parser import parse_jd; from src.skill_taxonomy import load_taxonomy; from src.skill_normalizer import normalize_skills; from src.semantic_matcher import match_skills; taxonomy=load_taxonomy('data/taxonomy/skills.json'); profile=parse_resume(load_text_file('data/cvs/cv_strong.txt')); criteria=parse_jd(load_text_file('data/jobs/jd_backend_java.txt')); candidate=normalize_skills(profile['raw_skills'], taxonomy); required=normalize_skills(criteria['must_have_skills'], taxonomy); print(match_skills(required, candidate, taxonomy))"
+```
+
 ## Run Minimal Streamlit Entry Point
 
 Install dependencies first:
@@ -145,7 +154,7 @@ Then run:
 streamlit run app.py
 ```
 
-In Phase 04, the app still shows a placeholder page because the functional UI is planned for a later phase.
+In Phase 05, the app still shows a placeholder page because the functional UI is planned for a later phase.
 
 ## Development Workflow
 
@@ -162,7 +171,7 @@ Work is organized by phase. Each phase should have:
 The next planned phase is:
 
 ```text
-Phase 05 - Rule-based Skill Matching
+Phase 06 - Semantic Matching with Embeddings
 ```
 
-That phase will compare normalized JD skills with normalized candidate skills.
+That phase can add embedding-based semantic similarity after the rule-based baseline is stable.
