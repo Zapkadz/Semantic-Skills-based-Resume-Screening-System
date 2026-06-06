@@ -643,3 +643,139 @@ python -c "from src.document_loader import load_text_file; from src.resume_parse
 ### 11. Ghi chu cho bao cao
 
 Rule-based Skill Matching la baseline so khop ky nang giua JD va CV. He thong uu tien exact match, sau do dung taxonomy de xet related va transferable skills. Ket qua la danh sach match co loai match va diem tung skill, giup cac phase sau tiep tuc evidence detection va scoring mot cach minh bach.
+
+## [2026-06-06] Phase 06 - Semantic Matching with Embeddings
+
+### 1. Boi canh
+
+Du an dang o Phase 06 - Semantic Matching with Embeddings. Phase 05 da co rule-based matcher dua tren exact, related va transferable skills. Phase 06 them semantic embedding matcher nhu mot fallback khi rule-based matcher tra `no_match`.
+
+Muc tieu la them kha nang gan nghia ma khong lam mat tinh minh bach cua baseline rule-based.
+
+### 2. Van de / chuc nang
+
+Da tao:
+
+- `src/embedding_matcher.py`
+- `tests/test_embedding_matcher.py`
+
+Da cap nhat:
+
+- `src/semantic_matcher.py`
+- `tests/test_semantic_matcher.py`
+- `requirements.txt`
+
+Matcher hien co them `semantic_match` voi score `0.85` khi embedding similarity dat threshold.
+
+### 3. Vi sao can lam
+
+Taxonomy khong the bao phu moi cach dien dat. Vi du:
+
+```text
+Backend API development
+Built RESTful services
+```
+
+Hai cum nay co the gan nghia du khong trung keyword hoan toan. Embedding giup do muc do gan nghia giua hai chuoi text.
+
+### 4. Nguyen nhan / logic nen tang
+
+Logic Phase 06:
+
+- Rule-based match van uu tien truoc.
+- Semantic match chi chay khi exact/related/transferable deu khong match.
+- Embedding model duoc load lazy.
+- Neu dependency/model unavailable, he thong khong crash.
+- Tests dung fake embedding model de khong phu thuoc download model.
+
+### 5. Cach xu ly
+
+`SemanticEmbeddingMatcher` co cac thanh phan:
+
+- `load_model()`: load pretrained model neu co.
+- `is_available()`: kiem tra model da load chua.
+- `similarity(text_a, text_b)`: tinh cosine similarity hoac tra `None` neu fallback.
+- `best_match(required_skill, candidate_skills)`: tim candidate co similarity cao nhat tren threshold.
+
+`match_skills` nhan optional `embedding_matcher`. Neu khong truyen tham so nay, behavior Phase 05 giu nguyen.
+
+### 6. File da thay doi
+
+- `requirements.txt`
+- `src/embedding_matcher.py`
+- `src/semantic_matcher.py`
+- `tests/test_embedding_matcher.py`
+- `tests/test_semantic_matcher.py`
+- `README.md`
+- `docs/dev-learning-log.md`
+
+### 7. Input / Output can nho
+
+Input:
+
+```python
+required_skill = "Backend API development"
+candidate_skills = ["React", "REST API"]
+```
+
+Output semantic match neu similarity du nguong:
+
+```python
+{
+    "required_skill": "Backend API development",
+    "candidate_skill": "REST API",
+    "match_type": "semantic_match",
+    "score": 0.85,
+    "similarity": 0.9939
+}
+```
+
+Output fallback khi model unavailable:
+
+```python
+{
+    "required_skill": "Backend API development",
+    "candidate_skill": None,
+    "match_type": "no_match",
+    "score": 0.0
+}
+```
+
+### 8. Cach test
+
+Chay:
+
+```bash
+pytest
+```
+
+Test fallback:
+
+```bash
+python -c "from src.embedding_matcher import SemanticEmbeddingMatcher; matcher=SemanticEmbeddingMatcher(auto_load=False); print(matcher.is_available())"
+```
+
+Test demo matcher rule-based van hoat dong:
+
+```bash
+python -c "from src.document_loader import load_text_file; from src.resume_parser import parse_resume; from src.jd_parser import parse_jd; from src.skill_taxonomy import load_taxonomy; from src.skill_normalizer import normalize_skills; from src.semantic_matcher import match_skills; taxonomy=load_taxonomy('data/taxonomy/skills.json'); profile=parse_resume(load_text_file('data/cvs/cv_strong.txt')); criteria=parse_jd(load_text_file('data/jobs/jd_backend_java.txt')); candidate=normalize_skills(profile['raw_skills'], taxonomy); required=normalize_skills(criteria['must_have_skills'], taxonomy); print(match_skills(required, candidate, taxonomy))"
+```
+
+### 9. Ket qua mong doi
+
+- `pytest` pass.
+- Rule-based matcher van cho ket qua nhu Phase 05 neu khong truyen embedding matcher.
+- Embedding matcher khong crash khi model unavailable.
+- Semantic match chi xuat hien khi co embedding matcher va similarity du threshold.
+
+### 10. Loi thuong gap
+
+- Hieu nham semantic match la final score. Thuc te day chi la match-level signal.
+- Model download co the fail neu khong co internet.
+- Threshold qua thap co the match sai.
+- Threshold qua cao co the bo sot match gan nghia.
+- Dung embedding thay rule-based baseline se lam he thong kem minh bach.
+
+### 11. Ghi chu cho bao cao
+
+Semantic Matching with Embeddings giup he thong nhan dien cac ky nang hoac mo ta gan nghia, bo sung cho rule-based matching. Du an khong train model tu dau ma dung pretrained embedding model khi kha dung. De dam bao tinh on dinh, module co fallback neu model khong load duoc va rule-based matching van la baseline chinh.
