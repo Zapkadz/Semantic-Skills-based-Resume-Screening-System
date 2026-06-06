@@ -1099,3 +1099,173 @@ python -c "from src.document_loader import load_text_file; from src.resume_parse
 ### 11. Ghi chu cho bao cao
 
 Scoring and Ranking la buoc tong hop cua pipeline MVP. He thong ket hop skill match, evidence strength, experience, seniority, domain va nice-to-have bang cong thuc co trong so ro rang. Cach tiep can rule-based giup ket qua deterministic, test duoc va giai thich duoc cho recruiter.
+
+## [2026-06-06] Phase 09 - Explainable Review Card
+
+### 1. Boi canh
+
+Du an dang o Phase 09 - Explainable Review Card. Phase 08 da tao `candidate_result` co final score, recommendation, score components, matched skills, missing skills va evidence.
+
+Tuy nhien, output Phase 08 van la dict ky thuat. Recruiter can mot ban tom tat de doc nhanh va hieu ly do he thong goi y review.
+
+### 2. Van de / chuc nang
+
+Da tao:
+
+- `src/review_card_generator.py`
+- `tests/test_review_card_generator.py`
+
+Review card generator ho tro:
+
+- Tao structured review card tu `candidate_result`.
+- Tao summary.
+- Giu score breakdown.
+- Tao evidence highlights.
+- Tao strengths.
+- Tao concerns.
+- Tao suggested interview questions.
+- Format review card sang Markdown.
+
+### 3. Vi sao can lam
+
+Neu he thong chi tra ve diem so, recruiter kho biet vi sao ung vien duoc xep hang cao hoac thap. Explainable Review Card giup minh bach hoa:
+
+```text
+Final score
+  -> score breakdown
+  -> matched skills
+  -> evidence snippets
+  -> missing skills
+  -> strengths / concerns
+  -> interview questions
+```
+
+Day la buoc quan trong de chung minh he thong khong phai black-box scoring.
+
+### 4. Nguyen nhan / logic nen tang
+
+Nguyen tac Phase 09:
+
+- Review card khong tinh lai score.
+- Review card chi doc output tu scorer.
+- Strengths dua tren score components cao va evidence highlights.
+- Concerns dua tren missing skills, score components thap va nice-to-have gaps.
+- Interview questions duoc tao bang template rule-based.
+- Structured dict la output chinh, Markdown chi la format hien thi.
+
+### 5. Cach xu ly
+
+`generate_review_card(candidate_result, job_criteria=None)` tra ve dict co:
+
+- `candidate_name`
+- `job_title`
+- `final_score`
+- `recommendation`
+- `summary`
+- `score_breakdown`
+- `seniority`
+- `experience_years`
+- `domain`
+- `matched_skills`
+- `missing_skills`
+- `nice_to_have_matches`
+- `evidence_highlights`
+- `strengths`
+- `concerns`
+- `suggested_interview_questions`
+
+`format_review_card_markdown(review_card)` chuyen dict tren thanh Markdown de doc trong terminal hoac sau nay hien thi o UI.
+
+Evidence highlights chi lay match co:
+
+- `match_type != "no_match"`
+- `evidence_level >= 2`
+- `evidence_text` khong rong
+
+Question generation gioi han 5 cau hoi va co dedupe theo evidence text de tranh lap lai khi Java, Spring Boot va REST API cung chung mot evidence sentence.
+
+### 6. File da thay doi
+
+- `src/review_card_generator.py`
+- `tests/test_review_card_generator.py`
+- `README.md`
+- `docs/dev-learning-log.md`
+- `docs/phases/phase-09-explainable-review-card.md`
+
+### 7. Input / Output can nho
+
+Input:
+
+```python
+candidate_result = {
+    "candidate_name": "Nguyen Van A",
+    "final_score": 87,
+    "recommendation": "Strong Review",
+    "scores": {...},
+    "matched_skills": [...],
+    "missing_skills": [],
+    "nice_to_have_matches": [...]
+}
+```
+
+Output chinh:
+
+```python
+{
+    "candidate_name": "Nguyen Van A",
+    "final_score": 87,
+    "recommendation": "Strong Review",
+    "summary": "Nguyen Van A is a Strong Review candidate...",
+    "strengths": [...],
+    "concerns": [...],
+    "evidence_highlights": [...],
+    "suggested_interview_questions": [...]
+}
+```
+
+Markdown output co cac section:
+
+```text
+Summary
+Score Breakdown
+Strengths
+Concerns
+Evidence Highlights
+Missing Skills
+Suggested Interview Questions
+```
+
+### 8. Cach test
+
+Chay:
+
+```bash
+pytest
+```
+
+Test thu cong review card:
+
+```bash
+python -c "from src.document_loader import load_text_file; from src.resume_parser import parse_resume; from src.jd_parser import parse_jd; from src.skill_taxonomy import load_taxonomy; from src.skill_normalizer import normalize_skills; from src.semantic_matcher import match_skills; from src.evidence_detector import detect_all_evidence; from src.scorer import score_candidate; from src.review_card_generator import generate_review_card, format_review_card_markdown; taxonomy=load_taxonomy('data/taxonomy/skills.json'); profile=parse_resume(load_text_file('data/cvs/cv_strong.txt')); criteria=parse_jd(load_text_file('data/jobs/jd_backend_java.txt')); candidate=normalize_skills(profile['raw_skills'], taxonomy); required=normalize_skills(criteria['must_have_skills'], taxonomy); nice_skills=normalize_skills(criteria['nice_to_have_skills'], taxonomy); matches=detect_all_evidence(match_skills(required, candidate, taxonomy), profile); nice=match_skills(nice_skills, candidate, taxonomy); result=score_candidate(criteria, profile, matches, nice); card=generate_review_card(result, criteria); print(format_review_card_markdown(card))"
+```
+
+### 9. Ket qua mong doi
+
+- `pytest` pass.
+- Demo CV/JD tao review card Markdown doc duoc.
+- Review card co score 87 va recommendation `Strong Review`.
+- Evidence highlights gom cac skill co evidence manh.
+- Concerns hien optional nice-to-have gaps nhu AWS va Kafka.
+- Suggested questions dua tren evidence va skill gap.
+
+### 10. Loi thuong gap
+
+- Review card tinh lai score va lam lech voi scorer.
+- Explanation viet qua manh nhu pass/fail thay vi goi y review.
+- Cau hoi phong van bi lap lai vi nhieu skill chung evidence text.
+- Hien qua nhieu evidence lam review card dai.
+- Bo structured dict va chi tao Markdown se lam UI sau nay kho dung lai.
+
+### 11. Ghi chu cho bao cao
+
+Explainable Review Card bien ket qua scoring thanh dau ra co kha nang giai thich. He thong hien thi diem tong, score breakdown, strengths, concerns, evidence snippets va cau hoi phong van goi y. Cach lam nay giup recruiter hieu ly do xep hang va giu vai tro cua he thong la cong cu ho tro ra quyet dinh, khong phai tu dong tuyen dung hay loai ung vien.
