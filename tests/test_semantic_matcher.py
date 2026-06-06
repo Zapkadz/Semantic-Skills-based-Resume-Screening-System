@@ -1,6 +1,7 @@
 import pytest
 
 from src.document_loader import load_text_file
+from src.embedding_matcher import SemanticEmbeddingMatcher
 from src.jd_parser import parse_jd
 from src.resume_parser import parse_resume
 from src.semantic_matcher import get_missing_skills, match_skills
@@ -9,6 +10,18 @@ from src.skill_taxonomy import load_taxonomy
 
 
 TAXONOMY_PATH = "data/taxonomy/skills.json"
+
+
+class FakeEmbeddingModel:
+    def encode(self, texts: list[str]) -> list[list[float]]:
+        vectors = {
+            "Backend API development": [1.0, 0.0],
+            "REST API": [0.9, 0.1],
+            "React": [0.0, 1.0],
+            "SQL": [1.0, 0.0],
+            "MySQL": [0.0, 1.0],
+        }
+        return [vectors[text] for text in texts]
 
 
 def test_match_skills_returns_exact_match() -> None:
@@ -167,3 +180,77 @@ def test_demo_resume_matches_demo_jd_must_have_skills() -> None:
         },
     ]
     assert get_missing_skills(matches) == []
+
+
+def test_match_skills_returns_semantic_match_when_rules_do_not_match() -> None:
+    taxonomy = load_taxonomy(TAXONOMY_PATH)
+    embedding_matcher = SemanticEmbeddingMatcher(
+        model=FakeEmbeddingModel(),
+        threshold=0.70,
+    )
+
+    matches = match_skills(
+        ["Backend API development"],
+        ["React", "REST API"],
+        taxonomy,
+        embedding_matcher=embedding_matcher,
+    )
+
+    assert matches == [
+        {
+            "required_skill": "Backend API development",
+            "candidate_skill": "REST API",
+            "match_type": "semantic_match",
+            "score": 0.85,
+            "similarity": 0.9939,
+        }
+    ]
+
+
+def test_match_skills_keeps_rule_based_priority_over_semantic_match() -> None:
+    taxonomy = load_taxonomy(TAXONOMY_PATH)
+    embedding_matcher = SemanticEmbeddingMatcher(
+        model=FakeEmbeddingModel(),
+        threshold=0.70,
+    )
+
+    matches = match_skills(
+        ["SQL"],
+        ["MySQL"],
+        taxonomy,
+        embedding_matcher=embedding_matcher,
+    )
+
+    assert matches == [
+        {
+            "required_skill": "SQL",
+            "candidate_skill": "MySQL",
+            "match_type": "related_match",
+            "score": 0.75,
+        }
+    ]
+
+
+def test_match_skills_falls_back_to_no_match_when_embedding_unavailable() -> None:
+    taxonomy = load_taxonomy(TAXONOMY_PATH)
+
+    def failing_loader(model_name: str) -> object:
+        raise RuntimeError("model unavailable")
+
+    embedding_matcher = SemanticEmbeddingMatcher(model_loader=failing_loader)
+
+    matches = match_skills(
+        ["Backend API development"],
+        ["REST API"],
+        taxonomy,
+        embedding_matcher=embedding_matcher,
+    )
+
+    assert matches == [
+        {
+            "required_skill": "Backend API development",
+            "candidate_skill": None,
+            "match_type": "no_match",
+            "score": 0.0,
+        }
+    ]

@@ -1,9 +1,10 @@
-"""Rule-based semantic skill matching for Phase 05."""
+"""Rule-based and optional embedding semantic skill matching."""
 
 from __future__ import annotations
 
 from typing import Any
 
+from src.embedding_matcher import SemanticEmbeddingMatcher
 from src.skill_taxonomy import build_alias_map, make_lookup_key
 
 
@@ -11,6 +12,7 @@ MATCH_SCORES = {
     "exact_match": 1.0,
     "related_match": 0.75,
     "transferable_match": 0.55,
+    "semantic_match": 0.85,
     "no_match": 0.0,
 }
 
@@ -21,14 +23,20 @@ def match_skills(
     job_skills: list[str],
     candidate_skills: list[str],
     taxonomy: dict[str, dict[str, Any]],
+    embedding_matcher: SemanticEmbeddingMatcher | None = None,
 ) -> list[dict[str, Any]]:
-    """Match required job skills against candidate skills using taxonomy rules."""
+    """Match required job skills using rules and optional embedding fallback."""
     alias_map = build_alias_map(taxonomy)
     normalized_job_skills = _canonicalize_skills(job_skills, alias_map)
     normalized_candidate_skills = _canonicalize_skills(candidate_skills, alias_map)
 
     return [
-        _match_single_skill(required_skill, normalized_candidate_skills, taxonomy)
+        _match_single_skill(
+            required_skill,
+            normalized_candidate_skills,
+            taxonomy,
+            embedding_matcher,
+        )
         for required_skill in normalized_job_skills
     ]
 
@@ -46,8 +54,9 @@ def _match_single_skill(
     required_skill: str,
     candidate_skills: list[str],
     taxonomy: dict[str, dict[str, Any]],
+    embedding_matcher: SemanticEmbeddingMatcher | None = None,
 ) -> dict[str, Any]:
-    """Find the best rule-based match for one required skill."""
+    """Find the best rule-based or semantic match for one required skill."""
     for match_type in MATCH_PRIORITY:
         candidate_skill = _find_candidate_match(
             required_skill,
@@ -57,6 +66,19 @@ def _match_single_skill(
         )
         if candidate_skill:
             return _build_match_result(required_skill, candidate_skill, match_type)
+
+    semantic_match = _find_semantic_match(
+        required_skill,
+        candidate_skills,
+        embedding_matcher,
+    )
+    if semantic_match:
+        return _build_match_result(
+            required_skill,
+            semantic_match["candidate_skill"],
+            "semantic_match",
+            similarity=semantic_match["similarity"],
+        )
 
     return _build_match_result(required_skill, None, "no_match")
 
@@ -146,6 +168,18 @@ def _get_relationships(
     }
 
 
+def _find_semantic_match(
+    required_skill: str,
+    candidate_skills: list[str],
+    embedding_matcher: SemanticEmbeddingMatcher | None,
+) -> dict[str, Any] | None:
+    """Find a semantic embedding match when the optional matcher is available."""
+    if embedding_matcher is None:
+        return None
+
+    return embedding_matcher.best_match(required_skill, candidate_skills)
+
+
 def _canonicalize_skills(skills: list[str], alias_map: dict[str, str]) -> list[str]:
     """Canonicalize skill names and remove duplicates while preserving order."""
     canonical_skills: list[str] = []
@@ -182,11 +216,17 @@ def _build_match_result(
     required_skill: str,
     candidate_skill: str | None,
     match_type: str,
+    similarity: float | None = None,
 ) -> dict[str, Any]:
     """Build one stable match result dictionary."""
-    return {
+    result = {
         "required_skill": required_skill,
         "candidate_skill": candidate_skill,
         "match_type": match_type,
         "score": MATCH_SCORES[match_type],
     }
+
+    if similarity is not None:
+        result["similarity"] = similarity
+
+    return result
