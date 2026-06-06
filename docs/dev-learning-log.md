@@ -110,3 +110,138 @@ Neu chua cai Streamlit, `python app.py` se thong bao can chay `pip install -r re
 ### 11. Ghi chu cho bao cao
 
 Giai doan Project Foundation giup du an co cau truc ro rang theo huong module hoa. Cach to chuc nay giup he thong de mo rong tu MVP rule-based sang cac chuc nang nang cao nhu semantic embedding, PDF/DOCX support va giao dien Streamlit. Moi module trong he thong se co input/output ro rang, giup qua trinh test va giai thich khi bao ve do an thuan loi hon.
+
+## [2026-06-06] Phase 02 - Document Loader and Text Input
+
+### 1. Boi canh
+
+Du an dang o Phase 02 - Document Loader and Text Input. Phase 01 da tao cau truc project, con Phase 02 bat dau module dau tien trong pipeline xu ly CV/JD.
+
+Muc tieu cua phase nay la doc noi dung `.txt` thanh raw text de cac phase sau parse va phan tich.
+
+### 2. Van de / chuc nang
+
+Da tao `src/document_loader.py` voi hai function chinh:
+
+- `load_text_file(path)`
+- `load_text_files_from_directory(directory)`
+
+Dong thoi them du lieu demo:
+
+- `data/jobs/jd_backend_java.txt`
+- `data/cvs/cv_strong.txt`
+
+Va them test:
+
+- `tests/test_document_loader.py`
+
+### 3. Vi sao can lam
+
+Moi he thong NLP can co dau vao dang text truoc khi xu ly. CV va JD ban dau nam tren file, nen Document Loader la buoc chuyen file thanh chuoi text.
+
+Neu loader doc sai file hoac chap nhan nham format, cac module parser, extractor va scorer se nhan du lieu sai.
+
+### 4. Nguyen nhan / logic nen tang
+
+Document Loader chi lam mot viec: doc text.
+
+Logic chinh:
+
+- Kiem tra file co ton tai khong.
+- Kiem tra path co phai file khong.
+- Chi chap nhan extension `.txt`.
+- Doc bang UTF-8.
+- Tra ve raw text dang `str`.
+- Khi doc thu muc, chi lay cac file `.txt` va sap xep theo ten file.
+
+Loader khong parse section, khong tim skill, khong danh gia ung vien.
+
+### 5. Cach xu ly
+
+Da tach validation thanh helper rieng:
+
+- `_validate_text_file_path`
+- `_validate_directory_path`
+
+Dieu nay giup function chinh ngan gon va de test. Cac loi input duoc bao bang exception ro rang nhu `FileNotFoundError`, `IsADirectoryError`, `NotADirectoryError` va `ValueError`.
+
+### 6. File da thay doi
+
+- `src/document_loader.py`
+- `tests/test_document_loader.py`
+- `data/jobs/jd_backend_java.txt`
+- `data/cvs/cv_strong.txt`
+- `README.md`
+- `docs/dev-learning-log.md`
+
+### 7. Input / Output can nho
+
+Input:
+
+```text
+data/jobs/jd_backend_java.txt
+data/cvs/cv_strong.txt
+```
+
+Output:
+
+```python
+"Backend Java Developer\n\nRequirements:\n- Java\n..."
+```
+
+Khi doc thu muc CV, output la list dict:
+
+```python
+[
+    {
+        "path": "data/cvs/cv_strong.txt",
+        "filename": "cv_strong.txt",
+        "text": "Nguyen Van A\nBackend Developer\n..."
+    }
+]
+```
+
+### 8. Cach test
+
+Chay:
+
+```bash
+pytest
+```
+
+Test thu cong:
+
+```bash
+python -c "from src.document_loader import load_text_file; print(load_text_file('data/jobs/jd_backend_java.txt'))"
+```
+
+### 9. Ket qua mong doi
+
+- `pytest` pass.
+- Loader doc duoc JD/CV `.txt`.
+- Loader bao loi khi file khong ton tai.
+- Loader tu choi extension khac `.txt`.
+- Loader khong xu ly noi dung ngoai viec doc text.
+
+### 10. Loi thuong gap
+
+- Quen activate `.venv` nen chay nham Python global.
+- Dung sai duong dan file.
+- Thu doc PDF/DOCX trong Phase 02, trong khi phase nay chi ho tro `.txt`.
+- Chay `pytest` bi `ModuleNotFoundError: No module named 'src'` neu pytest khong tu them project root vao import path. Du an xu ly bang `pytest.ini` voi `pythonpath = .`.
+
+### 11. Ghi chu cho bao cao
+
+Document Loader la module dau vao cua pipeline sang loc CV. Module nay chuyen noi dung JD va CV tu file `.txt` thanh raw text de cac module sau co the parse, trich xuat ky nang va cham diem. Viec gioi han MVP o `.txt` giup he thong co baseline on dinh truoc khi mo rong sang PDF va DOCX.
+
+### 12. Ghi chu ve cau hinh test
+
+Da them `pytest.ini` o root project:
+
+```ini
+[pytest]
+testpaths = tests
+pythonpath = .
+```
+
+Cau hinh nay giup pytest tim dung thu muc test va import duoc package `src` khi chay lenh `pytest` truc tiep trong terminal. Day la cach giu test on dinh giua cac moi truong chay khac nhau.

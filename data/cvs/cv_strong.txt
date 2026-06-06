@@ -1,0 +1,28 @@
+Nguyen Van A
+Backend Developer
+
+Summary:
+Backend developer with experience building Java Spring Boot services and REST APIs.
+
+Skills:
+- Java
+- Spring Boot
+- REST API
+- MySQL
+- Docker
+
+Work Experience:
+Backend Developer Intern - ABC Tech
+06/2024 - 12/2024
+- Built REST APIs using Java and Spring Boot.
+- Designed MySQL database schemas for product and order modules.
+- Used Docker Compose for local development and testing.
+
+Projects:
+E-commerce API
+- Developed authentication and order management modules.
+- Implemented JWT login for backend services.
+- Created RESTful APIs with Spring Boot and MySQL.
+
+Education:
+Bachelor of Software Engineering
