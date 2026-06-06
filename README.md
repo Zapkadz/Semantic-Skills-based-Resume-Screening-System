@@ -11,10 +11,10 @@ The project does not train a recruitment model from scratch. The MVP starts with
 The project is currently in:
 
 ```text
-Phase 03 - Resume Parser and JD Parser
+Phase 04 - Skill Taxonomy and Normalization
 ```
 
-This phase adds rule-based parsers that convert raw JD and CV text into structured dictionaries. Skill taxonomy, matching, evidence detection, scoring, and review card generation will be implemented in later phases.
+This phase adds a JSON skill taxonomy and normalization helpers that map aliases such as `SpringBoot`, `Postgres`, and `JS` to canonical skill names. Skill matching, evidence detection, scoring, and review card generation will be implemented in later phases.
 
 ## Planned Processing Flow
 
@@ -69,10 +69,13 @@ Included:
 - Rule-based resume parser.
 - Rule-based JD parser.
 - Unit tests for parser outputs.
+- Skill taxonomy JSON.
+- Skill taxonomy loader and alias map.
+- Skill normalizer.
+- Unit tests for taxonomy and normalization.
 
 Not included yet:
 
-- Skill taxonomy content.
 - Skill matching.
 - Evidence detection.
 - Scoring and ranking.
@@ -86,7 +89,7 @@ python main.py --help
 python main.py
 ```
 
-Expected behavior in Phase 03: the command confirms that the foundation is ready. The document loader and parsers are tested separately and are not wired into the CLI flow yet.
+Expected behavior in Phase 04: the command confirms that the foundation is ready. The document loader, parsers, and skill normalizer are tested separately and are not wired into the CLI flow yet.
 
 ## Run Document Loader Tests
 
@@ -114,6 +117,20 @@ JD parser:
 python -c "from src.document_loader import load_text_file; from src.jd_parser import parse_jd; print(parse_jd(load_text_file('data/jobs/jd_backend_java.txt')))"
 ```
 
+## Run Skill Normalization Checks
+
+Alias normalization:
+
+```bash
+python -c "from src.skill_taxonomy import load_taxonomy; from src.skill_normalizer import normalize_skills; taxonomy=load_taxonomy('data/taxonomy/skills.json'); print(normalize_skills(['JS', 'SpringBoot', 'Postgres'], taxonomy))"
+```
+
+Normalize parser output:
+
+```bash
+python -c "from src.document_loader import load_text_file; from src.resume_parser import parse_resume; from src.skill_taxonomy import load_taxonomy; from src.skill_normalizer import normalize_skills; taxonomy=load_taxonomy('data/taxonomy/skills.json'); profile=parse_resume(load_text_file('data/cvs/cv_strong.txt')); print(normalize_skills(profile['raw_skills'], taxonomy))"
+```
+
 ## Run Minimal Streamlit Entry Point
 
 Install dependencies first:
@@ -128,7 +145,7 @@ Then run:
 streamlit run app.py
 ```
 
-In Phase 03, the app still shows a placeholder page because the functional UI is planned for a later phase.
+In Phase 04, the app still shows a placeholder page because the functional UI is planned for a later phase.
 
 ## Development Workflow
 
@@ -145,7 +162,7 @@ Work is organized by phase. Each phase should have:
 The next planned phase is:
 
 ```text
-Phase 04 - Skill Taxonomy and Normalization
+Phase 05 - Rule-based Skill Matching
 ```
 
-That phase will add a skill taxonomy and normalize raw skill names from parser outputs.
+That phase will compare normalized JD skills with normalized candidate skills.
