@@ -1,0 +1,409 @@
+"""Explainable review card generation from scored candidates."""
+
+from __future__ import annotations
+
+from typing import Any
+
+
+MAX_EVIDENCE_HIGHLIGHTS = 5
+MAX_INTERVIEW_QUESTIONS = 5
+
+SCORE_COMPONENT_ORDER = (
+    "skill_semantic",
+    "evidence",
+    "experience",
+    "seniority",
+    "domain",
+    "nice_to_have",
+)
+
+SCORE_COMPONENT_LABELS = {
+    "skill_semantic": "Skill semantic",
+    "evidence": "Evidence",
+    "experience": "Experience",
+    "seniority": "Seniority",
+    "domain": "Domain",
+    "nice_to_have": "Nice-to-have",
+}
+
+
+def generate_review_card(
+    candidate_result: dict[str, Any],
+    job_criteria: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Create a structured recruiter review card from a scored candidate."""
+    job_title = _get_job_title(job_criteria)
+    matched_skills = list(candidate_result.get("matched_skills", []))
+    missing_skills = list(candidate_result.get("missing_skills", []))
+    nice_to_have_matches = list(candidate_result.get("nice_to_have_matches", []))
+    score_breakdown = dict(candidate_result.get("scores", {}))
+
+    evidence_highlights = build_evidence_highlights(matched_skills)
+    strengths = build_strengths(score_breakdown, evidence_highlights)
+    concerns = build_concerns(
+        score_breakdown,
+        missing_skills,
+        nice_to_have_matches,
+    )
+    interview_questions = build_interview_questions(
+        evidence_highlights,
+        missing_skills,
+        nice_to_have_matches,
+    )
+
+    return {
+        "candidate_name": candidate_result.get("candidate_name", ""),
+        "job_title": job_title,
+        "final_score": candidate_result.get("final_score", 0),
+        "recommendation": candidate_result.get("recommendation", ""),
+        "summary": build_summary(candidate_result, job_title),
+        "score_breakdown": score_breakdown,
+        "seniority": candidate_result.get("seniority", ""),
+        "experience_years": candidate_result.get("experience_years", 0),
+        "domain": list(candidate_result.get("domain", [])),
+        "matched_skills": matched_skills,
+        "missing_skills": missing_skills,
+        "nice_to_have_matches": nice_to_have_matches,
+        "evidence_highlights": evidence_highlights,
+        "strengths": strengths,
+        "concerns": concerns,
+        "suggested_interview_questions": interview_questions,
+    }
+
+
+def format_review_card_markdown(review_card: dict[str, Any]) -> str:
+    """Format a structured review card as readable Markdown."""
+    candidate_name = review_card.get("candidate_name") or "Unknown Candidate"
+    lines = [f"# {candidate_name}", ""]
+
+    if review_card.get("job_title"):
+        lines.extend([f"Role: {review_card['job_title']}", ""])
+
+    lines.extend(
+        [
+            f"Score: {review_card.get('final_score', 0)}/100",
+            f"Recommendation: {review_card.get('recommendation', '')}",
+            "",
+            "## Summary",
+            review_card.get("summary", ""),
+            "",
+            "## Score Breakdown",
+        ]
+    )
+
+    score_breakdown = review_card.get("score_breakdown", {})
+    for component in SCORE_COMPONENT_ORDER:
+        if component in score_breakdown:
+            label = SCORE_COMPONENT_LABELS[component]
+            lines.append(f"- {label}: {_format_score(score_breakdown[component])}")
+
+    lines.extend(["", "## Strengths"])
+    lines.extend(_format_bullets(review_card.get("strengths", [])))
+
+    lines.extend(["", "## Concerns"])
+    lines.extend(_format_bullets(review_card.get("concerns", [])))
+
+    lines.extend(["", "## Evidence Highlights"])
+    evidence_highlights = review_card.get("evidence_highlights", [])
+    if evidence_highlights:
+        for highlight in evidence_highlights:
+            skill = highlight["skill"]
+            level = highlight["evidence_level"]
+            source = highlight["evidence_source"]
+            text = highlight["evidence_text"]
+            lines.append(f"- {skill} (level {level}, {source}): {text}")
+    else:
+        lines.append("- No strong evidence highlights found.")
+
+    lines.extend(["", "## Missing Skills"])
+    missing_skills = review_card.get("missing_skills", [])
+    if missing_skills:
+        lines.extend(f"- {skill}" for skill in missing_skills)
+    else:
+        lines.append("- None")
+
+    lines.extend(["", "## Suggested Interview Questions"])
+    questions = review_card.get("suggested_interview_questions", [])
+    if questions:
+        lines.extend(
+            f"{index}. {question}"
+            for index, question in enumerate(questions, start=1)
+        )
+    else:
+        lines.append("1. Can you walk through the project that best represents your fit for this role?")
+
+    return "\n".join(lines).strip()
+
+
+def build_summary(candidate_result: dict[str, Any], job_title: str = "") -> str:
+    """Build a short recruiter-facing summary sentence."""
+    candidate_name = candidate_result.get("candidate_name") or "This candidate"
+    recommendation = candidate_result.get("recommendation", "Review")
+    final_score = candidate_result.get("final_score", 0)
+    role_text = f" for {job_title}" if job_title else ""
+
+    return (
+        f"{candidate_name} is a {recommendation} candidate{role_text} "
+        f"with a final score of {final_score}/100."
+    )
+
+
+def build_evidence_highlights(
+    matched_skills: list[dict[str, Any]],
+    limit: int = MAX_EVIDENCE_HIGHLIGHTS,
+) -> list[dict[str, Any]]:
+    """Select strong evidence snippets from matched skill results."""
+    highlights: list[dict[str, Any]] = []
+    seen_keys: set[tuple[str, str]] = set()
+
+    for match in matched_skills:
+        if match.get("match_type") == "no_match":
+            continue
+        if int(match.get("evidence_level", 0)) < 2:
+            continue
+
+        evidence_text = str(match.get("evidence_text", "")).strip()
+        if not evidence_text:
+            continue
+
+        skill = _display_skill(match)
+        seen_key = (_normalize_text(skill), _normalize_text(evidence_text))
+        if seen_key in seen_keys:
+            continue
+
+        seen_keys.add(seen_key)
+        highlights.append(
+            {
+                "skill": skill,
+                "required_skill": match.get("required_skill", ""),
+                "candidate_skill": match.get("candidate_skill"),
+                "match_type": match.get("match_type", ""),
+                "evidence_level": int(match.get("evidence_level", 0)),
+                "evidence_text": evidence_text,
+                "evidence_source": match.get("evidence_source", "none"),
+            }
+        )
+
+        if len(highlights) >= limit:
+            break
+
+    return highlights
+
+
+def build_strengths(
+    score_breakdown: dict[str, float],
+    evidence_highlights: list[dict[str, Any]],
+) -> list[str]:
+    """Build rule-based strengths from score components and evidence."""
+    strengths: list[str] = []
+
+    if score_breakdown.get("skill_semantic", 0.0) >= 0.85:
+        strengths.append("Strong must-have skill coverage.")
+    elif score_breakdown.get("skill_semantic", 0.0) >= 0.70:
+        strengths.append("Solid must-have skill coverage.")
+
+    if score_breakdown.get("evidence", 0.0) >= 0.85:
+        strengths.append("Strong evidence in work or project descriptions.")
+    elif score_breakdown.get("evidence", 0.0) >= 0.60:
+        strengths.append("Some practical evidence is present.")
+
+    if score_breakdown.get("domain", 0.0) >= 0.85:
+        strengths.append("Good domain alignment with the role.")
+
+    if score_breakdown.get("seniority", 0.0) >= 0.85:
+        strengths.append("Seniority appears aligned with the role.")
+
+    if score_breakdown.get("experience", 0.0) >= 0.75:
+        strengths.append("Experience level appears close to the requirement.")
+
+    highlight_skills = [highlight["skill"] for highlight in evidence_highlights]
+    if highlight_skills:
+        strengths.append(
+            f"Clear evidence for {_join_readable_list(highlight_skills)}."
+        )
+
+    if not strengths:
+        strengths.append("No strong positive signal stands out from the available data.")
+
+    return strengths
+
+
+def build_concerns(
+    score_breakdown: dict[str, float],
+    missing_skills: list[str],
+    nice_to_have_matches: list[dict[str, Any]],
+) -> list[str]:
+    """Build rule-based concerns from missing skills and low score components."""
+    concerns: list[str] = []
+
+    if missing_skills:
+        concerns.append(
+            f"Missing must-have skills: {_join_readable_list(missing_skills)}."
+        )
+
+    if score_breakdown.get("evidence", 0.0) < 0.50:
+        concerns.append("Evidence is weak or mostly keyword-level.")
+
+    if score_breakdown.get("experience", 0.0) < 0.50:
+        concerns.append("Experience may be below the job requirement.")
+
+    if score_breakdown.get("domain", 0.0) < 0.50:
+        concerns.append("Domain alignment may need recruiter review.")
+
+    if score_breakdown.get("seniority", 0.0) < 0.65:
+        concerns.append("Seniority may be below the job expectation.")
+
+    nice_to_have_gaps = [
+        str(match.get("required_skill", "")).strip()
+        for match in nice_to_have_matches
+        if match.get("match_type") == "no_match"
+        and str(match.get("required_skill", "")).strip()
+    ]
+    if nice_to_have_gaps:
+        concerns.append(
+            f"Optional nice-to-have gaps: {_join_readable_list(nice_to_have_gaps)}."
+        )
+
+    if not concerns:
+        concerns.append("No major concerns detected from the available scoring signals.")
+
+    return concerns
+
+
+def build_interview_questions(
+    evidence_highlights: list[dict[str, Any]],
+    missing_skills: list[str],
+    nice_to_have_matches: list[dict[str, Any]],
+    limit: int = MAX_INTERVIEW_QUESTIONS,
+) -> list[str]:
+    """Build deterministic interview questions from evidence and gaps."""
+    questions: list[str] = []
+    seen_questions: set[str] = set()
+    seen_evidence_text: set[str] = set()
+
+    for highlight in evidence_highlights:
+        evidence_text = _strip_sentence_end(highlight["evidence_text"])
+        evidence_key = _normalize_text(evidence_text)
+        if evidence_key in seen_evidence_text:
+            continue
+
+        seen_evidence_text.add(evidence_key)
+        _add_question(
+            questions,
+            seen_questions,
+            (
+                f"Can you explain how you used {highlight['skill']} "
+                f"in this work example: {evidence_text}?"
+            ),
+            limit,
+        )
+
+    for skill in missing_skills:
+        _add_question(
+            questions,
+            seen_questions,
+            f"How would you handle {skill} in this role?",
+            limit,
+        )
+
+    for match in nice_to_have_matches:
+        if match.get("match_type") != "no_match":
+            continue
+
+        skill = str(match.get("required_skill", "")).strip()
+        if not skill:
+            continue
+
+        _add_question(
+            questions,
+            seen_questions,
+            f"Do you have production experience with {skill}?",
+            limit,
+        )
+
+    if not questions:
+        questions.append(
+            "Can you walk through the project that best represents your fit for this role?"
+        )
+
+    return questions[:limit]
+
+
+def _get_job_title(job_criteria: dict[str, Any] | None) -> str:
+    """Return a job title from optional job criteria."""
+    if not job_criteria:
+        return ""
+
+    return str(job_criteria.get("job_title", "")).strip()
+
+
+def _display_skill(match: dict[str, Any]) -> str:
+    """Return a readable skill label for one matched skill."""
+    required_skill = str(match.get("required_skill", "")).strip()
+    candidate_skill = match.get("candidate_skill")
+
+    if not isinstance(candidate_skill, str) or not candidate_skill.strip():
+        return required_skill
+
+    candidate_skill = candidate_skill.strip()
+    if _normalize_text(candidate_skill) == _normalize_text(required_skill):
+        return required_skill
+
+    return f"{required_skill} via {candidate_skill}"
+
+
+def _format_bullets(items: list[str]) -> list[str]:
+    """Format list values as Markdown bullets."""
+    if not items:
+        return ["- None"]
+
+    return [f"- {item}" for item in items]
+
+
+def _format_score(value: Any) -> str:
+    """Format numeric score values consistently."""
+    try:
+        return f"{float(value):.2f}"
+    except (TypeError, ValueError):
+        return str(value)
+
+
+def _join_readable_list(values: list[str]) -> str:
+    """Join values into a short readable English list."""
+    cleaned_values = [value for value in values if value]
+    if not cleaned_values:
+        return ""
+    if len(cleaned_values) == 1:
+        return cleaned_values[0]
+    if len(cleaned_values) == 2:
+        return f"{cleaned_values[0]} and {cleaned_values[1]}"
+
+    return f"{', '.join(cleaned_values[:-1])}, and {cleaned_values[-1]}"
+
+
+def _add_question(
+    questions: list[str],
+    seen_questions: set[str],
+    question: str,
+    limit: int,
+) -> None:
+    """Append a question if it is unique and the limit is not reached."""
+    if len(questions) >= limit:
+        return
+
+    normalized_question = _normalize_text(question)
+    if normalized_question in seen_questions:
+        return
+
+    seen_questions.add(normalized_question)
+    questions.append(question)
+
+
+def _strip_sentence_end(value: str) -> str:
+    """Remove trailing punctuation before inserting text into a question."""
+    return value.strip().rstrip(".!?")
+
+
+def _normalize_text(value: str) -> str:
+    """Normalize text for deduplication."""
+    return " ".join(value.casefold().split())

@@ -11,10 +11,10 @@ The project does not train a recruitment model from scratch. The MVP starts with
 The project is currently in:
 
 ```text
-Phase 08 - Scoring and Ranking
+Phase 09 - Explainable Review Card
 ```
 
-This phase adds scoring and ranking for candidates. It combines skill match, evidence strength, experience fit, seniority fit, domain fit, and nice-to-have coverage into an explainable final score and recruiter-facing recommendation label. Review card generation will be implemented in a later phase.
+This phase adds explainable review cards for scored candidates. It turns scoring output into recruiter-friendly summaries, score breakdowns, strengths, concerns, evidence highlights, and suggested interview questions.
 
 ## Planned Processing Flow
 
@@ -85,10 +85,14 @@ Included:
 - Weighted score components for skill match, evidence, experience, seniority, domain, and nice-to-have skills.
 - Candidate ranking helper.
 - Unit tests for scoring formulas, thresholds, demo pipeline scoring, and ranking order.
+- Explainable review card generator.
+- Markdown formatter for review cards.
+- Rule-based strengths, concerns, evidence highlights, and interview questions.
+- Unit tests for review card structure, Markdown output, and demo pipeline explanation.
 
 Not included yet:
 
-- Review card generation.
+- Full CLI pipeline.
 - Full Streamlit UI.
 
 ## Run Minimal CLI
@@ -98,7 +102,7 @@ python main.py --help
 python main.py
 ```
 
-Expected behavior in Phase 08: the command confirms that the foundation is ready. The document loader, parsers, normalizer, matchers, evidence detector, and scorer are tested separately and are not wired into the CLI flow yet.
+Expected behavior in Phase 09: the command confirms that the foundation is ready. The document loader, parsers, normalizer, matchers, evidence detector, scorer, and review card generator are tested separately and are not wired into the CLI flow yet.
 
 ## Run Document Loader Tests
 
@@ -178,6 +182,14 @@ Score the demo candidate against the demo JD:
 python -c "from src.document_loader import load_text_file; from src.resume_parser import parse_resume; from src.jd_parser import parse_jd; from src.skill_taxonomy import load_taxonomy; from src.skill_normalizer import normalize_skills; from src.semantic_matcher import match_skills; from src.evidence_detector import detect_all_evidence; from src.scorer import score_candidate; taxonomy=load_taxonomy('data/taxonomy/skills.json'); profile=parse_resume(load_text_file('data/cvs/cv_strong.txt')); criteria=parse_jd(load_text_file('data/jobs/jd_backend_java.txt')); candidate=normalize_skills(profile['raw_skills'], taxonomy); required=normalize_skills(criteria['must_have_skills'], taxonomy); nice_skills=normalize_skills(criteria['nice_to_have_skills'], taxonomy); matches=detect_all_evidence(match_skills(required, candidate, taxonomy), profile); nice=match_skills(nice_skills, candidate, taxonomy); print(score_candidate(criteria, profile, matches, nice))"
 ```
 
+## Run Review Card Check
+
+Generate a Markdown review card for the demo JD/CV:
+
+```bash
+python -c "from src.document_loader import load_text_file; from src.resume_parser import parse_resume; from src.jd_parser import parse_jd; from src.skill_taxonomy import load_taxonomy; from src.skill_normalizer import normalize_skills; from src.semantic_matcher import match_skills; from src.evidence_detector import detect_all_evidence; from src.scorer import score_candidate; from src.review_card_generator import generate_review_card, format_review_card_markdown; taxonomy=load_taxonomy('data/taxonomy/skills.json'); profile=parse_resume(load_text_file('data/cvs/cv_strong.txt')); criteria=parse_jd(load_text_file('data/jobs/jd_backend_java.txt')); candidate=normalize_skills(profile['raw_skills'], taxonomy); required=normalize_skills(criteria['must_have_skills'], taxonomy); nice_skills=normalize_skills(criteria['nice_to_have_skills'], taxonomy); matches=detect_all_evidence(match_skills(required, candidate, taxonomy), profile); nice=match_skills(nice_skills, candidate, taxonomy); result=score_candidate(criteria, profile, matches, nice); card=generate_review_card(result, criteria); print(format_review_card_markdown(card))"
+```
+
 ## Run Minimal Streamlit Entry Point
 
 Install dependencies first:
@@ -192,7 +204,7 @@ Then run:
 streamlit run app.py
 ```
 
-In Phase 08, the app still shows a placeholder page because the functional UI is planned for a later phase.
+In Phase 09, the app still shows a placeholder page because the functional UI is planned for a later phase.
 
 ## Development Workflow
 
@@ -209,7 +221,7 @@ Work is organized by phase. Each phase should have:
 The next planned phase is:
 
 ```text
-Phase 09 - Explainable Review Card
+Phase 10 - CLI Pipeline and Output
 ```
 
-That phase will turn scoring results into recruiter-friendly review cards with matched skills, missing skills, evidence snippets, and recommendation context.
+That phase will connect the existing modules into a runnable CLI flow for one JD and a CV directory, then print or save ranking results and review cards.
