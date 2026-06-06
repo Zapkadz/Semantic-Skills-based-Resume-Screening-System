@@ -779,3 +779,138 @@ python -c "from src.document_loader import load_text_file; from src.resume_parse
 ### 11. Ghi chu cho bao cao
 
 Semantic Matching with Embeddings giup he thong nhan dien cac ky nang hoac mo ta gan nghia, bo sung cho rule-based matching. Du an khong train model tu dau ma dung pretrained embedding model khi kha dung. De dam bao tinh on dinh, module co fallback neu model khong load duoc va rule-based matching van la baseline chinh.
+
+## [2026-06-06] Phase 07 - Evidence Detection
+
+### 1. Boi canh
+
+Du an dang o Phase 07 - Evidence Detection. Phase 05/06 da tao match result cho tung skill JD voi skill ung vien. Tuy nhien, match result moi cho biet skill co lien quan hay khong, chua cho biet ung vien co bang chung da dung skill do trong CV hay chua.
+
+Muc tieu Phase 07 la them evidence level va evidence text cho tung match.
+
+### 2. Van de / chuc nang
+
+Da tao:
+
+- `src/evidence_detector.py`
+- `tests/test_evidence_detector.py`
+
+Evidence detector ho tro:
+
+- Level 0: khong co bang chung.
+- Level 1: skill chi xuat hien trong summary/headline/skill list.
+- Level 2: skill xuat hien trong project/work context nhung action chua ro.
+- Level 3: skill xuat hien trong project/work bullet co action verb.
+
+### 3. Vi sao can lam
+
+Neu CV chi liet ke skill trong muc Skills, he thong chua nen xem do la bang chung manh. Evidence Detection giup phan biet:
+
+```text
+Skills: Kafka
+```
+
+voi:
+
+```text
+Built REST APIs using Java and Spring Boot.
+Designed MySQL database schemas.
+```
+
+Buoc nay giup giam tinh trang CV nhoi keyword.
+
+### 4. Nguyen nhan / logic nen tang
+
+Logic evidence:
+
+- Thu thap evidence candidates tu work experience, projects, summary, headline va raw skills.
+- Tim skill trong tung cau/dong theo case-insensitive search.
+- Neu evidence nam trong work/project va co action verb thi level 3.
+- Neu evidence nam trong work/project nhung khong co action verb thi level 2.
+- Neu evidence chi nam trong summary/headline/skills thi level 1.
+- Neu khong thay thi level 0.
+
+Voi related match nhu `SQL -> MySQL`, detector uu tien tim `candidate_skill` la `MySQL` trong CV.
+
+### 5. Cach xu ly
+
+`detect_evidence(skill, resume_profile)` tra ve evidence cho mot skill.
+
+`detect_all_evidence(matches, resume_profile)` enrich match result bang:
+
+```python
+{
+    "evidence_level": 3,
+    "evidence_text": "Built REST APIs using Java and Spring Boot.",
+    "evidence_source": "work_experience"
+}
+```
+
+Evidence detector khong thay doi `match_type` hay `score` cua matcher.
+
+### 6. File da thay doi
+
+- `src/evidence_detector.py`
+- `tests/test_evidence_detector.py`
+- `README.md`
+- `docs/dev-learning-log.md`
+- `docs/phases/phase-07-evidence-detection.md`
+
+### 7. Input / Output can nho
+
+Input:
+
+```python
+{
+    "required_skill": "SQL",
+    "candidate_skill": "MySQL",
+    "match_type": "related_match",
+    "score": 0.75
+}
+```
+
+Output:
+
+```python
+{
+    "required_skill": "SQL",
+    "candidate_skill": "MySQL",
+    "match_type": "related_match",
+    "score": 0.75,
+    "evidence_level": 3,
+    "evidence_text": "Designed MySQL database schemas for product and order modules.",
+    "evidence_source": "work_experience"
+}
+```
+
+### 8. Cach test
+
+Chay:
+
+```bash
+pytest
+```
+
+Test thu cong:
+
+```bash
+python -c "from src.document_loader import load_text_file; from src.resume_parser import parse_resume; from src.jd_parser import parse_jd; from src.skill_taxonomy import load_taxonomy; from src.skill_normalizer import normalize_skills; from src.semantic_matcher import match_skills; from src.evidence_detector import detect_all_evidence; taxonomy=load_taxonomy('data/taxonomy/skills.json'); profile=parse_resume(load_text_file('data/cvs/cv_strong.txt')); criteria=parse_jd(load_text_file('data/jobs/jd_backend_java.txt')); candidate=normalize_skills(profile['raw_skills'], taxonomy); required=normalize_skills(criteria['must_have_skills'], taxonomy); matches=match_skills(required, candidate, taxonomy); print(detect_all_evidence(matches, profile))"
+```
+
+### 9. Ket qua mong doi
+
+- `pytest` pass.
+- Demo strong CV co evidence level 3 cho Java, Spring Boot, REST API, SQL/MySQL va Docker.
+- Keyword-only profile chi duoc level 1.
+- Skill khong xuat hien co level 0.
+
+### 10. Loi thuong gap
+
+- Hieu nham evidence level la final score. Thuc te final score se lam o Phase 08.
+- Evidence detector co the bo sot neu CV dung cach viet qua khac.
+- Action verbs con la danh sach rule-based nho trong MVP.
+- Neu evidence detector tu tinh ranking thi vuot scope.
+
+### 11. Ghi chu cho bao cao
+
+Evidence Detection giup he thong phan biet giua ky nang chi duoc liet ke va ky nang co bang chung su dung trong kinh nghiem/du an. Day la thanh phan quan trong de giam keyword stuffing va tao nen tang cho evidence-based scoring trong Phase 08.

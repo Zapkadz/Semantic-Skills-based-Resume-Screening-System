@@ -11,10 +11,10 @@ The project does not train a recruitment model from scratch. The MVP starts with
 The project is currently in:
 
 ```text
-Phase 06 - Semantic Matching with Embeddings
+Phase 07 - Evidence Detection
 ```
 
-This phase adds optional embedding-based semantic matching as a fallback when rule-based matching cannot find a match. Evidence detection, final scoring, ranking, and review card generation will be implemented in later phases.
+This phase adds evidence detection for matched skills, distinguishing keyword-only skill mentions from stronger evidence in work experience and project descriptions. Final scoring, ranking, and review card generation will be implemented in later phases.
 
 ## Planned Processing Flow
 
@@ -78,10 +78,12 @@ Included:
 - Optional embedding matcher wrapper.
 - Semantic match fallback for no-match rule-based cases.
 - Unit tests using mock embeddings, so tests do not require model downloads.
+- Evidence detector for matched skills.
+- Evidence levels from 0 to 3.
+- Unit tests for keyword-only, project, work experience, and missing evidence.
 
 Not included yet:
 
-- Evidence detection.
 - Scoring and ranking.
 - Review card generation.
 - Full Streamlit UI.
@@ -93,7 +95,7 @@ python main.py --help
 python main.py
 ```
 
-Expected behavior in Phase 06: the command confirms that the foundation is ready. The document loader, parsers, normalizer, rule-based matcher, and embedding matcher are tested separately and are not wired into the CLI flow yet.
+Expected behavior in Phase 07: the command confirms that the foundation is ready. The document loader, parsers, normalizer, matchers, and evidence detector are tested separately and are not wired into the CLI flow yet.
 
 ## Run Document Loader Tests
 
@@ -157,6 +159,14 @@ Expected output:
 False
 ```
 
+## Run Evidence Detection Check
+
+Detect evidence for demo JD/CV matches:
+
+```bash
+python -c "from src.document_loader import load_text_file; from src.resume_parser import parse_resume; from src.jd_parser import parse_jd; from src.skill_taxonomy import load_taxonomy; from src.skill_normalizer import normalize_skills; from src.semantic_matcher import match_skills; from src.evidence_detector import detect_all_evidence; taxonomy=load_taxonomy('data/taxonomy/skills.json'); profile=parse_resume(load_text_file('data/cvs/cv_strong.txt')); criteria=parse_jd(load_text_file('data/jobs/jd_backend_java.txt')); candidate=normalize_skills(profile['raw_skills'], taxonomy); required=normalize_skills(criteria['must_have_skills'], taxonomy); matches=match_skills(required, candidate, taxonomy); print(detect_all_evidence(matches, profile))"
+```
+
 ## Run Minimal Streamlit Entry Point
 
 Install dependencies first:
@@ -171,7 +181,7 @@ Then run:
 streamlit run app.py
 ```
 
-In Phase 06, the app still shows a placeholder page because the functional UI is planned for a later phase.
+In Phase 07, the app still shows a placeholder page because the functional UI is planned for a later phase.
 
 ## Development Workflow
 
@@ -188,7 +198,7 @@ Work is organized by phase. Each phase should have:
 The next planned phase is:
 
 ```text
-Phase 07 - Evidence Detection
+Phase 08 - Scoring and Ranking
 ```
 
-That phase will check whether matched skills have evidence in projects or work experience.
+That phase will combine match, evidence, experience, seniority, domain, and nice-to-have signals into candidate scores.
