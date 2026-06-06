@@ -525,3 +525,121 @@ python -c "from src.document_loader import load_text_file; from src.resume_parse
 ### 11. Ghi chu cho bao cao
 
 Skill Taxonomy va Normalization giup he thong dua cac ky nang duoc viet theo nhieu cach khac nhau ve ten chuan. Day la nen tang quan trong cua skills-based hiring vi he thong khong chi so sanh keyword tho, ma lam viec tren mot bo ky nang da duoc chuan hoa. Buoc nay giup Phase 05 co the so khop skill CV/JD chinh xac hon.
+
+## [2026-06-06] Phase 05 - Rule-based Skill Matching
+
+### 1. Boi canh
+
+Du an dang o Phase 05 - Rule-based Skill Matching. Phase 04 da co taxonomy va normalizer de dua skill tu CV/JD ve canonical skill. Phase 05 bat dau so khop danh sach skill cua JD voi danh sach skill cua ung vien.
+
+Muc tieu la tao match result co cau truc, chua phai final score/ranking.
+
+### 2. Van de / chuc nang
+
+Da tao:
+
+- `src/semantic_matcher.py`
+- `tests/test_semantic_matcher.py`
+
+Matcher ho tro:
+
+- `exact_match`
+- `related_match`
+- `transferable_match`
+- `no_match`
+
+### 3. Vi sao can lam
+
+Skills-based screening can biet JD skill nao duoc ung vien dap ung, ky nang nao lien quan, ky nang nao transferable va ky nang nao dang thieu.
+
+Neu chi so sanh exact text, `SQL` va `MySQL` co the bi xem la khong lien quan. Matcher dung taxonomy de nhan dien cac quan he nay.
+
+### 4. Nguyen nhan / logic nen tang
+
+Thu tu uu tien match:
+
+1. Exact match.
+2. Related match.
+3. Transferable match.
+4. No match.
+
+Score tung match:
+
+```text
+exact_match        = 1.00
+related_match      = 0.75
+transferable_match = 0.55
+no_match           = 0.00
+```
+
+Alias da duoc xu ly o Phase 04 bang normalization. Matcher van co canonicalization nhe de tranh loi neu input con alias.
+
+### 5. Cach xu ly
+
+`match_skills(job_skills, candidate_skills, taxonomy)` xu ly tung required skill cua JD:
+
+- Tim exact match trong candidate skills.
+- Neu khong co, tim related match dua tren field `related` trong taxonomy.
+- Neu khong co, tim transferable match dua tren field `transferable`.
+- Neu van khong co, tra ve `no_match`.
+
+`get_missing_skills(matches)` tra ve cac required skill co `match_type == "no_match"`.
+
+### 6. File da thay doi
+
+- `src/semantic_matcher.py`
+- `tests/test_semantic_matcher.py`
+- `README.md`
+- `docs/dev-learning-log.md`
+
+### 7. Input / Output can nho
+
+Input:
+
+```python
+job_skills = ["Java", "Spring Boot", "REST API", "SQL"]
+candidate_skills = ["Java", "Spring Boot", "REST API", "MySQL"]
+```
+
+Output:
+
+```python
+[
+    {"required_skill": "Java", "candidate_skill": "Java", "match_type": "exact_match", "score": 1.0},
+    {"required_skill": "Spring Boot", "candidate_skill": "Spring Boot", "match_type": "exact_match", "score": 1.0},
+    {"required_skill": "REST API", "candidate_skill": "REST API", "match_type": "exact_match", "score": 1.0},
+    {"required_skill": "SQL", "candidate_skill": "MySQL", "match_type": "related_match", "score": 0.75}
+]
+```
+
+### 8. Cach test
+
+Chay:
+
+```bash
+pytest
+```
+
+Test thu cong:
+
+```bash
+python -c "from src.document_loader import load_text_file; from src.resume_parser import parse_resume; from src.jd_parser import parse_jd; from src.skill_taxonomy import load_taxonomy; from src.skill_normalizer import normalize_skills; from src.semantic_matcher import match_skills; taxonomy=load_taxonomy('data/taxonomy/skills.json'); profile=parse_resume(load_text_file('data/cvs/cv_strong.txt')); criteria=parse_jd(load_text_file('data/jobs/jd_backend_java.txt')); candidate=normalize_skills(profile['raw_skills'], taxonomy); required=normalize_skills(criteria['must_have_skills'], taxonomy); print(match_skills(required, candidate, taxonomy))"
+```
+
+### 9. Ket qua mong doi
+
+- `pytest` pass.
+- Demo CV/JD co exact match cho Java, Spring Boot, REST API, Docker.
+- Demo CV/JD co related match cho SQL voi MySQL.
+- No match tra `candidate_skill = None`.
+- Phase nay chua tao recommendation label.
+
+### 10. Loi thuong gap
+
+- Hieu nham match score la final score. Thuc te day chi la diem tung skill match.
+- Taxonomy thieu related/transferable thi matcher se tra no_match.
+- Them evidence/scoring vao matcher se lam module sai trach nhiem.
+
+### 11. Ghi chu cho bao cao
+
+Rule-based Skill Matching la baseline so khop ky nang giua JD va CV. He thong uu tien exact match, sau do dung taxonomy de xet related va transferable skills. Ket qua la danh sach match co loai match va diem tung skill, giup cac phase sau tiep tuc evidence detection va scoring mot cach minh bach.
