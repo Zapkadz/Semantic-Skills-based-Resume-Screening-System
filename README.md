@@ -11,10 +11,10 @@ The project does not train a recruitment model from scratch. The MVP starts with
 The project is currently in:
 
 ```text
-Phase 02 - Document Loader and Text Input
+Phase 03 - Resume Parser and JD Parser
 ```
 
-This phase adds the first pipeline module: reading `.txt` files for JD and CV inputs. Resume parsing, skill extraction, matching, evidence detection, scoring, and review card generation will be implemented in later phases.
+This phase adds rule-based parsers that convert raw JD and CV text into structured dictionaries. Skill taxonomy, matching, evidence detection, scoring, and review card generation will be implemented in later phases.
 
 ## Planned Processing Flow
 
@@ -66,10 +66,12 @@ Included:
 - TXT document loader.
 - Minimal demo JD and CV text files.
 - Unit tests for document loading.
+- Rule-based resume parser.
+- Rule-based JD parser.
+- Unit tests for parser outputs.
 
 Not included yet:
 
-- Resume/JD parsing.
 - Skill taxonomy content.
 - Skill matching.
 - Evidence detection.
@@ -84,7 +86,7 @@ python main.py --help
 python main.py
 ```
 
-Expected behavior in Phase 02: the command confirms that the foundation is ready. The document loader is tested separately and is not wired into the CLI flow yet.
+Expected behavior in Phase 03: the command confirms that the foundation is ready. The document loader and parsers are tested separately and are not wired into the CLI flow yet.
 
 ## Run Document Loader Tests
 
@@ -96,6 +98,20 @@ Manual loader check:
 
 ```bash
 python -c "from src.document_loader import load_text_file; print(load_text_file('data/jobs/jd_backend_java.txt'))"
+```
+
+## Run Parser Checks
+
+Resume parser:
+
+```bash
+python -c "from src.document_loader import load_text_file; from src.resume_parser import parse_resume; print(parse_resume(load_text_file('data/cvs/cv_strong.txt')))"
+```
+
+JD parser:
+
+```bash
+python -c "from src.document_loader import load_text_file; from src.jd_parser import parse_jd; print(parse_jd(load_text_file('data/jobs/jd_backend_java.txt')))"
 ```
 
 ## Run Minimal Streamlit Entry Point
@@ -112,7 +128,7 @@ Then run:
 streamlit run app.py
 ```
 
-In Phase 02, the app still shows a placeholder page because the functional UI is planned for a later phase.
+In Phase 03, the app still shows a placeholder page because the functional UI is planned for a later phase.
 
 ## Development Workflow
 
@@ -129,7 +145,7 @@ Work is organized by phase. Each phase should have:
 The next planned phase is:
 
 ```text
-Phase 03 - Resume Parser and JD Parser
+Phase 04 - Skill Taxonomy and Normalization
 ```
 
-That phase will parse raw text into structured resume profiles and job criteria.
+That phase will add a skill taxonomy and normalize raw skill names from parser outputs.
