@@ -1459,3 +1459,211 @@ python main.py --jd data/jobs/jd_backend_java.txt --cv-dir data/cvs --output-jso
 ### 11. Ghi chu cho bao cao
 
 CLI Pipeline and Output la buoc tich hop cac thanh phan cua he thong thanh mot flow co the chay thuc te. Tu mot JD va thu muc CV, he thong tu dong parse, normalize, match, detect evidence, score, rank va generate review card. Viec tach pipeline khoi CLI giup he thong de test va san sang mo rong sang giao dien Streamlit.
+
+## [2026-06-07] Phase 11 - Python API Service for Web Integration
+
+### 1. Boi canh
+
+Du an dang o Phase 11 - Python API Service. Phase 10 da co CLI pipeline chay duoc, nhung web PHP muon tich hop sach hon thi nen goi AI bang HTTP JSON thay vi shell command va file tam.
+
+Muc tieu phase nay la them FastAPI service ma khong pha CLI hien tai.
+
+### 2. Van de / chuc nang
+
+Da tao:
+
+- `api.py`
+- `src/api_models.py`
+- `src/payload_pipeline.py`
+- `tests/test_api.py`
+- `tests/test_payload_pipeline.py`
+- `docs/integration/sample-screening-request.json`
+
+Da cap nhat:
+
+- `requirements.txt`
+- `README.md`
+
+API ho tro:
+
+- `GET /health`
+- `POST /screening`
+
+### 3. Vi sao can lam
+
+Web PHP TOPCV Lite co the goi AI bang CLI, nhung API service phu hop hon cho tich hop dai han:
+
+```text
+PHP web
+  -> POST JSON /screening
+  -> Python API
+  -> payload pipeline
+  -> scorer/review card
+  -> ranking JSON
+```
+
+Cach nay giup web khong phai tao qua nhieu file tam va de debug bang Postman/cURL.
+
+### 4. Nguyen nhan / logic nen tang
+
+Phase 11 tach thanh cac lop:
+
+- `api.py`: HTTP adapter.
+- `src/api_models.py`: Pydantic request models.
+- `src/payload_pipeline.py`: chuyen JSON payload thanh screening result.
+- Cac module cu: parser, matcher, evidence, scorer, review card.
+
+CLI van dung:
+
+```bash
+python main.py --jd data/jobs/jd_backend_java.txt --cv-dir data/cvs
+```
+
+API dung:
+
+```bash
+uvicorn api:app --host 127.0.0.1 --port 8000
+```
+
+### 5. Cach xu ly
+
+`build_jd_text_from_payload(job)` chuyen job JSON thanh JD text parser-friendly.
+
+`build_cv_document_from_payload(candidate)` chuyen candidate JSON thanh document dict giong loader output.
+
+`run_screening_payload(payload)` xu ly:
+
+1. Build JD text.
+2. Parse JD.
+3. Build CV document tu tung candidate.
+4. Parse resume.
+5. Normalize skills.
+6. Match skills.
+7. Detect evidence.
+8. Score candidate.
+9. Rank candidates.
+10. Generate review cards.
+
+Response giu lai:
+
+- `application_id`
+- `candidate_id`
+- `email`
+- `phone`
+- `applied_at`
+- `cv_file_path`
+- `source_file`
+
+De PHP co the map ket qua ve application trong database.
+
+### 6. File da thay doi
+
+- `api.py`
+- `requirements.txt`
+- `src/api_models.py`
+- `src/payload_pipeline.py`
+- `tests/test_api.py`
+- `tests/test_payload_pipeline.py`
+- `README.md`
+- `docs/dev-learning-log.md`
+- `docs/phases/phase-11-python-api-service.md`
+- `docs/integration/sample-screening-request.json`
+
+### 7. Input / Output can nho
+
+Input API:
+
+```json
+{
+  "job": {
+    "job_id": 10,
+    "job_title": "Backend Java Developer",
+    "requirements": ["Java", "Spring Boot"],
+    "nice_to_have": ["AWS"]
+  },
+  "candidates": [
+    {
+      "application_id": 123,
+      "candidate_id": 456,
+      "candidate_name": "Nguyen Van A",
+      "cv_text": "Nguyen Van A\nBackend Developer\n..."
+    }
+  ]
+}
+```
+
+Output API:
+
+```json
+{
+  "job": {
+    "job_id": 10,
+    "title": "Backend Java Developer"
+  },
+  "candidates": [
+    {
+      "rank": 1,
+      "application_id": 123,
+      "candidate_id": 456,
+      "candidate_name": "Nguyen Van A",
+      "final_score": 87,
+      "recommendation": "Strong Review",
+      "review_card": {}
+    }
+  ]
+}
+```
+
+### 8. Cach test
+
+Chay:
+
+```bash
+pytest
+```
+
+Chay API:
+
+```bash
+uvicorn api:app --host 127.0.0.1 --port 8000
+```
+
+Health check:
+
+```bash
+curl http://127.0.0.1:8000/health
+```
+
+Screening request:
+
+```bash
+curl -X POST http://127.0.0.1:8000/screening -H "Content-Type: application/json" -d @docs/integration/sample-screening-request.json
+```
+
+CLI regression:
+
+```bash
+python main.py --jd data/jobs/jd_backend_java.txt --cv-dir data/cvs
+```
+
+### 9. Ket qua mong doi
+
+- `pytest` pass.
+- `/health` tra `status = ok`.
+- `/screening` tra candidate `Nguyen Van A`.
+- Demo payload tra final score 87.
+- Demo payload tra recommendation `Strong Review`.
+- Response co `application_id` va `candidate_id`.
+- CLI Phase 10 van chay binh thuong.
+
+### 10. Loi thuong gap
+
+- Quen cai `fastapi` trong `.venv`.
+- Quen chay `uvicorn` truoc khi PHP goi API.
+- Candidate payload khong co `cv_text` hoac structured CV data se bi HTTP 400.
+- Payload job khong co `job_title`, `raw_text`, hoac `description` se bi HTTP 400.
+- Response khong co `application_id` thi PHP kho luu dung application.
+
+### 11. Ghi chu cho bao cao
+
+Python API Service la lop tich hop giua AI screening engine va web application. Service nhan JD/CV theo JSON, dung lai pipeline san co de xep hang ung vien va tra ve review card co giai thich. Thiet ke nay giu CLI on dinh dong thoi mo duong cho web PHP goi AI theo HTTP API chuyen nghiep hon.

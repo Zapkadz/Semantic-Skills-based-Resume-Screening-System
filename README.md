@@ -11,10 +11,10 @@ The project does not train a recruitment model from scratch. The MVP starts with
 The project is currently in:
 
 ```text
-Phase 10 - CLI Pipeline and Output
+Phase 11 - Python API Service
 ```
 
-This phase connects the implemented modules into a runnable CLI pipeline for one job description and a directory of text resumes. It can print ranking summaries and optionally save JSON results and Markdown review cards.
+This phase adds a FastAPI HTTP service so a PHP web application can send JD/CV JSON payloads and receive ranked candidates with review cards. The existing CLI pipeline remains available.
 
 ## Planned Processing Flow
 
@@ -36,6 +36,7 @@ CV / JD text
 ```text
 .
 |-- app.py
+|-- api.py
 |-- main.py
 |-- requirements.txt
 |-- README.md
@@ -45,6 +46,7 @@ CV / JD text
 |   |-- jobs/
 |   `-- taxonomy/
 |-- docs/
+|   |-- integration/
 |   |-- phases/
 |   |-- refactoring/
 |   `-- dev-learning-log.md
@@ -94,6 +96,11 @@ Included:
 - JSON ranking result writer.
 - Markdown review card writer.
 - Unit tests for pipeline output, file saving, and CLI behavior.
+- FastAPI HTTP API service.
+- JSON payload screening pipeline for web integration.
+- Pydantic request models for job and candidate payloads.
+- Health and screening endpoints.
+- Unit tests for payload pipeline and API endpoints.
 
 Not included yet:
 
@@ -124,6 +131,34 @@ Print review cards in the terminal:
 
 ```bash
 python main.py --jd data/jobs/jd_backend_java.txt --cv-dir data/cvs --show-review-cards
+```
+
+## Run Python API Service
+
+Start the API server:
+
+```bash
+uvicorn api:app --host 127.0.0.1 --port 8000
+```
+
+Health check:
+
+```bash
+curl http://127.0.0.1:8000/health
+```
+
+Run screening from a sample JSON payload:
+
+```bash
+curl -X POST http://127.0.0.1:8000/screening -H "Content-Type: application/json" -d @docs/integration/sample-screening-request.json
+```
+
+Expected screening response includes:
+
+```text
+candidate_name: Nguyen Van A
+final_score: 87
+recommendation: Strong Review
 ```
 
 ## Run Document Loader Tests
@@ -226,7 +261,7 @@ Then run:
 streamlit run app.py
 ```
 
-In Phase 10, the app still shows a placeholder page because the functional UI is planned for a later phase.
+In Phase 11, the app still shows a placeholder page because the functional UI is planned for a later phase.
 
 ## Development Workflow
 
@@ -243,7 +278,7 @@ Work is organized by phase. Each phase should have:
 The next planned phase is:
 
 ```text
-Phase 11 - Streamlit UI
+Phase 12 - Streamlit UI
 ```
 
 That phase will turn the working pipeline into a simple interactive Streamlit app for uploading or selecting JD/CV text files and viewing rankings/review cards.

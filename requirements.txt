@@ -3,3 +3,6 @@ pandas
 numpy
 pytest
 sentence-transformers
+fastapi
+uvicorn
+httpx
