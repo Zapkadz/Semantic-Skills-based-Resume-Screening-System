@@ -31,6 +31,19 @@ JD input: 1 file .txt hoac 1 chuoi text co cau truc JD
 CV input: nhieu file .txt hoac nhieu chuoi text co cau truc CV
 ```
 
+Tu Phase 11, web co the gui input qua HTTP API:
+
+```text
+POST http://127.0.0.1:8000/screening
+```
+
+Payload API van dua tren cung nguyen tac:
+
+```text
+job payload -> build JD text
+candidate payloads -> cv_text / structured CV text
+```
+
 Chua ho tro truc tiep:
 
 - Anh chup CV.

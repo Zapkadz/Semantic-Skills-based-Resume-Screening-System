@@ -25,88 +25,93 @@ C:\
 `-- SEMANTIC_SKILLS_RESUME\    # AI Python project
 ```
 
-Khong can copy AI project vao trong `topcv_lite`. PHP co the goi Python bang absolute path.
+Khong can copy AI project vao trong `topcv_lite`. PHP co the goi AI bang HTTP API noi bo hoac bang Python CLI fallback.
 
 ## 2. Trang thai tich hop hien tai
 
 Hien tai AI project da co:
 
 - CLI pipeline chay duoc.
+- FastAPI HTTP API service.
 - Input dang JD `.txt`.
 - Input dang folder CV `.txt`.
+- Input dang JSON payload gom job va candidates.
 - Output ranking summary.
 - Output JSON neu truyen `--output-json`.
 - Output Markdown review cards neu truyen `--output-dir`.
+- Output JSON truc tiep tu `POST /screening`.
 
-Lenh da chay duoc:
+CLI van chay duoc:
 
 ```bash
 C:\SEMANTIC_SKILLS_RESUME\.venv\Scripts\python.exe C:\SEMANTIC_SKILLS_RESUME\main.py --jd data/jobs/jd_backend_java.txt --cv-dir data/cvs --output-json outputs/ranking_results.json
 ```
 
-## 3. Da co API cho web goi chua?
+API service chay bang:
 
-Chua co HTTP API service.
-
-Nghia la hien tai web PHP **chua the goi kieu REST API** nhu:
-
-```text
-POST http://localhost:8000/screening
+```bash
+cd C:\SEMANTIC_SKILLS_RESUME
+C:\SEMANTIC_SKILLS_RESUME\.venv\Scripts\uvicorn.exe api:app --host 127.0.0.1 --port 8000
 ```
 
-Hien tai web co the tich hop bang cach:
+## 3. Da co API cho web goi chua?
+
+Da co FastAPI HTTP API service.
+
+Web PHP co the goi:
+
+```text
+POST http://127.0.0.1:8000/screening
+```
+
+Health check:
+
+```text
+GET http://127.0.0.1:8000/health
+```
+
+Flow API khuyen nghi:
 
 ```text
 PHP
-  -> tao file JD .txt va cac file CV .txt tam
-  -> goi Python CLI
-  -> doc file JSON output
+  -> build JSON payload tu job va candidates
+  -> POST /screening
+  -> nhan ranking JSON
   -> luu ket qua vao database
   -> hien thi len UI
 ```
 
-Neu muon goi API that, can lam them mot phase backend Python:
-
-```text
-FastAPI / Flask service
-  -> POST /screening
-  -> nhan JSON payload tu PHP
-  -> tra ve ranking JSON
-```
-
 ## 4. Huong tich hop khuyen nghi cho MVP
 
-Nen lam theo 2 buoc:
+Nen lam theo thu tu:
 
-### Buoc 1 - Tich hop nhanh bang CLI
+### Buoc 1 - Tich hop bang API
 
-Dung PHP goi Python CLI de co chuc nang AI ranking chay duoc trong web.
+Dung PHP `curl` de goi:
 
-Uu diem:
-
-- Nhanh.
-- Khong can viet API ngay.
-- Dung duoc code AI hien tai.
-- Phu hop demo.
-
-Nhuoc diem:
-
-- PHP phai quan ly file tam.
-- Can xu ly duong dan Windows can than.
-- Khong dep bang HTTP API service.
-
-### Buoc 2 - Nang cap thanh API service
-
-Sau khi CLI integration on, tao FastAPI service de web goi bang JSON.
+```text
+POST http://127.0.0.1:8000/screening
+```
 
 Uu diem:
 
-- Sach hon.
-- De maintain.
-- De deploy rieng.
-- Web khong can tao file tam qua nhieu.
+- Sach hon CLI.
+- Khong can tao JD/CV file tam.
+- Web gui structured JSON truc tiep.
+- De debug bang Postman/cURL.
+- De nang cap deployment sau nay.
 
-## 5. Flow tich hop bang CLI
+### Buoc 2 - Giu CLI lam fallback
+
+Neu chua muon chay API server, van co the dung PHP goi Python CLI.
+
+CLI fallback phu hop khi:
+
+- Demo nhanh.
+- Chua setup `uvicorn`.
+- Muon debug pipeline bang file `.txt`.
+
+## 5. Flow tich hop bang API
 
 Khi employer vao:
 
@@ -126,15 +131,13 @@ Web nen chay flow:
 1. Validate employer co quyen voi job_id.
 2. Query thong tin job.
 3. Query danh sach applications/candidates cua job.
-4. Build JD text.
-5. Build CV text cho tung ung vien.
-6. Ghi JD text vao file tam jd.txt.
-7. Ghi moi CV text vao 1 file .txt trong folder cvs/.
-8. Goi Python CLI voi --jd, --cv-dir, --output-json.
-9. Doc JSON output.
-10. Map ket qua AI ve application_id.
-11. Luu ket qua AI vao database.
-12. Redirect/render lai trang danh sach ung vien voi AI rank/score.
+4. Build job payload.
+5. Build candidate payloads.
+6. POST JSON toi http://127.0.0.1:8000/screening.
+7. Nhan ranking JSON.
+8. Map ket qua AI ve application_id.
+9. Luu ket qua AI vao database.
+10. Redirect/render lai trang danh sach ung vien voi AI rank/score.
 ```
 
 ## 6. Thu muc runtime de xuat
@@ -282,9 +285,60 @@ Image
 
 MVP nen uu tien CV online/structured hoac text da extract.
 
-## 10. Goi Python CLI tu PHP
+## 10. Goi Python API tu PHP
 
 Vi du PHP pseudo-code:
+
+```php
+<?php
+
+$payload = [
+    'job' => [
+        'job_id' => 10,
+        'job_title' => 'Backend Java Developer',
+        'requirements' => ['Java', 'Spring Boot', 'REST API', 'SQL'],
+        'nice_to_have' => ['AWS', 'Kafka'],
+        'responsibilities' => ['Build RESTful APIs.'],
+    ],
+    'candidates' => [
+        [
+            'application_id' => 123,
+            'candidate_id' => 456,
+            'candidate_name' => 'Nguyen Van A',
+            'email' => 'candidate@example.com',
+            'cv_text' => $cvText,
+        ],
+    ],
+];
+
+$ch = curl_init('http://127.0.0.1:8000/screening');
+curl_setopt($ch, CURLOPT_POST, true);
+curl_setopt($ch, CURLOPT_HTTPHEADER, ['Content-Type: application/json']);
+curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($payload, JSON_UNESCAPED_UNICODE));
+curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+
+$response = curl_exec($ch);
+$httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+$curlError = curl_error($ch);
+curl_close($ch);
+
+if ($response === false || $httpCode >= 400) {
+    throw new RuntimeException("AI API failed: HTTP {$httpCode} {$curlError} {$response}");
+}
+
+$result = json_decode($response, true);
+```
+
+Luu y:
+
+- Can chay API server truoc bang `uvicorn api:app --host 127.0.0.1 --port 8000`.
+- Nen set timeout cho cURL neu production.
+- Nen log HTTP status va response body khi loi.
+- `application_id` trong response dung de map ket qua ve application DB.
+
+## 10.1 CLI fallback neu chua dung API
+
+Neu chua chay API server, van co the goi CLI:
 
 ```php
 <?php
@@ -295,7 +349,6 @@ function quote_path(string $path): string {
 
 $python = 'C:\\SEMANTIC_SKILLS_RESUME\\.venv\\Scripts\\python.exe';
 $main = 'C:\\SEMANTIC_SKILLS_RESUME\\main.py';
-
 $jdPath = 'C:\\topcv_ai_runtime\\job-10\\run-20260607-153000\\jd.txt';
 $cvDir = 'C:\\topcv_ai_runtime\\job-10\\run-20260607-153000\\cvs';
 $outputJson = 'C:\\topcv_ai_runtime\\job-10\\run-20260607-153000\\ranking_results.json';
@@ -314,13 +367,6 @@ if ($exitCode !== 0) {
 
 $result = json_decode(file_get_contents($outputJson), true);
 ```
-
-Luu y:
-
-- Luon quote path vi Windows path co dau `\`.
-- Nen redirect stderr `2>&1` de debug loi Python.
-- Nen set timeout neu dung process runner rieng.
-- Nen log command output khi loi.
 
 ## 11. Database luu ket qua AI
 
@@ -396,6 +442,9 @@ Web can xu ly cac truong hop:
 - Job thieu requirement/JD text.
 - Khong co ung vien.
 - Ung vien khong co CV text.
+- API server chua chay.
+- API tra HTTP 400/422.
+- cURL fail.
 - Python path sai.
 - `.venv` chua cai dependency.
 - AI command fail.
@@ -413,10 +462,9 @@ Va log loi ky thuat vao file log.
 ## 14. Checklist de Cursor lam tren web
 
 - Tao config duong dan AI.
-- Tao helper build JD text.
-- Tao helper build CV text.
-- Tao helper goi Python CLI.
-- Tao runtime folder cho tung job/run.
+- Tao helper build job payload.
+- Tao helper build candidate payload.
+- Tao helper goi Python API bang cURL.
 - Tao endpoint/action `run_ai_screening.php`.
 - Them nut tren `job_candidates.php`.
 - Luu ket qua AI vao DB.
@@ -424,20 +472,12 @@ Va log loi ky thuat vao file log.
 - Tao modal/page hien review card.
 - Them error handling va permission check.
 
-## 15. Khi nao can lam API service?
+## 15. API request/response tom tat
 
-Nen lam API service khi:
-
-- Muon web goi AI bang HTTP JSON thay vi CLI.
-- Muon deploy AI rieng.
-- Muon nhieu web/client goi chung AI.
-- Muon giam file tam.
-- Muon queue/background job sau nay.
-
-API de xuat:
+Endpoint:
 
 ```text
-POST /screening
+POST http://127.0.0.1:8000/screening
 Content-Type: application/json
 
 {
@@ -457,26 +497,24 @@ Response:
 
 ## 16. Ket luan
 
-Hien tai da du de web PHP tich hop theo cach **goi Python CLI**.
-
-Chua du de web goi theo cach **HTTP API**, vi AI project chua co FastAPI/Flask server.
+Hien tai da du de web PHP tich hop theo cach **HTTP API**.
 
 Huong nen lam ngay:
 
 ```text
 PHP web
-  -> build JD/CV text
-  -> write temp .txt files
-  -> call Python CLI
-  -> read ranking_results.json
+  -> build job/candidate JSON
+  -> POST to Python FastAPI
+  -> receive ranking JSON
   -> save DB
   -> show AI ranking
 ```
 
-Huong nang cap sau:
+CLI van co the giu lam fallback:
 
 ```text
 PHP web
-  -> POST JSON to Python FastAPI
-  -> receive ranking JSON
+  -> build JD/CV text files
+  -> call Python CLI
+  -> read ranking_results.json
 ```
