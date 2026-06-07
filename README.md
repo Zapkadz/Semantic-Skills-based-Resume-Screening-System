@@ -11,10 +11,10 @@ The project does not train a recruitment model from scratch. The MVP starts with
 The project is currently in:
 
 ```text
-Phase 09 - Explainable Review Card
+Phase 10 - CLI Pipeline and Output
 ```
 
-This phase adds explainable review cards for scored candidates. It turns scoring output into recruiter-friendly summaries, score breakdowns, strengths, concerns, evidence highlights, and suggested interview questions.
+This phase connects the implemented modules into a runnable CLI pipeline for one job description and a directory of text resumes. It can print ranking summaries and optionally save JSON results and Markdown review cards.
 
 ## Planned Processing Flow
 
@@ -89,20 +89,42 @@ Included:
 - Markdown formatter for review cards.
 - Rule-based strengths, concerns, evidence highlights, and interview questions.
 - Unit tests for review card structure, Markdown output, and demo pipeline explanation.
+- End-to-end screening pipeline.
+- CLI arguments for JD path, CV directory, taxonomy path, JSON output, Markdown report output, and review card display.
+- JSON ranking result writer.
+- Markdown review card writer.
+- Unit tests for pipeline output, file saving, and CLI behavior.
 
 Not included yet:
 
-- Full CLI pipeline.
 - Full Streamlit UI.
 
-## Run Minimal CLI
+## Run CLI Pipeline
 
 ```bash
 python main.py --help
-python main.py
+python main.py --jd data/jobs/jd_backend_java.txt --cv-dir data/cvs
 ```
 
-Expected behavior in Phase 09: the command confirms that the foundation is ready. The document loader, parsers, normalizer, matchers, evidence detector, scorer, and review card generator are tested separately and are not wired into the CLI flow yet.
+Expected behavior in Phase 10: the command runs the full text-based screening pipeline and prints a ranking summary.
+
+Save full JSON output:
+
+```bash
+python main.py --jd data/jobs/jd_backend_java.txt --cv-dir data/cvs --output-json outputs/ranking_results.json
+```
+
+Save Markdown review cards:
+
+```bash
+python main.py --jd data/jobs/jd_backend_java.txt --cv-dir data/cvs --output-dir outputs/reports
+```
+
+Print review cards in the terminal:
+
+```bash
+python main.py --jd data/jobs/jd_backend_java.txt --cv-dir data/cvs --show-review-cards
+```
 
 ## Run Document Loader Tests
 
@@ -204,7 +226,7 @@ Then run:
 streamlit run app.py
 ```
 
-In Phase 09, the app still shows a placeholder page because the functional UI is planned for a later phase.
+In Phase 10, the app still shows a placeholder page because the functional UI is planned for a later phase.
 
 ## Development Workflow
 
@@ -221,7 +243,7 @@ Work is organized by phase. Each phase should have:
 The next planned phase is:
 
 ```text
-Phase 10 - CLI Pipeline and Output
+Phase 11 - Streamlit UI
 ```
 
-That phase will connect the existing modules into a runnable CLI flow for one JD and a CV directory, then print or save ranking results and review cards.
+That phase will turn the working pipeline into a simple interactive Streamlit app for uploading or selecting JD/CV text files and viewing rankings/review cards.
