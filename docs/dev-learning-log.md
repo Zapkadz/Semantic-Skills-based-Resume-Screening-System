@@ -1269,3 +1269,193 @@ python -c "from src.document_loader import load_text_file; from src.resume_parse
 ### 11. Ghi chu cho bao cao
 
 Explainable Review Card bien ket qua scoring thanh dau ra co kha nang giai thich. He thong hien thi diem tong, score breakdown, strengths, concerns, evidence snippets va cau hoi phong van goi y. Cach lam nay giup recruiter hieu ly do xep hang va giu vai tro cua he thong la cong cu ho tro ra quyet dinh, khong phai tu dong tuyen dung hay loai ung vien.
+
+## [2026-06-07] Phase 10 - CLI Pipeline and Output
+
+### 1. Boi canh
+
+Du an dang o Phase 10 - CLI Pipeline and Output. Phase 09 da co review card generator, nhung nguoi dung van phai chay cac lenh `python -c` dai de test tung buoc.
+
+Muc tieu Phase 10 la ket noi cac module da co thanh mot CLI pipeline chay dau-cuoi.
+
+### 2. Van de / chuc nang
+
+Da tao:
+
+- `src/screening_pipeline.py`
+- `tests/test_screening_pipeline.py`
+- `tests/test_main.py`
+
+Da cap nhat:
+
+- `main.py`
+
+Pipeline ho tro:
+
+- Load JD `.txt`.
+- Load nhieu CV `.txt` trong folder.
+- Parse JD/CV.
+- Normalize skill.
+- Match must-have skills.
+- Match nice-to-have skills.
+- Detect evidence.
+- Score candidate.
+- Rank candidates.
+- Generate review card.
+- Print ranking summary.
+- Save JSON result.
+- Save Markdown review cards.
+
+### 3. Vi sao can lam
+
+Truoc Phase 10, cac module da dung rieng nhung chua thanh ung dung co the demo bang mot lenh ngan.
+
+CLI pipeline giup nguoi dung chay:
+
+```bash
+python main.py --jd data/jobs/jd_backend_java.txt --cv-dir data/cvs
+```
+
+Va nhan ranking summary ngay trong terminal.
+
+### 4. Nguyen nhan / logic nen tang
+
+Logic duoc tach thanh hai lop:
+
+- `src/screening_pipeline.py`: orchestration/business flow.
+- `main.py`: CLI adapter.
+
+Cach tach nay giup:
+
+- Pipeline test duoc truc tiep.
+- Streamlit UI sau nay co the goi lai pipeline.
+- `main.py` khong bi phinh to.
+- Save file va print terminal khong tron vao logic scoring/matching.
+
+### 5. Cach xu ly
+
+`run_screening_pipeline(jd_path, cv_dir, taxonomy_path)` tra ve:
+
+```python
+{
+    "job": {
+        "title": "Backend Java Developer",
+        "must_have_skills": [...],
+        "nice_to_have_skills": [...],
+        "minimum_experience_years": 1,
+        "seniority": "Junior",
+        "domain": [...]
+    },
+    "candidates": [
+        {
+            "rank": 1,
+            "candidate_name": "Nguyen Van A",
+            "final_score": 87,
+            "recommendation": "Strong Review",
+            "review_card": {...}
+        }
+    ]
+}
+```
+
+`main.py` nhan cac tham so:
+
+- `--jd`
+- `--cv-dir`
+- `--taxonomy`
+- `--output-json`
+- `--output-dir`
+- `--show-review-cards`
+
+Output runtime nhu JSON va Markdown reports nam trong `outputs/`, da duoc `.gitignore`, nen khong commit ket qua sinh ra.
+
+### 6. File da thay doi
+
+- `main.py`
+- `src/screening_pipeline.py`
+- `tests/test_screening_pipeline.py`
+- `tests/test_main.py`
+- `README.md`
+- `docs/dev-learning-log.md`
+- `docs/phases/phase-10-cli-pipeline-output.md`
+
+### 7. Input / Output can nho
+
+Input CLI:
+
+```bash
+python main.py --jd data/jobs/jd_backend_java.txt --cv-dir data/cvs
+```
+
+Output terminal:
+
+```text
+Semantic Skills-based Resume Screening System
+Phase 10 - CLI Pipeline and Output
+
+Job: Backend Java Developer
+Candidates analyzed: 1
+
+Ranking:
+1. Nguyen Van A - 87/100 - Strong Review
+```
+
+Save JSON:
+
+```bash
+python main.py --jd data/jobs/jd_backend_java.txt --cv-dir data/cvs --output-json outputs/ranking_results.json
+```
+
+Save Markdown review card:
+
+```bash
+python main.py --jd data/jobs/jd_backend_java.txt --cv-dir data/cvs --output-dir outputs/reports
+```
+
+### 8. Cach test
+
+Chay:
+
+```bash
+pytest
+```
+
+Test CLI mac dinh:
+
+```bash
+python main.py --jd data/jobs/jd_backend_java.txt --cv-dir data/cvs
+```
+
+Test in review card:
+
+```bash
+python main.py --jd data/jobs/jd_backend_java.txt --cv-dir data/cvs --show-review-cards
+```
+
+Test save output:
+
+```bash
+python main.py --jd data/jobs/jd_backend_java.txt --cv-dir data/cvs --output-json outputs/ranking_results.json --output-dir outputs/reports
+```
+
+### 9. Ket qua mong doi
+
+- `pytest` pass.
+- CLI in duoc job title.
+- CLI in duoc so ung vien da analyze.
+- Demo CV co rank 1.
+- Demo CV co score 87 va recommendation `Strong Review`.
+- JSON output duoc tao neu truyen `--output-json`.
+- Markdown review card duoc tao neu truyen `--output-dir`.
+
+### 10. Loi thuong gap
+
+- Chay `python main.py` khong co `--jd` va `--cv-dir` se bi argparse bao thieu tham so.
+- Dung sai duong dan JD/CV/taxonomy se co validation error tu loader.
+- Thu muc CV khong co file `.txt` thi ranking rong.
+- Runtime output trong `outputs/` khong hien trong git vi da ignore.
+- Khong nen viet lai scoring/review logic trong `main.py`.
+
+### 11. Ghi chu cho bao cao
+
+CLI Pipeline and Output la buoc tich hop cac thanh phan cua he thong thanh mot flow co the chay thuc te. Tu mot JD va thu muc CV, he thong tu dong parse, normalize, match, detect evidence, score, rank va generate review card. Viec tach pipeline khoi CLI giup he thong de test va san sang mo rong sang giao dien Streamlit.
