@@ -44,6 +44,7 @@ def generate_review_card(
         score_breakdown,
         missing_skills,
         nice_to_have_matches,
+        matched_skills,
     )
     interview_questions = build_interview_questions(
         evidence_highlights,
@@ -232,9 +233,11 @@ def build_concerns(
     score_breakdown: dict[str, float],
     missing_skills: list[str],
     nice_to_have_matches: list[dict[str, Any]],
+    matched_skills: list[dict[str, Any]] | None = None,
 ) -> list[str]:
     """Build rule-based concerns from missing skills and low score components."""
     concerns: list[str] = []
+    matched_skills = matched_skills or []
 
     if missing_skills:
         concerns.append(
@@ -262,6 +265,20 @@ def build_concerns(
     if nice_to_have_gaps:
         concerns.append(
             f"Optional nice-to-have gaps: {_join_readable_list(nice_to_have_gaps)}."
+        )
+
+    semantic_only_requirements = [
+        str(match.get("required_skill", "")).strip()
+        for match in matched_skills
+        if match.get("match_type") == "semantic_only_match"
+        and str(match.get("required_skill", "")).strip()
+    ]
+    if semantic_only_requirements:
+        concerns.append(
+            (
+                "Some requirements were evaluated with semantic-only evidence "
+                f"outside the taxonomy: {_join_readable_list(semantic_only_requirements)}."
+            )
         )
 
     if not concerns:

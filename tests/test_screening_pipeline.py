@@ -22,6 +22,13 @@ def test_run_screening_pipeline_returns_ranked_demo_result(tmp_path: Path) -> No
         "minimum_experience_years": 1,
         "seniority": "Junior",
         "domain": ["Backend", "Web Application"],
+        "taxonomy_coverage": {
+            "known_count": 5,
+            "unknown_count": 0,
+            "coverage_ratio": 1.0,
+            "known_requirements": ["Java", "Spring Boot", "REST API", "SQL", "Docker"],
+            "unknown_requirements": [],
+        },
     }
     assert len(result["candidates"]) == 1
 

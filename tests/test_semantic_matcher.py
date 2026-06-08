@@ -24,6 +24,16 @@ class FakeEmbeddingModel:
         return [vectors[text] for text in texts]
 
 
+class FakeMultilingualEmbeddingModel:
+    def encode(self, texts: list[str]) -> list[list[float]]:
+        vectors = {
+            "identity verification": [1.0, 0.0],
+            "digital identity verification": [0.96, 0.04],
+            "payroll processing": [0.0, 1.0],
+        }
+        return [vectors[text] for text in texts]
+
+
 def test_match_skills_returns_exact_match() -> None:
     taxonomy = load_taxonomy(TAXONOMY_PATH)
 
@@ -252,5 +262,30 @@ def test_match_skills_falls_back_to_no_match_when_embedding_unavailable() -> Non
             "candidate_skill": None,
             "match_type": "no_match",
             "score": 0.0,
+        }
+    ]
+
+
+def test_match_skills_uses_multilingual_embedding_for_unknown_skill_phrases() -> None:
+    taxonomy = load_taxonomy(TAXONOMY_PATH)
+    embedding_matcher = SemanticEmbeddingMatcher(
+        model=FakeMultilingualEmbeddingModel(),
+        threshold=0.70,
+    )
+
+    matches = match_skills(
+        ["identity verification"],
+        ["payroll processing", "digital identity verification"],
+        taxonomy,
+        embedding_matcher=embedding_matcher,
+    )
+
+    assert matches == [
+        {
+            "required_skill": "identity verification",
+            "candidate_skill": "digital identity verification",
+            "match_type": "semantic_match",
+            "score": 0.85,
+            "similarity": 0.9991,
         }
     ]

@@ -3,7 +3,14 @@
 from __future__ import annotations
 
 import argparse
+import sys
 
+from src.embedding_matcher import (
+    DEFAULT_EMBEDDING_MODEL,
+    DEFAULT_SEMANTIC_THRESHOLD,
+    build_embedding_matcher,
+)
+from src.review_card_generator import format_review_card_markdown
 from src.screening_pipeline import (
     DEFAULT_TAXONOMY_PATH,
     format_ranking_summary,
@@ -11,7 +18,6 @@ from src.screening_pipeline import (
     save_pipeline_result_json,
     save_review_cards,
 )
-from src.review_card_generator import format_review_card_markdown
 
 
 PROJECT_NAME = "Semantic Skills-based Resume Screening System"
@@ -29,7 +35,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--version",
         action="version",
-        version="semantic-skills-resume-screening 0.10.0-cli-pipeline",
+        version="semantic-skills-resume-screening 0.14.0-open-set-requirement-matching",
     )
     parser.add_argument(
         "--jd",
@@ -59,19 +65,54 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Print Markdown review cards after the ranking summary.",
     )
+    parser.add_argument(
+        "--enable-embedding",
+        action="store_true",
+        help=(
+            "Enable optional local multilingual embedding semantic matching. "
+            "The pipeline falls back to rule-based matching if the model is unavailable."
+        ),
+    )
+    parser.add_argument(
+        "--embedding-model",
+        default=DEFAULT_EMBEDDING_MODEL,
+        help=f"Embedding model name. Default: {DEFAULT_EMBEDDING_MODEL}",
+    )
+    parser.add_argument(
+        "--embedding-threshold",
+        type=float,
+        default=DEFAULT_SEMANTIC_THRESHOLD,
+        help=f"Semantic match threshold. Default: {DEFAULT_SEMANTIC_THRESHOLD}",
+    )
+    parser.add_argument(
+        "--embedding-local-only",
+        action="store_true",
+        help=(
+            "Load the embedding model from the local Hugging Face cache only. "
+            "Use this after pre-downloading the model for offline or stable demos."
+        ),
+    )
     return parser
 
 
 def main(argv: list[str] | None = None) -> int:
     """Run the CLI screening pipeline."""
+    _configure_terminal_encoding()
     parser = build_parser()
     args = parser.parse_args(argv)
+    embedding_matcher = build_embedding_matcher(
+        enabled=args.enable_embedding,
+        model_name=args.embedding_model,
+        threshold=args.embedding_threshold,
+        local_files_only=args.embedding_local_only,
+    )
 
     try:
         result = run_screening_pipeline(
             jd_path=args.jd,
             cv_dir=args.cv_dir,
             taxonomy_path=args.taxonomy,
+            embedding_matcher=embedding_matcher,
         )
     except (FileNotFoundError, IsADirectoryError, NotADirectoryError, ValueError) as exc:
         parser.error(str(exc))
@@ -98,6 +139,19 @@ def _print_review_cards(result: dict) -> None:
         review_card = candidate.get("review_card", {})
         print("\n---")
         print(format_review_card_markdown(review_card))
+
+
+def _configure_terminal_encoding() -> None:
+    """Prefer UTF-8 terminal output for Vietnamese candidate names."""
+    for stream in (sys.stdout, sys.stderr):
+        reconfigure = getattr(stream, "reconfigure", None)
+        if not callable(reconfigure):
+            continue
+
+        try:
+            reconfigure(encoding="utf-8")
+        except (AttributeError, ValueError):
+            continue
 
 
 if __name__ == "__main__":

@@ -1,0 +1,250 @@
+"""Open-set requirement matching for skills outside the taxonomy."""
+
+from __future__ import annotations
+
+from typing import Any
+
+from src.embedding_matcher import SemanticEmbeddingMatcher
+from src.evidence_detector import (
+    calculate_candidate_evidence_level,
+    collect_evidence_candidates,
+)
+from src.skill_extractor import extract_taxonomy_skills_from_text, merge_skill_lists
+from src.skill_normalizer import normalize_skills
+from src.skill_taxonomy import make_lookup_key
+from src.text_normalization import normalize_search_text
+
+
+DEFAULT_OPEN_SET_SIMILARITY_THRESHOLD = 0.74
+OPEN_SET_MATCH_SCORE = 0.65
+SEMANTIC_ONLY_MATCH_TYPE = "semantic_only_match"
+NO_SEMANTIC_EVIDENCE_MATCH_TYPE = "no_semantic_evidence"
+UNKNOWN_TAXONOMY_STATUS = "unknown"
+
+MAX_UNKNOWN_REQUIREMENT_WORDS = 10
+MAX_UNKNOWN_REQUIREMENT_LENGTH = 120
+MIN_EVIDENCE_TEXT_LENGTH = 4
+
+
+def split_known_and_unknown_requirements(
+    raw_requirements: list[str],
+    known_skills: list[str],
+    taxonomy: dict[str, dict[str, Any]],
+) -> dict[str, list[str]]:
+    """Split parsed JD requirements into known taxonomy skills and unknown items."""
+    normalized_requirements = normalize_skills(raw_requirements, taxonomy)
+    known_requirement_keys = {make_lookup_key(skill) for skill in known_skills}
+    unknown_requirements: list[str] = []
+
+    for raw_requirement, normalized_requirement in zip(
+        raw_requirements,
+        normalized_requirements,
+    ):
+        if not normalized_requirement:
+            continue
+
+        requirement_key = make_lookup_key(normalized_requirement)
+        if normalized_requirement in taxonomy or requirement_key in known_requirement_keys:
+            continue
+
+        extracted_skills = extract_taxonomy_skills_from_text(raw_requirement, taxonomy)
+        if _is_covered_by_known_skills(extracted_skills, known_requirement_keys):
+            continue
+
+        if not _looks_like_unknown_requirement(normalized_requirement):
+            continue
+
+        unknown_requirements = merge_skill_lists(
+            unknown_requirements,
+            [normalized_requirement],
+        )
+
+    return {
+        "known_requirements": list(known_skills),
+        "unknown_requirements": unknown_requirements,
+    }
+
+
+def build_taxonomy_coverage(
+    known_requirements: list[str],
+    unknown_requirements: list[str],
+) -> dict[str, Any]:
+    """Build an explainable taxonomy coverage summary for one JD."""
+    known_count = len(known_requirements)
+    unknown_count = len(unknown_requirements)
+    total_count = known_count + unknown_count
+    coverage_ratio = 1.0 if total_count == 0 else round(known_count / total_count, 4)
+
+    return {
+        "known_count": known_count,
+        "unknown_count": unknown_count,
+        "coverage_ratio": coverage_ratio,
+        "known_requirements": list(known_requirements),
+        "unknown_requirements": list(unknown_requirements),
+    }
+
+
+def find_semantic_requirement_evidence(
+    unknown_requirements: list[str],
+    resume_profile: dict[str, Any],
+    embedding_matcher: SemanticEmbeddingMatcher | None,
+    threshold: float = DEFAULT_OPEN_SET_SIMILARITY_THRESHOLD,
+) -> list[dict[str, Any]]:
+    """Match unknown JD requirements against resume evidence sentences."""
+    if not unknown_requirements or embedding_matcher is None:
+        return []
+
+    evidence_candidates = _collect_open_set_evidence_candidates(resume_profile)
+    if not evidence_candidates:
+        return [
+            _build_no_semantic_evidence_match(requirement)
+            for requirement in unknown_requirements
+        ]
+
+    evidence_texts = [candidate["text"] for candidate in evidence_candidates]
+    similarities = embedding_matcher.similarity_matrix(
+        unknown_requirements,
+        evidence_texts,
+    )
+    if similarities is None:
+        return []
+
+    matches: list[dict[str, Any]] = []
+    for requirement, requirement_similarities in zip(
+        unknown_requirements,
+        similarities,
+    ):
+        best_candidate = _best_evidence_candidate(
+            requirement_similarities,
+            evidence_candidates,
+        )
+        if best_candidate is None or best_candidate["similarity"] < threshold:
+            matches.append(_build_no_semantic_evidence_match(requirement))
+            continue
+
+        matches.append(
+            _build_semantic_only_match(
+                requirement,
+                best_candidate,
+            )
+        )
+
+    return matches
+
+
+def _is_covered_by_known_skills(
+    extracted_skills: list[str],
+    known_requirement_keys: set[str],
+) -> bool:
+    """Return True when a raw requirement is already represented by known skills."""
+    if not extracted_skills:
+        return False
+
+    extracted_keys = {make_lookup_key(skill) for skill in extracted_skills}
+    return bool(extracted_keys & known_requirement_keys)
+
+
+def _looks_like_unknown_requirement(value: str) -> bool:
+    """Keep concise requirement labels and avoid broad paragraphs."""
+    clean_value = value.strip()
+    if not clean_value:
+        return False
+    if clean_value.rstrip().endswith(":"):
+        return False
+
+    words = clean_value.split()
+    if len(words) > MAX_UNKNOWN_REQUIREMENT_WORDS:
+        return False
+    if len(clean_value) > MAX_UNKNOWN_REQUIREMENT_LENGTH:
+        return False
+
+    normalized_value = normalize_search_text(clean_value)
+    if any(
+        keyword in normalized_value
+        for keyword in (
+            "year experience",
+            "years experience",
+            "kinh nghiem",
+            "responsible for",
+            "collaborate with",
+        )
+    ):
+        return False
+
+    return True
+
+
+def _collect_open_set_evidence_candidates(
+    resume_profile: dict[str, Any],
+) -> list[dict[str, str]]:
+    """Collect evidence candidates suitable for semantic requirement matching."""
+    candidates = collect_evidence_candidates(resume_profile)
+    filtered_candidates: list[dict[str, str]] = []
+    seen_texts: set[str] = set()
+
+    for candidate in candidates:
+        text = candidate["text"].strip()
+        if len(text) < MIN_EVIDENCE_TEXT_LENGTH:
+            continue
+
+        normalized_text = normalize_search_text(text)
+        if normalized_text in seen_texts:
+            continue
+
+        seen_texts.add(normalized_text)
+        filtered_candidates.append(candidate)
+
+    return filtered_candidates
+
+
+def _best_evidence_candidate(
+    similarities: list[float],
+    evidence_candidates: list[dict[str, str]],
+) -> dict[str, Any] | None:
+    """Return the evidence candidate with the highest semantic similarity."""
+    best_candidate: dict[str, Any] | None = None
+    best_similarity: float | None = None
+
+    for similarity, candidate in zip(similarities, evidence_candidates):
+        if best_similarity is None or similarity > best_similarity:
+            best_similarity = similarity
+            best_candidate = {
+                **candidate,
+                "similarity": round(similarity, 4),
+            }
+
+    return best_candidate
+
+
+def _build_semantic_only_match(
+    requirement: str,
+    evidence_candidate: dict[str, Any],
+) -> dict[str, Any]:
+    """Build a scored semantic-only match for an unknown requirement."""
+    evidence_level = calculate_candidate_evidence_level(evidence_candidate)
+    return {
+        "required_skill": requirement,
+        "candidate_skill": None,
+        "match_type": SEMANTIC_ONLY_MATCH_TYPE,
+        "taxonomy_status": UNKNOWN_TAXONOMY_STATUS,
+        "score": OPEN_SET_MATCH_SCORE,
+        "similarity": evidence_candidate["similarity"],
+        "evidence_level": evidence_level,
+        "evidence_text": evidence_candidate["text"],
+        "evidence_source": evidence_candidate["source"],
+    }
+
+
+def _build_no_semantic_evidence_match(requirement: str) -> dict[str, Any]:
+    """Build an unmatched open-set requirement result."""
+    return {
+        "required_skill": requirement,
+        "candidate_skill": None,
+        "match_type": NO_SEMANTIC_EVIDENCE_MATCH_TYPE,
+        "taxonomy_status": UNKNOWN_TAXONOMY_STATUS,
+        "score": 0.0,
+        "similarity": None,
+        "evidence_level": 0,
+        "evidence_text": "",
+        "evidence_source": "none",
+    }

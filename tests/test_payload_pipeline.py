@@ -5,6 +5,18 @@ from src.payload_pipeline import (
     build_jd_text_from_payload,
     run_screening_payload,
 )
+from src.embedding_matcher import SemanticEmbeddingMatcher
+
+
+class FakeMultilingualEmbeddingModel:
+    def encode(self, texts: list[str]) -> list[list[float]]:
+        vectors = {
+            "identity verification": [1.0, 0.0],
+            "digital identity verification": [0.96, 0.04],
+            "eKYC": [0.90, 0.10],
+            "Identity Engineer": [0.0, 1.0],
+        }
+        return [vectors.get(text, [0.0, 1.0]) for text in texts]
 
 
 def test_build_jd_text_from_payload_uses_structured_sections() -> None:
@@ -132,6 +144,13 @@ def test_run_screening_payload_returns_ranked_candidates_with_web_ids() -> None:
         "SQL",
         "Docker",
     ]
+    assert result["job"]["taxonomy_coverage"] == {
+        "known_count": 5,
+        "unknown_count": 0,
+        "coverage_ratio": 1.0,
+        "known_requirements": ["Java", "Spring Boot", "REST API", "SQL", "Docker"],
+        "unknown_requirements": [],
+    }
 
     candidate = result["candidates"][0]
     assert candidate["rank"] == 1
@@ -215,6 +234,52 @@ def test_run_screening_payload_matches_english_jd_with_vietnamese_cv() -> None:
         ("Anti-Spoofing", 3),
         ("Python", 1),
     ]
+
+
+def test_run_screening_payload_can_use_injected_multilingual_embedding_matcher() -> None:
+    embedding_matcher = SemanticEmbeddingMatcher(
+        model=FakeMultilingualEmbeddingModel(),
+        threshold=0.70,
+    )
+    payload = {
+        "job": {
+            "job_id": 30,
+            "job_title": "Identity Platform Specialist",
+            "requirements": ["identity verification"],
+        },
+        "candidates": [
+            {
+                "application_id": 777,
+                "candidate_name": "Digital ID Candidate",
+                "cv_text": (
+                    "Digital ID Candidate\n"
+                    "Identity Engineer\n"
+                    "\n"
+                    "Skills:\n"
+                    "- digital identity verification"
+                ),
+            }
+        ],
+    }
+
+    result = run_screening_payload(payload, embedding_matcher=embedding_matcher)
+
+    match = result["candidates"][0]["matched_skills"][0]
+    assert match["required_skill"] == "identity verification"
+    assert match["candidate_skill"] is None
+    assert match["match_type"] == "semantic_only_match"
+    assert match["taxonomy_status"] == "unknown"
+    assert match["evidence_text"] == "digital identity verification"
+    assert match["evidence_source"] == "skills"
+    assert match["similarity"] == 0.9991
+    assert result["job"]["must_have_skills"] == []
+    assert result["job"]["taxonomy_coverage"] == {
+        "known_count": 0,
+        "unknown_count": 1,
+        "coverage_ratio": 0.0,
+        "known_requirements": [],
+        "unknown_requirements": ["identity verification"],
+    }
 
 
 def _demo_screening_payload() -> dict:

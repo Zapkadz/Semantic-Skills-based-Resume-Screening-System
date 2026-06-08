@@ -140,6 +140,34 @@ def test_format_review_card_markdown_returns_readable_sections() -> None:
     ) in markdown
 
 
+def test_generate_review_card_flags_semantic_only_unknown_requirements() -> None:
+    candidate_result = _sample_candidate_result()
+    candidate_result["matched_skills"].append(
+        {
+            "required_skill": "carbon footprint analysis",
+            "candidate_skill": None,
+            "match_type": "semantic_only_match",
+            "taxonomy_status": "unknown",
+            "score": 0.65,
+            "similarity": 0.8421,
+            "evidence_level": 3,
+            "evidence_text": "Built carbon emission reports for ESG audits.",
+            "evidence_source": "projects",
+        }
+    )
+
+    card = generate_review_card(candidate_result, {"job_title": "ESG Analyst"})
+
+    assert (
+        "Some requirements were evaluated with semantic-only evidence outside "
+        "the taxonomy: carbon footprint analysis."
+    ) in card["concerns"]
+    assert any(
+        highlight["match_type"] == "semantic_only_match"
+        for highlight in card["evidence_highlights"]
+    )
+
+
 def test_demo_pipeline_generates_explainable_review_card() -> None:
     taxonomy = load_taxonomy(TAXONOMY_PATH)
     profile = parse_resume(load_text_file("data/cvs/cv_strong.txt"))
