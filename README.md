@@ -11,10 +11,10 @@ The project does not train a recruitment model from scratch. The MVP starts with
 The project is currently in:
 
 ```text
-Phase 12 - Vietnamese-English Parser, Taxonomy, and Evidence Foundation
+Phase 13 - Local Multilingual Embedding
 ```
 
-This phase improves Vietnamese-English JD/CV handling before adding multilingual embeddings. The CLI and FastAPI API remain available with the same interfaces.
+This phase adds optional local multilingual embedding support on top of the explainable rule-based, taxonomy, and evidence pipeline. The CLI and FastAPI API remain available with the same default interfaces.
 
 ## Planned Processing Flow
 
@@ -109,11 +109,16 @@ Included:
 - Vietnamese action verbs for evidence detection.
 - AI/Computer Vision/eKYC/Mobile AI domain detection.
 - Unit tests for bilingual parsing, skill extraction, Vietnamese aliases, and evidence.
+- Local multilingual embedding configuration with `BAAI/bge-m3` as the recommended default.
+- Optional `intfloat/multilingual-e5-large-instruct` query formatting support.
+- Embedding cache for repeated query/document encoding inside one matcher instance.
+- CLI flags and API environment variables for enabling embedding without changing default behavior.
+- Unit tests for multilingual embedding config, formatting, caching, semantic matching, and injected payload matching.
 
 Not included yet:
 
 - Full Streamlit UI.
-- Local multilingual embedding model in the core ranking flow.
+- External taxonomy import from ESCO/O*NET/VSCO.
 
 ## Run CLI Pipeline
 
@@ -142,11 +147,47 @@ Print review cards in the terminal:
 python main.py --jd data/jobs/jd_backend_java.txt --cv-dir data/cvs --show-review-cards
 ```
 
+Enable optional local multilingual embedding:
+
+```bash
+python main.py --jd data/jobs/jd_backend_java.txt --cv-dir data/cvs --enable-embedding --embedding-model BAAI/bge-m3
+```
+
+If the model has already been downloaded to the local Hugging Face cache, use local-only mode for stable offline/demo runs:
+
+```bash
+python main.py --jd data/jobs/jd_backend_java.txt --cv-dir data/cvs --enable-embedding --embedding-model BAAI/bge-m3 --embedding-local-only
+```
+
+For a fully offline demo after the model is cached, set `HF_HUB_OFFLINE=1` before running the command.
+
+The embedding model is loaded lazily. If the model is unavailable, the system falls back to the rule-based taxonomy matcher.
+
 ## Run Python API Service
 
 Start the API server:
 
 ```bash
+uvicorn api:app --host 127.0.0.1 --port 8000
+```
+
+Start the API with optional local multilingual embedding:
+
+```bash
+set SEMANTIC_EMBEDDING_ENABLED=1
+set SEMANTIC_EMBEDDING_MODEL=BAAI/bge-m3
+set SEMANTIC_EMBEDDING_THRESHOLD=0.72
+set SEMANTIC_EMBEDDING_LOCAL_ONLY=1
+uvicorn api:app --host 127.0.0.1 --port 8000
+```
+
+On PowerShell:
+
+```powershell
+$env:SEMANTIC_EMBEDDING_ENABLED='1'
+$env:SEMANTIC_EMBEDDING_MODEL='BAAI/bge-m3'
+$env:SEMANTIC_EMBEDDING_THRESHOLD='0.72'
+$env:SEMANTIC_EMBEDDING_LOCAL_ONLY='1'
 uvicorn api:app --host 127.0.0.1 --port 8000
 ```
 
@@ -246,6 +287,20 @@ Expected output:
 False
 ```
 
+Check local multilingual similarity when the model is available:
+
+```bash
+python -c "from src.embedding_matcher import SemanticEmbeddingMatcher; matcher=SemanticEmbeddingMatcher(model_name='BAAI/bge-m3', local_files_only=True); print(round(matcher.similarity('face recognition', 'nhận diện khuôn mặt') or 0, 4)); print(matcher.unavailable_reason)"
+```
+
+If the model is not downloaded yet or the machine is offline, this command can return `0` and an unavailable reason. That is expected fallback behavior.
+
+Quick fallback check without contacting Hugging Face:
+
+```bash
+python -c "from src.embedding_matcher import SemanticEmbeddingMatcher; matcher=SemanticEmbeddingMatcher(model_loader=lambda name: (_ for _ in ()).throw(RuntimeError('model unavailable'))); print(matcher.similarity('face recognition', 'nhan dien khuon mat')); print(matcher.unavailable_reason)"
+```
+
 ## Run Evidence Detection Check
 
 Detect evidence for demo JD/CV matches:
@@ -284,7 +339,7 @@ Then run:
 streamlit run app.py
 ```
 
-In Phase 12, the app still shows a placeholder page because the functional UI is planned for a later phase.
+In Phase 13, the app still shows a placeholder page because the functional UI is planned for a later phase.
 
 ## Development Workflow
 
@@ -301,7 +356,7 @@ Work is organized by phase. Each phase should have:
 The next planned phase is:
 
 ```text
-Phase 13 - Local Multilingual Embedding
+Phase 14 - Extensible External Taxonomy Mapping
 ```
 
-That phase should add a local multilingual embedding model, such as BGE-M3 or multilingual-e5, as an optional semantic signal on top of the explainable rule-based and taxonomy pipeline.
+That phase can explore external taxonomy mapping from ESCO, O*NET, and Vietnam VSCO 2020 so the system handles more industries beyond the current demo domains.

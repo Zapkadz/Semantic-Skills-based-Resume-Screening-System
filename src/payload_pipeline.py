@@ -6,6 +6,7 @@ import re
 from typing import Any
 
 from src.api_models import CandidatePayload, JobPayload, ScreeningRequest
+from src.embedding_matcher import SemanticEmbeddingMatcher
 from src.evidence_detector import detect_all_evidence
 from src.jd_parser import parse_jd
 from src.resume_parser import parse_resume
@@ -94,6 +95,7 @@ def build_cv_document_from_payload(
 def run_screening_payload(
     payload: dict[str, Any] | ScreeningRequest,
     taxonomy_path: str = DEFAULT_TAXONOMY_PATH,
+    embedding_matcher: SemanticEmbeddingMatcher | None = None,
 ) -> dict[str, Any]:
     """Run the screening pipeline from a web/API JSON payload."""
     payload_data = _to_plain_dict(payload)
@@ -111,12 +113,14 @@ def run_screening_payload(
         job_text,
         taxonomy,
         use_full_text_fallback=True,
+        include_unknown_skills=embedding_matcher is not None,
     )
     nice_to_have_skills = _build_job_skill_list(
         job_criteria.get("nice_to_have_skills", []),
         "",
         taxonomy,
         use_full_text_fallback=False,
+        include_unknown_skills=embedding_matcher is not None,
     )
 
     candidate_results = [
@@ -126,6 +130,7 @@ def run_screening_payload(
             taxonomy,
             required_skills,
             nice_to_have_skills,
+            embedding_matcher,
         )
         for candidate_payload in candidate_payloads
     ]
@@ -146,6 +151,7 @@ def _process_candidate_payload(
     taxonomy: dict[str, dict[str, Any]],
     required_skills: list[str],
     nice_to_have_skills: list[str],
+    embedding_matcher: SemanticEmbeddingMatcher | None = None,
 ) -> dict[str, Any]:
     """Process one candidate payload into a scored candidate result."""
     document = build_cv_document_from_payload(candidate_payload)
@@ -153,12 +159,18 @@ def _process_candidate_payload(
     _enrich_resume_skills(resume_profile, document["text"], taxonomy)
 
     candidate_skills = normalize_skills(resume_profile.get("raw_skills", []), taxonomy)
-    must_have_matches = match_skills(required_skills, candidate_skills, taxonomy)
+    must_have_matches = match_skills(
+        required_skills,
+        candidate_skills,
+        taxonomy,
+        embedding_matcher=embedding_matcher,
+    )
     enriched_matches = detect_all_evidence(must_have_matches, resume_profile, taxonomy)
     nice_to_have_matches = match_skills(
         nice_to_have_skills,
         candidate_skills,
         taxonomy,
+        embedding_matcher=embedding_matcher,
     )
     scored_candidate = score_candidate(
         job_criteria,

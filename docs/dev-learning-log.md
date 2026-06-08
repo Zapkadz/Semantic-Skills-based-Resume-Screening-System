@@ -1854,3 +1854,166 @@ CV_30: 26/100 - Not Enough Evidence
 ### 11. Ghi chu cho bao cao
 
 Phase 12 la buoc lam sach va chuan hoa dau vao cho bai toan song ngu. He thong van explainable vi skill duoc dua ve taxonomy canonical va evidence lay tu cau that trong CV. Day la nen tang de Phase 13 them local multilingual embedding ma khong lam mat kha nang giai thich.
+
+## [2026-06-08] Phase 13 - Local Multilingual Embedding
+
+### 1. Boi canh
+
+Phase 12 da lam tot bilingual parser, taxonomy, full-text skill extraction va evidence tieng Viet. Tuy nhien, neu JD/CV dung cach dien dat khac nhau va taxonomy chua co alias, rule-based matcher van co the bo sot.
+
+Muc tieu Phase 13 la them local multilingual embedding nhu mot semantic fallback, nhung khong thay the rule-based/taxonomy/evidence backbone.
+
+### 2. Van de / chuc nang
+
+Da cap nhat:
+
+- `src/embedding_matcher.py`
+- `src/semantic_matcher.py` thong qua optional `embedding_matcher` da co.
+- `src/screening_pipeline.py`
+- `src/payload_pipeline.py`
+- `main.py`
+- `api.py`
+- `README.md`
+- `docs/dev-learning-log.md`
+- `docs/phases/phase-13-local-multilingual-embedding.md`
+- Tests lien quan embedding, semantic matcher, payload pipeline, CLI.
+
+Them ho tro:
+
+- Default recommended local multilingual model: `BAAI/bge-m3`.
+- Alternative E5 model formatting: `intfloat/multilingual-e5-large-instruct`.
+- Query instruction cho E5 instruct.
+- In-memory embedding cache trong mot matcher instance.
+- `--enable-embedding`, `--embedding-model`, `--embedding-threshold`, `--embedding-local-only` cho CLI.
+- API env vars:
+  - `SEMANTIC_EMBEDDING_ENABLED`
+  - `SEMANTIC_EMBEDDING_MODEL`
+  - `SEMANTIC_EMBEDDING_THRESHOLD`
+  - `SEMANTIC_EMBEDDING_LOCAL_ONLY`
+
+### 3. Vi sao can lam
+
+Embedding giup so sanh ngu nghia khi keyword/taxonomy chua du.
+
+Vi du:
+
+```text
+JD: identity verification
+CV: digital identity verification
+```
+
+Neu taxonomy chua co quan he truc tiep, embedding co the sinh `semantic_match` neu cosine similarity vuot threshold.
+
+### 4. Nguyen nhan / logic nen tang
+
+`SemanticEmbeddingMatcher` van lazy-load model:
+
+- Neu model co san: encode text va tinh cosine similarity.
+- Neu model khong co: tra `None`, pipeline fallback ve rule-based.
+
+Rule priority van giu:
+
+```text
+exact_match
+related_match
+transferable_match
+semantic_match
+no_match
+```
+
+Nghia la embedding khong duoc chen len tren exact/related/transferable match.
+
+### 5. Cach xu ly
+
+CLI mac dinh khong auto load model de tranh tai model nang khi nguoi dung chi chay test:
+
+```bash
+python main.py --jd data/jobs/jd_backend_java.txt --cv-dir data/cvs
+```
+
+Neu muon bat local multilingual embedding:
+
+```bash
+python main.py --jd data/jobs/jd_backend_java.txt --cv-dir data/cvs --enable-embedding --embedding-model BAAI/bge-m3 --embedding-local-only
+```
+
+API mac dinh cung khong bat embedding. Muon bat:
+
+```powershell
+$env:SEMANTIC_EMBEDDING_ENABLED='1'
+$env:SEMANTIC_EMBEDDING_MODEL='BAAI/bge-m3'
+$env:SEMANTIC_EMBEDDING_THRESHOLD='0.72'
+$env:SEMANTIC_EMBEDDING_LOCAL_ONLY='1'
+uvicorn api:app --host 127.0.0.1 --port 8000
+```
+
+### 6. File da thay doi
+
+- `api.py`
+- `main.py`
+- `README.md`
+- `docs/dev-learning-log.md`
+- `docs/phases/phase-13-local-multilingual-embedding.md`
+- `src/embedding_matcher.py`
+- `src/payload_pipeline.py`
+- `src/screening_pipeline.py`
+- `tests/test_embedding_matcher.py`
+- `tests/test_main.py`
+- `tests/test_payload_pipeline.py`
+- `tests/test_semantic_matcher.py`
+
+### 7. Input / Output can nho
+
+Neu semantic match duoc kich hoat, match output co dang:
+
+```json
+{
+  "required_skill": "identity verification",
+  "candidate_skill": "digital identity verification",
+  "match_type": "semantic_match",
+  "score": 0.85,
+  "similarity": 0.9991
+}
+```
+
+API response schema khong doi. Web van doc `matched_skills`, `final_score`, `recommendation`, `review_card` nhu truoc.
+
+### 8. Cach test
+
+Chay:
+
+```bash
+pytest
+```
+
+Test fallback khong can model:
+
+```bash
+python -c "from src.embedding_matcher import SemanticEmbeddingMatcher; matcher=SemanticEmbeddingMatcher(model_loader=lambda name: (_ for _ in ()).throw(RuntimeError('model unavailable'))); print(matcher.similarity('face recognition', 'nhan dien khuon mat')); print(matcher.unavailable_reason)"
+```
+
+Test real model neu da tai duoc:
+
+```bash
+python -c "from src.embedding_matcher import SemanticEmbeddingMatcher; matcher=SemanticEmbeddingMatcher(model_name='BAAI/bge-m3', local_files_only=True); print(round(matcher.similarity('face recognition', 'nhận diện khuôn mặt') or 0, 4)); print(matcher.unavailable_reason)"
+```
+
+### 9. Ket qua mong doi
+
+- Tests khong download model that.
+- CLI/API van chay khi embedding disabled.
+- CLI/API khong crash khi model unavailable.
+- Khi co fake model, semantic match duoc tao dung threshold.
+- Rule-based exact/related/transferable van uu tien hon semantic.
+
+### 10. Loi thuong gap
+
+- Lan dau dung `BAAI/bge-m3` co the tai model lau.
+- May CPU co the chay cham voi model lon.
+- Neu offline hoac model chua cached, `unavailable_reason` co gia tri va pipeline fallback ve rule-based.
+- Neu model da cached, dung `--embedding-local-only` tren CLI hoac `SEMANTIC_EMBEDDING_LOCAL_ONLY=1` tren API de demo on dinh hon.
+- E5 instruct can query instruction; helper da format query side cho model co `e5` trong ten.
+
+### 11. Ghi chu cho bao cao
+
+Phase 13 them pretrained local multilingual embedding vao he thong. He thong bieu dien requirement va candidate skill/evidence thanh vector, sau do dung cosine similarity de tim semantic match. Cach nay giup xu ly JD/CV khac ngon ngu hoac khac cach dien dat, nhung van giu tinh minh bach nho taxonomy, evidence text, match type va similarity score.

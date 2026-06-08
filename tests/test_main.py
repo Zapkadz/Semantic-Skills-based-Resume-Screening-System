@@ -20,6 +20,12 @@ def test_build_parser_parses_pipeline_arguments() -> None:
             "--output-dir",
             "outputs/reports",
             "--show-review-cards",
+            "--enable-embedding",
+            "--embedding-model",
+            "BAAI/bge-m3",
+            "--embedding-threshold",
+            "0.72",
+            "--embedding-local-only",
         ]
     )
 
@@ -29,6 +35,10 @@ def test_build_parser_parses_pipeline_arguments() -> None:
     assert args.output_json == "outputs/ranking_results.json"
     assert args.output_dir == "outputs/reports"
     assert args.show_review_cards is True
+    assert args.enable_embedding is True
+    assert args.embedding_model == "BAAI/bge-m3"
+    assert args.embedding_threshold == 0.72
+    assert args.embedding_local_only is True
 
 
 def test_main_runs_pipeline_and_writes_requested_outputs(

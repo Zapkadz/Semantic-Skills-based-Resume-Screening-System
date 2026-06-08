@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Any
 
 from src.document_loader import load_text_file, load_text_files_from_directory
+from src.embedding_matcher import SemanticEmbeddingMatcher
 from src.evidence_detector import detect_all_evidence
 from src.jd_parser import parse_jd
 from src.resume_parser import parse_resume
@@ -29,6 +30,7 @@ def run_screening_pipeline(
     jd_path: str | Path,
     cv_dir: str | Path,
     taxonomy_path: str | Path = DEFAULT_TAXONOMY_PATH,
+    embedding_matcher: SemanticEmbeddingMatcher | None = None,
 ) -> dict[str, Any]:
     """Run the full text-based screening pipeline for one JD and many CVs."""
     taxonomy = load_taxonomy(taxonomy_path)
@@ -41,12 +43,14 @@ def run_screening_pipeline(
         jd_text,
         taxonomy,
         use_full_text_fallback=True,
+        include_unknown_skills=embedding_matcher is not None,
     )
     nice_to_have_skills = _build_job_skill_list(
         job_criteria.get("nice_to_have_skills", []),
         "",
         taxonomy,
         use_full_text_fallback=False,
+        include_unknown_skills=embedding_matcher is not None,
     )
 
     candidate_results = [
@@ -56,6 +60,7 @@ def run_screening_pipeline(
             taxonomy,
             required_skills,
             nice_to_have_skills,
+            embedding_matcher,
         )
         for document in cv_documents
     ]
@@ -139,17 +144,24 @@ def _process_candidate_document(
     taxonomy: dict[str, dict[str, Any]],
     required_skills: list[str],
     nice_to_have_skills: list[str],
+    embedding_matcher: SemanticEmbeddingMatcher | None = None,
 ) -> dict[str, Any]:
     """Process one loaded CV document into a scored candidate result."""
     resume_profile = parse_resume(document["text"])
     _enrich_resume_skills(resume_profile, document["text"], taxonomy)
     candidate_skills = normalize_skills(resume_profile.get("raw_skills", []), taxonomy)
-    must_have_matches = match_skills(required_skills, candidate_skills, taxonomy)
+    must_have_matches = match_skills(
+        required_skills,
+        candidate_skills,
+        taxonomy,
+        embedding_matcher=embedding_matcher,
+    )
     enriched_matches = detect_all_evidence(must_have_matches, resume_profile, taxonomy)
     nice_to_have_matches = match_skills(
         nice_to_have_skills,
         candidate_skills,
         taxonomy,
+        embedding_matcher=embedding_matcher,
     )
     scored_candidate = score_candidate(
         job_criteria,
@@ -170,6 +182,7 @@ def _build_job_skill_list(
     fallback_text: str,
     taxonomy: dict[str, dict[str, Any]],
     use_full_text_fallback: bool,
+    include_unknown_skills: bool = False,
 ) -> list[str]:
     """Build a precise job skill list from parsed items plus taxonomy extraction."""
     normalized_skills = normalize_skills(raw_items, taxonomy)
@@ -185,6 +198,9 @@ def _build_job_skill_list(
         extracted_skills = extract_taxonomy_skills_from_text(fallback_text, taxonomy)
 
     if extracted_skills or known_skills:
+        if include_unknown_skills:
+            return merge_skill_lists(extracted_skills, known_skills, unknown_skill_labels)
+
         return merge_skill_lists(extracted_skills, known_skills)
 
     return merge_skill_lists(unknown_skill_labels)
