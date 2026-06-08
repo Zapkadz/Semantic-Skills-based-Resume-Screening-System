@@ -235,7 +235,7 @@ def get_missing_skills(matches: list[dict[str, Any]]) -> list[str]:
     return [
         match["required_skill"]
         for match in matches
-        if match.get("match_type") == "no_match"
+        if match.get("match_type") in {"no_match", "no_semantic_evidence"}
     ]
 
 

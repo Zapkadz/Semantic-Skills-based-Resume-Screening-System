@@ -11,6 +11,11 @@ from src.document_loader import load_text_file, load_text_files_from_directory
 from src.embedding_matcher import SemanticEmbeddingMatcher
 from src.evidence_detector import detect_all_evidence
 from src.jd_parser import parse_jd
+from src.open_set_matcher import (
+    build_taxonomy_coverage,
+    find_semantic_requirement_evidence,
+    split_known_and_unknown_requirements,
+)
 from src.resume_parser import parse_resume
 from src.review_card_generator import (
     format_review_card_markdown,
@@ -43,7 +48,17 @@ def run_screening_pipeline(
         jd_text,
         taxonomy,
         use_full_text_fallback=True,
-        include_unknown_skills=embedding_matcher is not None,
+        include_unknown_skills=False,
+    )
+    open_set_requirements = split_known_and_unknown_requirements(
+        job_criteria.get("must_have_skills", []),
+        required_skills,
+        taxonomy,
+    )
+    unknown_requirements = open_set_requirements["unknown_requirements"]
+    taxonomy_coverage = build_taxonomy_coverage(
+        required_skills,
+        unknown_requirements,
     )
     nice_to_have_skills = _build_job_skill_list(
         job_criteria.get("nice_to_have_skills", []),
@@ -60,6 +75,7 @@ def run_screening_pipeline(
             taxonomy,
             required_skills,
             nice_to_have_skills,
+            unknown_requirements,
             embedding_matcher,
         )
         for document in cv_documents
@@ -70,7 +86,12 @@ def run_screening_pipeline(
         candidate["review_card"] = generate_review_card(candidate, job_criteria)
 
     return {
-        "job": _build_job_output(job_criteria, required_skills, nice_to_have_skills),
+        "job": _build_job_output(
+            job_criteria,
+            required_skills,
+            nice_to_have_skills,
+            taxonomy_coverage,
+        ),
         "candidates": ranked_candidates,
     }
 
@@ -144,6 +165,7 @@ def _process_candidate_document(
     taxonomy: dict[str, dict[str, Any]],
     required_skills: list[str],
     nice_to_have_skills: list[str],
+    unknown_requirements: list[str],
     embedding_matcher: SemanticEmbeddingMatcher | None = None,
 ) -> dict[str, Any]:
     """Process one loaded CV document into a scored candidate result."""
@@ -157,6 +179,12 @@ def _process_candidate_document(
         embedding_matcher=embedding_matcher,
     )
     enriched_matches = detect_all_evidence(must_have_matches, resume_profile, taxonomy)
+    open_set_matches = find_semantic_requirement_evidence(
+        unknown_requirements,
+        resume_profile,
+        embedding_matcher,
+    )
+    scored_matches = [*enriched_matches, *open_set_matches]
     nice_to_have_matches = match_skills(
         nice_to_have_skills,
         candidate_skills,
@@ -166,12 +194,13 @@ def _process_candidate_document(
     scored_candidate = score_candidate(
         job_criteria,
         resume_profile,
-        enriched_matches,
+        scored_matches,
         nice_to_have_matches,
     )
 
     return {
         **scored_candidate,
+        "open_set_requirement_matches": open_set_matches,
         "source_file": document.get("filename", ""),
         "source_path": document.get("path", ""),
     }
@@ -203,7 +232,10 @@ def _build_job_skill_list(
 
         return merge_skill_lists(extracted_skills, known_skills)
 
-    return merge_skill_lists(unknown_skill_labels)
+    if include_unknown_skills:
+        return merge_skill_lists(unknown_skill_labels)
+
+    return []
 
 
 def _enrich_resume_skills(
@@ -234,6 +266,7 @@ def _build_job_output(
     job_criteria: dict[str, Any],
     required_skills: list[str],
     nice_to_have_skills: list[str],
+    taxonomy_coverage: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Build a stable job summary for pipeline output."""
     return {
@@ -243,6 +276,10 @@ def _build_job_output(
         "minimum_experience_years": job_criteria.get("minimum_experience_years", 0),
         "seniority": job_criteria.get("seniority", "Not specified"),
         "domain": job_criteria.get("domain", []),
+        "taxonomy_coverage": taxonomy_coverage or build_taxonomy_coverage(
+            required_skills,
+            [],
+        ),
     }
 
 

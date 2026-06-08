@@ -11,10 +11,10 @@ The project does not train a recruitment model from scratch. The MVP starts with
 The project is currently in:
 
 ```text
-Phase 13 - Local Multilingual Embedding
+Phase 14 - Open-set Requirement Matching
 ```
 
-This phase adds optional local multilingual embedding support on top of the explainable rule-based, taxonomy, and evidence pipeline. The CLI and FastAPI API remain available with the same default interfaces.
+This phase keeps taxonomy-based matching as the explainable backbone and adds open-set requirement matching for JD requirements that are not yet covered by the taxonomy. Unknown requirements are reported in `taxonomy_coverage` and, when local multilingual embedding is enabled, can be matched against CV evidence as `semantic_only_match`.
 
 ## Planned Processing Flow
 
@@ -114,11 +114,17 @@ Included:
 - Embedding cache for repeated query/document encoding inside one matcher instance.
 - CLI flags and API environment variables for enabling embedding without changing default behavior.
 - Unit tests for multilingual embedding config, formatting, caching, semantic matching, and injected payload matching.
+- Open-set requirement matching for concise JD requirements outside the taxonomy.
+- Taxonomy coverage output with known and unknown requirement counts.
+- Semantic-only evidence matching for unknown requirements when embedding is enabled.
+- Review card concerns that identify semantic-only matches outside the taxonomy.
+- Unit tests for open-set requirement splitting, semantic evidence matching, coverage output, and review-card notes.
 
 Not included yet:
 
 - Full Streamlit UI.
 - External taxonomy import from ESCO/O*NET/VSCO.
+- Admin approval UI for taxonomy suggestions.
 
 ## Run CLI Pipeline
 
@@ -162,6 +168,34 @@ python main.py --jd data/jobs/jd_backend_java.txt --cv-dir data/cvs --enable-emb
 For a fully offline demo after the model is cached, set `HF_HUB_OFFLINE=1` before running the command.
 
 The embedding model is loaded lazily. If the model is unavailable, the system falls back to the rule-based taxonomy matcher.
+
+When a JD contains a requirement outside the taxonomy, the output now includes coverage metadata:
+
+```json
+{
+  "taxonomy_coverage": {
+    "known_count": 2,
+    "unknown_count": 1,
+    "coverage_ratio": 0.6667,
+    "known_requirements": ["Python", "SQL"],
+    "unknown_requirements": ["carbon footprint analysis"]
+  }
+}
+```
+
+If embedding is enabled and the CV has semantically close evidence, an unknown requirement can produce:
+
+```json
+{
+  "required_skill": "carbon footprint analysis",
+  "candidate_skill": null,
+  "match_type": "semantic_only_match",
+  "taxonomy_status": "unknown",
+  "score": 0.65,
+  "similarity": 0.8421,
+  "evidence_text": "Built carbon emission reports for ESG audits."
+}
+```
 
 ## Run Python API Service
 
@@ -339,7 +373,7 @@ Then run:
 streamlit run app.py
 ```
 
-In Phase 13, the app still shows a placeholder page because the functional UI is planned for a later phase.
+In Phase 14, the app still shows a placeholder page because the functional UI is planned for a later phase.
 
 ## Development Workflow
 

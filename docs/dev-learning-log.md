@@ -2017,3 +2017,141 @@ python -c "from src.embedding_matcher import SemanticEmbeddingMatcher; matcher=S
 ### 11. Ghi chu cho bao cao
 
 Phase 13 them pretrained local multilingual embedding vao he thong. He thong bieu dien requirement va candidate skill/evidence thanh vector, sau do dung cosine similarity de tim semantic match. Cach nay giup xu ly JD/CV khac ngon ngu hoac khac cach dien dat, nhung van giu tinh minh bach nho taxonomy, evidence text, match type va similarity score.
+
+---
+
+## Phase 14 - Open-set Requirement Matching
+
+### 1. Muc tieu
+
+Phase 14 xu ly requirement/skill trong JD chua nam trong taxonomy.
+
+Thiet ke chinh:
+
+```text
+Known taxonomy requirement
+  -> rule-based + evidence
+
+Unknown requirement
+  -> report trong taxonomy_coverage
+  -> neu embedding bat thi tim semantic evidence trong CV
+  -> gan nhan semantic_only_match / unknown taxonomy
+```
+
+### 2. Van de giai quyet
+
+Taxonomy khong the bao phu moi nganh nghe ngay tu dau. Neu JD co skill la nhu:
+
+```text
+carbon footprint analysis
+drone mission planning
+robot navigation with SLAM
+```
+
+He thong cu co the bo qua hoac ep vao skill list sai. Phase 14 giu nguyen requirement goc va danh dau ro no nam ngoai taxonomy.
+
+### 3. Cach xu ly
+
+Them module:
+
+```text
+src/open_set_matcher.py
+```
+
+Module nay lam:
+
+- Tach known/unknown requirements.
+- Tinh `taxonomy_coverage`.
+- Lay evidence candidates tu CV.
+- Dung `SemanticEmbeddingMatcher.similarity_matrix` de so sanh unknown requirement voi evidence text.
+- Tao `semantic_only_match` khi similarity dat threshold.
+- Tao `no_semantic_evidence` khi embedding co san nhung khong tim duoc evidence du threshold.
+
+### 4. Output moi
+
+Job output co:
+
+```json
+{
+  "taxonomy_coverage": {
+    "known_count": 2,
+    "unknown_count": 1,
+    "coverage_ratio": 0.6667,
+    "known_requirements": ["Python", "SQL"],
+    "unknown_requirements": ["carbon footprint analysis"]
+  }
+}
+```
+
+Candidate match co the co:
+
+```json
+{
+  "required_skill": "carbon footprint analysis",
+  "candidate_skill": null,
+  "match_type": "semantic_only_match",
+  "taxonomy_status": "unknown",
+  "score": 0.65,
+  "similarity": 0.8421,
+  "evidence_level": 3,
+  "evidence_text": "Built carbon emission reports for ESG audits.",
+  "evidence_source": "projects"
+}
+```
+
+### 5. Diem can nho
+
+- Unknown requirement khong duoc them vao taxonomy tu dong.
+- `semantic_only_match` khong duoc xem nhu exact taxonomy match.
+- Score cua semantic-only bi gioi han o `0.65`.
+- Neu embedding disabled hoac unavailable, unknown requirements van nam trong coverage nhung khong crash pipeline.
+- Review card them concern de recruiter biet co requirement duoc danh gia ngoai taxonomy.
+
+### 6. File da thay doi
+
+- `README.md`
+- `docs/dev-learning-log.md`
+- `docs/phases/phase-14-open-set-requirement-matching.md`
+- `docs/refactoring/phase-14-refactoring-plan.md`
+- `main.py`
+- `src/evidence_detector.py`
+- `src/open_set_matcher.py`
+- `src/payload_pipeline.py`
+- `src/review_card_generator.py`
+- `src/scorer.py`
+- `src/screening_pipeline.py`
+- `tests/test_open_set_matcher.py`
+- `tests/test_payload_pipeline.py`
+- `tests/test_review_card_generator.py`
+- `tests/test_screening_pipeline.py`
+
+### 7. Cach test
+
+Chay:
+
+```bash
+pytest
+```
+
+Test nhom open-set:
+
+```bash
+pytest tests/test_open_set_matcher.py tests/test_payload_pipeline.py tests/test_review_card_generator.py
+```
+
+Manual CLI voi embedding local:
+
+```powershell
+$env:HF_HUB_OFFLINE='1'
+python main.py --jd data/jobs/JD_1.txt --cv-dir data/cvs --enable-embedding --embedding-model BAAI/bge-m3 --embedding-local-only
+```
+
+### 8. Ghi chu cho bao cao
+
+Co the trinh bay:
+
+```text
+Taxonomy khong the bao phu toan bo nganh nghe ngay tu dau, nen he thong duoc thiet ke theo huong open-set. Voi skill da co trong taxonomy, he thong dung rule-based matching va evidence de danh gia chinh xac, giai thich duoc. Voi requirement chua co trong taxonomy, he thong giu nguyen text goc va dung multilingual embedding de tim bang chung gan nghia trong CV. Ket qua nay duoc danh dau la semantic-only/unknown-taxonomy de tranh nham voi skill da chuan hoa.
+```
+
+Phase 15 se lam human-in-the-loop taxonomy suggestion cho Admin duyet skill moi.

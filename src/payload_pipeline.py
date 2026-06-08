@@ -9,6 +9,11 @@ from src.api_models import CandidatePayload, JobPayload, ScreeningRequest
 from src.embedding_matcher import SemanticEmbeddingMatcher
 from src.evidence_detector import detect_all_evidence
 from src.jd_parser import parse_jd
+from src.open_set_matcher import (
+    build_taxonomy_coverage,
+    find_semantic_requirement_evidence,
+    split_known_and_unknown_requirements,
+)
 from src.resume_parser import parse_resume
 from src.review_card_generator import generate_review_card
 from src.scorer import rank_candidates, score_candidate
@@ -113,7 +118,17 @@ def run_screening_payload(
         job_text,
         taxonomy,
         use_full_text_fallback=True,
-        include_unknown_skills=embedding_matcher is not None,
+        include_unknown_skills=False,
+    )
+    open_set_requirements = split_known_and_unknown_requirements(
+        job_criteria.get("must_have_skills", []),
+        required_skills,
+        taxonomy,
+    )
+    unknown_requirements = open_set_requirements["unknown_requirements"]
+    taxonomy_coverage = build_taxonomy_coverage(
+        required_skills,
+        unknown_requirements,
     )
     nice_to_have_skills = _build_job_skill_list(
         job_criteria.get("nice_to_have_skills", []),
@@ -130,6 +145,7 @@ def run_screening_payload(
             taxonomy,
             required_skills,
             nice_to_have_skills,
+            unknown_requirements,
             embedding_matcher,
         )
         for candidate_payload in candidate_payloads
@@ -140,7 +156,13 @@ def run_screening_payload(
         candidate["review_card"] = generate_review_card(candidate, job_criteria)
 
     return {
-        "job": _build_job_output(job_payload, job_criteria, required_skills, nice_to_have_skills),
+        "job": _build_job_output(
+            job_payload,
+            job_criteria,
+            required_skills,
+            nice_to_have_skills,
+            taxonomy_coverage,
+        ),
         "candidates": ranked_candidates,
     }
 
@@ -151,6 +173,7 @@ def _process_candidate_payload(
     taxonomy: dict[str, dict[str, Any]],
     required_skills: list[str],
     nice_to_have_skills: list[str],
+    unknown_requirements: list[str],
     embedding_matcher: SemanticEmbeddingMatcher | None = None,
 ) -> dict[str, Any]:
     """Process one candidate payload into a scored candidate result."""
@@ -166,6 +189,12 @@ def _process_candidate_payload(
         embedding_matcher=embedding_matcher,
     )
     enriched_matches = detect_all_evidence(must_have_matches, resume_profile, taxonomy)
+    open_set_matches = find_semantic_requirement_evidence(
+        unknown_requirements,
+        resume_profile,
+        embedding_matcher,
+    )
+    scored_matches = [*enriched_matches, *open_set_matches]
     nice_to_have_matches = match_skills(
         nice_to_have_skills,
         candidate_skills,
@@ -175,7 +204,7 @@ def _process_candidate_payload(
     scored_candidate = score_candidate(
         job_criteria,
         resume_profile,
-        enriched_matches,
+        scored_matches,
         nice_to_have_matches,
     )
 
@@ -184,6 +213,7 @@ def _process_candidate_payload(
 
     return {
         **scored_candidate,
+        "open_set_requirement_matches": open_set_matches,
         "application_id": document.get("application_id"),
         "candidate_id": document.get("candidate_id"),
         "email": document.get("email", ""),
@@ -200,6 +230,7 @@ def _build_job_output(
     job_criteria: dict[str, Any],
     required_skills: list[str],
     nice_to_have_skills: list[str],
+    taxonomy_coverage: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Build a stable API job response object."""
     return {
@@ -210,6 +241,10 @@ def _build_job_output(
         "minimum_experience_years": job_criteria.get("minimum_experience_years", 0),
         "seniority": job_criteria.get("seniority", "Not specified"),
         "domain": job_criteria.get("domain", []),
+        "taxonomy_coverage": taxonomy_coverage or build_taxonomy_coverage(
+            required_skills,
+            [],
+        ),
     }
 
 

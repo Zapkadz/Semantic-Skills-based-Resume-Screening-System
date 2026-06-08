@@ -83,6 +83,16 @@ def detect_all_evidence(
     return enriched_matches
 
 
+def collect_evidence_candidates(resume_profile: dict[str, Any]) -> list[dict[str, str]]:
+    """Collect searchable evidence text from a parsed resume profile."""
+    return _collect_evidence_candidates(resume_profile)
+
+
+def calculate_candidate_evidence_level(candidate: dict[str, str]) -> int:
+    """Calculate evidence strength for one evidence candidate."""
+    return _calculate_evidence_level(candidate)
+
+
 def _build_search_terms(match: dict[str, Any]) -> list[str]:
     """Build evidence search terms from a match result."""
     terms: list[str] = []

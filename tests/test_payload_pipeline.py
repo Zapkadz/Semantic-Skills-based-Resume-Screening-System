@@ -14,8 +14,9 @@ class FakeMultilingualEmbeddingModel:
             "identity verification": [1.0, 0.0],
             "digital identity verification": [0.96, 0.04],
             "eKYC": [0.90, 0.10],
+            "Identity Engineer": [0.0, 1.0],
         }
-        return [vectors[text] for text in texts]
+        return [vectors.get(text, [0.0, 1.0]) for text in texts]
 
 
 def test_build_jd_text_from_payload_uses_structured_sections() -> None:
@@ -143,6 +144,13 @@ def test_run_screening_payload_returns_ranked_candidates_with_web_ids() -> None:
         "SQL",
         "Docker",
     ]
+    assert result["job"]["taxonomy_coverage"] == {
+        "known_count": 5,
+        "unknown_count": 0,
+        "coverage_ratio": 1.0,
+        "known_requirements": ["Java", "Spring Boot", "REST API", "SQL", "Docker"],
+        "unknown_requirements": [],
+    }
 
     candidate = result["candidates"][0]
     assert candidate["rank"] == 1
@@ -258,9 +266,20 @@ def test_run_screening_payload_can_use_injected_multilingual_embedding_matcher()
 
     match = result["candidates"][0]["matched_skills"][0]
     assert match["required_skill"] == "identity verification"
-    assert match["candidate_skill"] == "digital identity verification"
-    assert match["match_type"] == "semantic_match"
+    assert match["candidate_skill"] is None
+    assert match["match_type"] == "semantic_only_match"
+    assert match["taxonomy_status"] == "unknown"
+    assert match["evidence_text"] == "digital identity verification"
+    assert match["evidence_source"] == "skills"
     assert match["similarity"] == 0.9991
+    assert result["job"]["must_have_skills"] == []
+    assert result["job"]["taxonomy_coverage"] == {
+        "known_count": 0,
+        "unknown_count": 1,
+        "coverage_ratio": 0.0,
+        "known_requirements": [],
+        "unknown_requirements": ["identity verification"],
+    }
 
 
 def _demo_screening_payload() -> dict:
