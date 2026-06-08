@@ -11,10 +11,10 @@ The project does not train a recruitment model from scratch. The MVP starts with
 The project is currently in:
 
 ```text
-Phase 14 - Open-set Requirement Matching
+Phase 15 - Human-in-the-loop Taxonomy Suggestion Queue
 ```
 
-This phase keeps taxonomy-based matching as the explainable backbone and adds open-set requirement matching for JD requirements that are not yet covered by the taxonomy. Unknown requirements are reported in `taxonomy_coverage` and, when local multilingual embedding is enabled, can be matched against CV evidence as `semantic_only_match`.
+This phase turns repeated unknown requirements from open-set matching into a pending taxonomy suggestion queue. The AI project can suggest canonical skill names, aliases, frequency, example contexts, evidence snippets, and nearest existing taxonomy skills, but it does not automatically modify the taxonomy.
 
 ## Planned Processing Flow
 
@@ -38,6 +38,7 @@ CV / JD text
 |-- app.py
 |-- api.py
 |-- main.py
+|-- taxonomy_suggest.py
 |-- requirements.txt
 |-- README.md
 |-- PROJECT_SEMANTIC_SKILLS_RESUME_SCREENING.md
@@ -119,12 +120,17 @@ Included:
 - Semantic-only evidence matching for unknown requirements when embedding is enabled.
 - Review card concerns that identify semantic-only matches outside the taxonomy.
 - Unit tests for open-set requirement splitting, semantic evidence matching, coverage output, and review-card notes.
+- Human-in-the-loop taxonomy suggestion builder for repeated unknown requirements.
+- Versioned taxonomy suggestion queue JSON output.
+- Standalone `taxonomy_suggest.py` CLI.
+- Unit tests for observation collection, suggestion generation, save/load, and CLI output.
 
 Not included yet:
 
 - Full Streamlit UI.
 - External taxonomy import from ESCO/O*NET/VSCO.
 - Admin approval UI for taxonomy suggestions.
+- Automatic taxonomy mutation.
 
 ## Run CLI Pipeline
 
@@ -196,6 +202,38 @@ If embedding is enabled and the CV has semantically close evidence, an unknown r
   "evidence_text": "Built carbon emission reports for ESG audits."
 }
 ```
+
+## Run Taxonomy Suggestion Queue
+
+After saving a screening result JSON, generate pending taxonomy suggestions:
+
+```bash
+python taxonomy_suggest.py --input-json outputs/ranking_results.json --output-json outputs/taxonomy_suggestions.json
+```
+
+Use a lower threshold for small demos:
+
+```bash
+python taxonomy_suggest.py --input-json outputs/ranking_results.json --output-json outputs/taxonomy_suggestions.json --min-frequency 1
+```
+
+The suggestion queue is a local JSON artifact:
+
+```json
+{
+  "version": 1,
+  "suggestions": [
+    {
+      "suggested_canonical_name": "Carbon Footprint Analysis",
+      "suggested_aliases": ["carbon footprint analysis"],
+      "frequency": 2,
+      "status": "pending_review"
+    }
+  ]
+}
+```
+
+The Python project does not auto-update `data/taxonomy/skills.json`. Admin approval is expected in a later web/admin phase.
 
 ## Run Python API Service
 
@@ -373,7 +411,7 @@ Then run:
 streamlit run app.py
 ```
 
-In Phase 14, the app still shows a placeholder page because the functional UI is planned for a later phase.
+In Phase 15, the app still shows a placeholder page because the functional UI is planned for a later phase.
 
 ## Development Workflow
 
@@ -390,7 +428,7 @@ Work is organized by phase. Each phase should have:
 The next planned phase is:
 
 ```text
-Phase 14 - Extensible External Taxonomy Mapping
+Phase 16 - Admin Taxonomy Suggestion Review
 ```
 
-That phase can explore external taxonomy mapping from ESCO, O*NET, and Vietnam VSCO 2020 so the system handles more industries beyond the current demo domains.
+That phase can add a web/Admin review workflow to approve, reject, or merge pending taxonomy suggestions before updating a custom taxonomy store.
