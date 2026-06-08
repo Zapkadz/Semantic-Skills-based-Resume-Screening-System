@@ -35,7 +35,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--version",
         action="version",
-        version="semantic-skills-resume-screening 0.14.0-open-set-requirement-matching",
+        version="semantic-skills-resume-screening 0.15.0-taxonomy-suggestion-queue",
     )
     parser.add_argument(
         "--jd",

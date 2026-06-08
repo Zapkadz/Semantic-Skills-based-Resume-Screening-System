@@ -2155,3 +2155,110 @@ Taxonomy khong the bao phu toan bo nganh nghe ngay tu dau, nen he thong duoc thi
 ```
 
 Phase 15 se lam human-in-the-loop taxonomy suggestion cho Admin duyet skill moi.
+
+---
+
+## Phase 15 - Human-in-the-loop Taxonomy Suggestion Queue
+
+### 1. Muc tieu
+
+Phase 15 tao queue de xuat taxonomy tu cac unknown requirements da duoc Phase 14 phat hien.
+
+Thiet ke:
+
+```text
+AI proposes
+Admin approves
+```
+
+Python project chi tao suggestion JSON. He thong khong tu dong sua `data/taxonomy/skills.json`.
+
+### 2. Van de giai quyet
+
+Taxonomy khong the bao phu moi nganh ngay tu dau. Sau Phase 14, he thong da biet requirement nao nam ngoai taxonomy. Phase 15 bien cac requirement la lap lai thanh pending suggestions de Admin co the xem xet.
+
+### 3. Cach xu ly
+
+Them:
+
+- `src/taxonomy_suggestion.py`
+- `taxonomy_suggest.py`
+- `tests/test_taxonomy_suggestion.py`
+- `docs/refactoring/phase-15-refactoring-plan.md`
+
+Module suggestion lam:
+
+- Collect unknown requirement observations tu `job.taxonomy_coverage`.
+- Merge evidence tu `candidate.open_set_requirement_matches`.
+- Group exact phrase va optional embedding-similar phrase.
+- Build pending suggestion co canonical name, aliases, frequency, confidence, nearest skills, examples.
+- Save/load versioned JSON queue.
+
+### 4. CLI moi
+
+Lenh:
+
+```powershell
+python taxonomy_suggest.py --input-json outputs/ranking_results.json --output-json outputs/taxonomy_suggestions.json
+```
+
+Demo nho co the dung:
+
+```powershell
+python taxonomy_suggest.py --input-json outputs/ranking_results.json --output-json outputs/taxonomy_suggestions.json --min-frequency 1
+```
+
+### 5. Output moi
+
+```json
+{
+  "version": 1,
+  "suggestions": [
+    {
+      "suggestion_id": "tax-sug-carbon-footprint-analysis",
+      "suggested_canonical_name": "Carbon Footprint Analysis",
+      "suggested_category": "Pending Classification",
+      "suggested_aliases": ["carbon footprint analysis"],
+      "frequency": 2,
+      "confidence": 0.7,
+      "nearest_existing_skills": [],
+      "example_contexts": ["carbon footprint analysis"],
+      "example_evidence": [],
+      "status": "pending_review"
+    }
+  ]
+}
+```
+
+### 6. File da thay doi
+
+- `README.md`
+- `docs/dev-learning-log.md`
+- `docs/phases/phase-15-taxonomy-suggestion-queue.md`
+- `docs/refactoring/phase-15-refactoring-plan.md`
+- `main.py`
+- `taxonomy_suggest.py`
+- `src/taxonomy_suggestion.py`
+- `tests/test_taxonomy_suggestion.py`
+
+### 7. Cach test
+
+Chay:
+
+```bash
+pytest
+```
+
+Test rieng:
+
+```bash
+pytest tests/test_taxonomy_suggestion.py
+```
+
+### 8. Ghi chu cho bao cao
+
+Co the noi:
+
+```text
+He thong khong tu dong mo rong taxonomy. Khi gap requirement la nhieu lan, AI chi tao de xuat gom canonical name, aliases, tan suat va vi du evidence. Admin phai duyet truoc khi skill moi duoc them vao taxonomy, giup dam bao chat luong va tranh sai lech.
+```
