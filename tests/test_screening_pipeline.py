@@ -9,10 +9,10 @@ from src.screening_pipeline import (
 )
 
 
-def test_run_screening_pipeline_returns_ranked_demo_result() -> None:
+def test_run_screening_pipeline_returns_ranked_demo_result(tmp_path: Path) -> None:
     result = run_screening_pipeline(
         jd_path="data/jobs/jd_backend_java.txt",
-        cv_dir="data/cvs",
+        cv_dir=_demo_cv_dir(tmp_path),
     )
 
     assert result["job"] == {
@@ -37,10 +37,10 @@ def test_run_screening_pipeline_returns_ranked_demo_result() -> None:
     )
 
 
-def test_format_ranking_summary_returns_cli_friendly_text() -> None:
+def test_format_ranking_summary_returns_cli_friendly_text(tmp_path: Path) -> None:
     result = run_screening_pipeline(
         jd_path="data/jobs/jd_backend_java.txt",
-        cv_dir="data/cvs",
+        cv_dir=_demo_cv_dir(tmp_path),
     )
 
     summary = format_ranking_summary(result)
@@ -60,7 +60,7 @@ def test_format_ranking_summary_returns_cli_friendly_text() -> None:
 def test_save_pipeline_result_json_writes_pretty_json(tmp_path: Path) -> None:
     result = run_screening_pipeline(
         jd_path="data/jobs/jd_backend_java.txt",
-        cv_dir="data/cvs",
+        cv_dir=_demo_cv_dir(tmp_path),
     )
     output_path = tmp_path / "ranking_results.json"
 
@@ -75,7 +75,7 @@ def test_save_pipeline_result_json_writes_pretty_json(tmp_path: Path) -> None:
 def test_save_review_cards_writes_markdown_files(tmp_path: Path) -> None:
     result = run_screening_pipeline(
         jd_path="data/jobs/jd_backend_java.txt",
-        cv_dir="data/cvs",
+        cv_dir=_demo_cv_dir(tmp_path),
     )
     output_dir = tmp_path / "reports"
 
@@ -97,3 +97,11 @@ def test_run_screening_pipeline_handles_empty_cv_directory(tmp_path: Path) -> No
     assert result["job"]["title"] == "Backend Java Developer"
     assert result["candidates"] == []
     assert "No candidates found." in format_ranking_summary(result)
+
+
+def _demo_cv_dir(tmp_path: Path) -> Path:
+    cv_dir = tmp_path / "cvs"
+    cv_dir.mkdir()
+    cv_text = Path("data/cvs/cv_strong.txt").read_text(encoding="utf-8")
+    (cv_dir / "cv_strong.txt").write_text(cv_text, encoding="utf-8")
+    return cv_dir

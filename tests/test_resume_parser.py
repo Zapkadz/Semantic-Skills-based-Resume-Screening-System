@@ -82,3 +82,57 @@ def test_parse_resume_supports_inline_summary_heading() -> None:
     )
 
     assert profile["summary"] == "Manual tester with API testing exposure."
+
+
+def test_parse_resume_supports_vietnamese_sections_and_project_labels() -> None:
+    profile = parse_resume(
+        "Lê Văn A\n"
+        "AI Engineer\n"
+        "\n"
+        "KỸ NĂNG\n"
+        "Python\n"
+        "PyTorch, TensorFlow\n"
+        "\n"
+        "KINH NGHIỆM LÀM VIỆC\n"
+        "01/2021 - Nay\n"
+        "AI Engineer\n"
+        "ABC AI Lab\n"
+        "Mô tả:\n"
+        "- Xây dựng hệ thống Liveness Detection.\n"
+        "\n"
+        "DỰ ÁN\n"
+        "Tên dự án: eKYC Face System\n"
+        "Mô tả:\n"
+        "Xây dựng hệ thống nhận diện khuôn mặt.\n"
+        "Công nghệ:\n"
+        "OpenCV\n"
+        "ONNX"
+    )
+
+    assert profile["candidate_name"] == "Lê Văn A"
+    assert profile["raw_skills"] == ["Python", "PyTorch", "TensorFlow"]
+    assert profile["work_experience"] == [
+        {
+            "title": "AI Engineer",
+            "company": "ABC AI Lab",
+            "duration": "01/2021 - Nay",
+            "description": ["Xây dựng hệ thống Liveness Detection."],
+        }
+    ]
+    assert profile["projects"] == [
+        {
+            "name": "eKYC Face System",
+            "description": ["Xây dựng hệ thống nhận diện khuôn mặt."],
+            "technologies": ["OpenCV", "ONNX"],
+        }
+    ]
+
+
+def test_parse_resume_repairs_common_mojibake_before_section_parsing() -> None:
+    mojibake_name = "Nguyễn Văn A".encode("utf-8").decode("cp1252")
+    mojibake_skills = "KỸ NĂNG".encode("utf-8").decode("cp1252")
+
+    profile = parse_resume(f"{mojibake_name}\nAI Engineer\n\n{mojibake_skills}\nPython")
+
+    assert profile["candidate_name"] == "Nguyễn Văn A"
+    assert profile["raw_skills"] == ["Python"]

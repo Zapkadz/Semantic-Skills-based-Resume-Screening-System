@@ -7,6 +7,8 @@ from json import JSONDecodeError
 from pathlib import Path
 from typing import Any
 
+from src.text_normalization import normalize_lookup_text
+
 
 REQUIRED_SKILL_FIELDS = {"aliases", "category", "related", "transferable"}
 
@@ -40,7 +42,7 @@ def build_alias_map(taxonomy: dict[str, dict[str, Any]]) -> dict[str, str]:
 
 def make_lookup_key(value: str) -> str:
     """Normalize text for case-insensitive skill lookup."""
-    return " ".join(value.strip().casefold().split())
+    return normalize_lookup_text(value)
 
 
 def _validate_taxonomy_path(taxonomy_path: Path) -> None:

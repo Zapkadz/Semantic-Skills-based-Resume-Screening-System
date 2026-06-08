@@ -11,7 +11,11 @@ from src.jd_parser import parse_jd
 from src.resume_parser import parse_resume
 from src.review_card_generator import generate_review_card
 from src.scorer import rank_candidates, score_candidate
-from src.screening_pipeline import DEFAULT_TAXONOMY_PATH
+from src.screening_pipeline import (
+    DEFAULT_TAXONOMY_PATH,
+    _build_job_skill_list,
+    _enrich_resume_skills,
+)
 from src.semantic_matcher import match_skills
 from src.skill_normalizer import normalize_skills
 from src.skill_taxonomy import load_taxonomy
@@ -102,10 +106,17 @@ def run_screening_payload(
 
     job_text = build_jd_text_from_payload(job_payload)
     job_criteria = parse_jd(job_text)
-    required_skills = normalize_skills(job_criteria.get("must_have_skills", []), taxonomy)
-    nice_to_have_skills = normalize_skills(
-        job_criteria.get("nice_to_have_skills", []),
+    required_skills = _build_job_skill_list(
+        job_criteria.get("must_have_skills", []),
+        job_text,
         taxonomy,
+        use_full_text_fallback=True,
+    )
+    nice_to_have_skills = _build_job_skill_list(
+        job_criteria.get("nice_to_have_skills", []),
+        "",
+        taxonomy,
+        use_full_text_fallback=False,
     )
 
     candidate_results = [
@@ -139,10 +150,11 @@ def _process_candidate_payload(
     """Process one candidate payload into a scored candidate result."""
     document = build_cv_document_from_payload(candidate_payload)
     resume_profile = parse_resume(document["text"])
+    _enrich_resume_skills(resume_profile, document["text"], taxonomy)
 
     candidate_skills = normalize_skills(resume_profile.get("raw_skills", []), taxonomy)
     must_have_matches = match_skills(required_skills, candidate_skills, taxonomy)
-    enriched_matches = detect_all_evidence(must_have_matches, resume_profile)
+    enriched_matches = detect_all_evidence(must_have_matches, resume_profile, taxonomy)
     nice_to_have_matches = match_skills(
         nice_to_have_skills,
         candidate_skills,

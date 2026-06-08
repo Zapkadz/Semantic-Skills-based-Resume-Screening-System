@@ -164,6 +164,59 @@ def test_run_screening_payload_rejects_candidate_without_cv_data() -> None:
         run_screening_payload(payload)
 
 
+def test_run_screening_payload_matches_english_jd_with_vietnamese_cv() -> None:
+    payload = {
+        "job": {
+            "job_id": 20,
+            "raw_text": (
+                "Computer Vision Engineer\n"
+                "\n"
+                "Requirements\n"
+                "- Experience with face recognition and anti-spoofing.\n"
+                "- Python"
+            ),
+        },
+        "candidates": [
+            {
+                "application_id": 555,
+                "candidate_name": "Le Van AI",
+                "cv_text": (
+                    "Le Van AI\n"
+                    "AI Engineer\n"
+                    "\n"
+                    "Kỹ năng\n"
+                    "Python\n"
+                    "\n"
+                    "Dự án\n"
+                    "Tên dự án: eKYC Face System\n"
+                    "Mô tả:\n"
+                    "- Xây dựng hệ thống nhận diện khuôn mặt và chống giả mạo."
+                ),
+            }
+        ],
+    }
+
+    result = run_screening_payload(payload)
+
+    assert result["job"]["must_have_skills"] == [
+        "Face Recognition",
+        "Anti-Spoofing",
+        "Python",
+    ]
+    candidate = result["candidates"][0]
+    assert candidate["candidate_name"] == "Le Van AI"
+    assert candidate["final_score"] >= 70
+    assert candidate["missing_skills"] == []
+    assert [
+        (match["required_skill"], match["evidence_level"])
+        for match in candidate["matched_skills"]
+    ] == [
+        ("Face Recognition", 3),
+        ("Anti-Spoofing", 3),
+        ("Python", 1),
+    ]
+
+
 def _demo_screening_payload() -> dict:
     return {
         "job": {

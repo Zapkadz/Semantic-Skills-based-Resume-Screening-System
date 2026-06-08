@@ -1667,3 +1667,190 @@ python main.py --jd data/jobs/jd_backend_java.txt --cv-dir data/cvs
 ### 11. Ghi chu cho bao cao
 
 Python API Service la lop tich hop giua AI screening engine va web application. Service nhan JD/CV theo JSON, dung lai pipeline san co de xep hang ung vien va tra ve review card co giai thich. Thiet ke nay giu CLI on dinh dong thoi mo duong cho web PHP goi AI theo HTTP API chuyen nghiep hon.
+
+## [2026-06-07] Phase 12 - Vietnamese-English Parser, Taxonomy, and Evidence Foundation
+
+### 1. Boi canh
+
+Sau Phase 11, API da goi duoc tu web PHP. Khi test `JD_1.txt` voi 3 CV tieng Viet `CV_30.txt`, `CV_70.txt`, `CV_85.txt`, ca 3 ung vien deu ve 35/100.
+
+Nguyen nhan chinh khong phai do thieu GPT hay multilingual embedding, ma do cac tang nen chua doc duoc input:
+
+- JD co heading `Requirements` khong dau hai cham.
+- CV tieng Viet co heading nhu `KY NANG`, `KINH NGHIEM LAM VIEC`, `DU AN`.
+- Taxonomy chua co AI, Computer Vision, eKYC.
+- Evidence detector chua nhan dong tu tieng Viet.
+- Mot so file text local bi mojibake do UTF-8 bi doc/saved sai encoding.
+
+### 2. Van de / chuc nang
+
+Da tao:
+
+- `src/text_normalization.py`
+- `src/section_parser.py`
+- `src/skill_extractor.py`
+- `tests/test_skill_extractor.py`
+
+Da cap nhat:
+
+- `src/jd_parser.py`
+- `src/resume_parser.py`
+- `src/evidence_detector.py`
+- `src/scorer.py`
+- `src/screening_pipeline.py`
+- `src/payload_pipeline.py`
+- `src/skill_taxonomy.py`
+- `data/taxonomy/skills.json`
+- Tests parser, taxonomy, normalizer, evidence, payload, CLI/pipeline.
+- `README.md`
+- `docs/phases/phase-12-vietnamese-english-multilingual-support.md`
+
+### 3. Vi sao can lam
+
+Neu nhay thang vao multilingual embedding, model co the hieu ngu nghia Viet-Anh nhung pipeline van co the nhan input rong hoac sai.
+
+Phase 12 sua cac tang dau vao truoc:
+
+```text
+Raw JD/CV
+  -> repair encoding neu can
+  -> bilingual section parser
+  -> taxonomy aliases Viet-Anh
+  -> full-text skill extraction fallback
+  -> Vietnamese evidence detection
+  -> scoring/ranking hien tai
+```
+
+### 4. Nguyen nhan / logic nen tang
+
+`src/text_normalization.py` gom cac helper:
+
+- repair mojibake UTF-8/Windows-1252 pho bien.
+- strip Vietnamese accents.
+- normalize lookup/search text.
+- strip bullet/list marker.
+
+`src/section_parser.py` tach section dua tren aliases da normalize, ho tro:
+
+- heading co dau hai cham: `Requirements:`
+- heading khong dau hai cham: `Requirements`
+- heading Viet co dau/khong dau: `Kỹ năng`, `Ky nang`
+
+`src/skill_extractor.py` scan raw text bang taxonomy:
+
+- canonical skill.
+- aliases tieng Anh.
+- aliases tieng Viet co dau.
+- aliases tieng Viet khong dau.
+
+### 5. Cach xu ly
+
+JD/CV parser van giu schema output cu.
+
+CLI/API pipeline duoc bo sung:
+
+1. Parse JD/CV nhu truoc.
+2. Normalize skill tu section neu parser lay duoc.
+3. Extract them taxonomy skills tu raw text.
+4. Merge va dedupe skills.
+5. Match/evidence/score nhu cu.
+
+Evidence detector co them optional `taxonomy`, de khi required skill la `Face Recognition`, he thong van tim duoc cau co alias `nhan dien khuon mat`.
+
+### 6. File da thay doi
+
+- `README.md`
+- `data/taxonomy/skills.json`
+- `docs/dev-learning-log.md`
+- `docs/phases/phase-12-vietnamese-english-multilingual-support.md`
+- `src/evidence_detector.py`
+- `src/jd_parser.py`
+- `src/payload_pipeline.py`
+- `src/resume_parser.py`
+- `src/scorer.py`
+- `src/screening_pipeline.py`
+- `src/section_parser.py`
+- `src/skill_extractor.py`
+- `src/skill_taxonomy.py`
+- `src/text_normalization.py`
+- `tests/test_evidence_detector.py`
+- `tests/test_jd_parser.py`
+- `tests/test_main.py`
+- `tests/test_payload_pipeline.py`
+- `tests/test_resume_parser.py`
+- `tests/test_screening_pipeline.py`
+- `tests/test_skill_extractor.py`
+- `tests/test_skill_normalizer.py`
+- `tests/test_skill_taxonomy.py`
+
+### 7. Input / Output can nho
+
+Input web/API khong doi. Web van gui:
+
+```json
+{
+  "job": {
+    "raw_text": "Computer Vision Engineer\n\nRequirements\n..."
+  },
+  "candidates": [
+    {
+      "candidate_name": "Le Van A",
+      "cv_text": "Le Van A\nAI Engineer\n\nKy nang\nPython..."
+    }
+  ]
+}
+```
+
+Output API khong doi, nhung skill/evidence/ranking tot hon:
+
+- `must_have_skills` co canonical English skill.
+- `matched_skills` co evidence tieng Viet neu tim duoc.
+- `review_card` giai thich bang evidence text.
+
+### 8. Cach test
+
+Chay full test:
+
+```bash
+pytest
+```
+
+Test CLI:
+
+```bash
+python main.py --jd data/jobs/jd_backend_java.txt --cv-dir data/cvs
+```
+
+Test API sample:
+
+```bash
+uvicorn api:app --host 127.0.0.1 --port 8000
+curl -X POST http://127.0.0.1:8000/screening -H "Content-Type: application/json" -d @docs/integration/sample-screening-request.json
+```
+
+Benchmark local voi `JD_1/CV_30/CV_70/CV_85`:
+
+```text
+CV_85: 89/100 - Strong Review
+CV_70: 66/100 - Maybe Review
+CV_30: 26/100 - Not Enough Evidence
+```
+
+### 9. Ket qua mong doi
+
+- Parser doc duoc heading Anh/Viet.
+- Taxonomy map duoc aliases Viet-Anh ve canonical English skill.
+- Evidence detector nhan cau tieng Viet co action verb.
+- CV dung domain AI/CV/eKYC duoc xep tren CV frontend.
+- API/CLI khong doi schema/command.
+
+### 10. Loi thuong gap
+
+- File CV/JD export sai encoding co the hien mojibake. Phase 12 co repair mot so case pho bien, nhung khong thay the buoc extract text dung encoding.
+- Taxonomy fallback uu tien precision, nen skill qua chung co the khong duoc bat neu chua co alias ro.
+- Required skill tu JD dang la cau dai se duoc convert sang taxonomy skill neu co alias; neu taxonomy chua co skill do thi co the bi bo qua.
+- Day chua phai multilingual embedding, nen cac cau Viet-Anh dong nghia nhung khong co alias van co the chua match.
+
+### 11. Ghi chu cho bao cao
+
+Phase 12 la buoc lam sach va chuan hoa dau vao cho bai toan song ngu. He thong van explainable vi skill duoc dua ve taxonomy canonical va evidence lay tu cau that trong CV. Day la nen tang de Phase 13 them local multilingual embedding ma khong lam mat kha nang giai thich.

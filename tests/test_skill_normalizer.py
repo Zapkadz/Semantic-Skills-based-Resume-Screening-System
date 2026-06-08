@@ -71,3 +71,14 @@ def test_normalize_jd_parser_output() -> None:
 
     assert normalized_must_have == ["Java", "Spring Boot", "REST API", "SQL", "Docker"]
     assert normalized_nice_to_have == ["AWS", "Kafka", "Kubernetes"]
+
+
+def test_normalize_vietnamese_skill_aliases_to_canonical_english() -> None:
+    taxonomy = load_taxonomy(TAXONOMY_PATH)
+
+    normalized = normalize_skills(
+        ["nhận diện khuôn mặt", "chong gia mao", "Định danh điện tử"],
+        taxonomy,
+    )
+
+    assert normalized == ["Face Recognition", "Anti-Spoofing", "eKYC"]
