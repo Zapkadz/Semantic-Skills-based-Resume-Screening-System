@@ -17,6 +17,7 @@ from src.review_card_generator import (
 )
 from src.scorer import rank_candidates, score_candidate
 from src.semantic_matcher import match_skills
+from src.skill_extractor import extract_taxonomy_skills_from_text, merge_skill_lists
 from src.skill_normalizer import normalize_skills
 from src.skill_taxonomy import load_taxonomy
 
@@ -31,16 +32,21 @@ def run_screening_pipeline(
 ) -> dict[str, Any]:
     """Run the full text-based screening pipeline for one JD and many CVs."""
     taxonomy = load_taxonomy(taxonomy_path)
-    job_criteria = parse_jd(load_text_file(jd_path))
+    jd_text = load_text_file(jd_path)
+    job_criteria = parse_jd(jd_text)
     cv_documents = load_text_files_from_directory(cv_dir)
 
-    required_skills = normalize_skills(
+    required_skills = _build_job_skill_list(
         job_criteria.get("must_have_skills", []),
+        jd_text,
         taxonomy,
+        use_full_text_fallback=True,
     )
-    nice_to_have_skills = normalize_skills(
+    nice_to_have_skills = _build_job_skill_list(
         job_criteria.get("nice_to_have_skills", []),
+        "",
         taxonomy,
+        use_full_text_fallback=False,
     )
 
     candidate_results = [
@@ -136,9 +142,10 @@ def _process_candidate_document(
 ) -> dict[str, Any]:
     """Process one loaded CV document into a scored candidate result."""
     resume_profile = parse_resume(document["text"])
+    _enrich_resume_skills(resume_profile, document["text"], taxonomy)
     candidate_skills = normalize_skills(resume_profile.get("raw_skills", []), taxonomy)
     must_have_matches = match_skills(required_skills, candidate_skills, taxonomy)
-    enriched_matches = detect_all_evidence(must_have_matches, resume_profile)
+    enriched_matches = detect_all_evidence(must_have_matches, resume_profile, taxonomy)
     nice_to_have_matches = match_skills(
         nice_to_have_skills,
         candidate_skills,
@@ -156,6 +163,55 @@ def _process_candidate_document(
         "source_file": document.get("filename", ""),
         "source_path": document.get("path", ""),
     }
+
+
+def _build_job_skill_list(
+    raw_items: list[str],
+    fallback_text: str,
+    taxonomy: dict[str, dict[str, Any]],
+    use_full_text_fallback: bool,
+) -> list[str]:
+    """Build a precise job skill list from parsed items plus taxonomy extraction."""
+    normalized_skills = normalize_skills(raw_items, taxonomy)
+    known_skills = [skill for skill in normalized_skills if skill in taxonomy]
+    unknown_skill_labels = [
+        skill
+        for skill in normalized_skills
+        if skill not in taxonomy and _looks_like_skill_label(skill)
+    ]
+    extracted_skills = extract_taxonomy_skills_from_text("\n".join(raw_items), taxonomy)
+
+    if not extracted_skills and use_full_text_fallback:
+        extracted_skills = extract_taxonomy_skills_from_text(fallback_text, taxonomy)
+
+    if extracted_skills or known_skills:
+        return merge_skill_lists(extracted_skills, known_skills)
+
+    return merge_skill_lists(unknown_skill_labels)
+
+
+def _enrich_resume_skills(
+    resume_profile: dict[str, Any],
+    raw_text: str,
+    taxonomy: dict[str, dict[str, Any]],
+) -> None:
+    """Add taxonomy skills found in raw resume text to parsed resume skills."""
+    parsed_skills = list(resume_profile.get("raw_skills", []))
+    extracted_skills = extract_taxonomy_skills_from_text(raw_text, taxonomy)
+    resume_profile["raw_skills"] = merge_skill_lists(parsed_skills, extracted_skills)
+
+
+def _looks_like_skill_label(value: str) -> bool:
+    """Avoid treating long requirement sentences as unknown skill labels."""
+    words = value.split()
+    if len(words) > 5 or len(value) > 60:
+        return False
+    if value.rstrip().endswith(":"):
+        return False
+    if value.rstrip().endswith((".", "!", "?")):
+        return False
+
+    return True
 
 
 def _build_job_output(

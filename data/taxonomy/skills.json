@@ -110,7 +110,7 @@
   "Python": {
     "aliases": ["Python 3", "Py"],
     "category": "Programming Language",
-    "related": ["Django", "FastAPI", "Data Analysis"],
+    "related": ["Django", "FastAPI", "Data Analysis", "Machine Learning", "Computer Vision"],
     "transferable": []
   },
   "Django": {
@@ -129,6 +129,216 @@
     "aliases": ["Postman Testing", "REST API Testing"],
     "category": "Testing",
     "related": ["Testing", "REST API", "Postman"],
+    "transferable": []
+  },
+  "Machine Learning": {
+    "aliases": ["ML", "AI", "Artificial Intelligence", "Hoc may", "Học máy", "Tri tue nhan tao", "Trí tuệ nhân tạo"],
+    "category": "AI",
+    "related": ["Deep Learning", "Python", "Scikit-learn", "Model Optimization"],
+    "transferable": []
+  },
+  "Deep Learning": {
+    "aliases": ["DL", "Neural Networks", "Neural Network", "Hoc sau", "Học sâu", "Mang noron", "Mạng nơ-ron"],
+    "category": "AI",
+    "related": ["Machine Learning", "PyTorch", "TensorFlow", "Computer Vision"],
+    "transferable": []
+  },
+  "Computer Vision": {
+    "aliases": ["Thi giac may tinh", "Thị giác máy tính", "Xu ly anh", "Xử lý ảnh"],
+    "category": "Computer Vision",
+    "related": ["Image Processing", "OpenCV", "Face Recognition", "Deep Learning"],
+    "transferable": []
+  },
+  "Image Processing": {
+    "aliases": ["Image Preprocessing", "Image Processing Pipeline", "Tien xu ly anh", "Tiền xử lý ảnh", "Xu ly hinh anh", "Xử lý hình ảnh"],
+    "category": "Computer Vision",
+    "related": ["Computer Vision", "OpenCV", "Image Normalization", "Data Augmentation"],
+    "transferable": []
+  },
+  "PyTorch": {
+    "aliases": ["Torch", "PyTorch Lightning"],
+    "category": "AI Framework",
+    "related": ["Python", "Deep Learning", "Computer Vision"],
+    "transferable": ["TensorFlow"]
+  },
+  "TensorFlow": {
+    "aliases": ["TF", "TensorFlow Lite", "TFLite"],
+    "category": "AI Framework",
+    "related": ["Python", "Deep Learning", "Mobile AI"],
+    "transferable": ["PyTorch"]
+  },
+  "ONNX": {
+    "aliases": ["ONNX Runtime", "ONNX Runtime Mobile"],
+    "category": "Model Deployment",
+    "related": ["Model Optimization", "Mobile AI", "TensorRT"],
+    "transferable": []
+  },
+  "OpenCV": {
+    "aliases": ["Open CV", "cv2"],
+    "category": "Computer Vision Library",
+    "related": ["Computer Vision", "Image Processing", "Face Detection"],
+    "transferable": []
+  },
+  "NumPy": {
+    "aliases": ["Numpy", "Numerical Python"],
+    "category": "Data Library",
+    "related": ["Python", "Machine Learning"],
+    "transferable": []
+  },
+  "Pandas": {
+    "aliases": ["pandas"],
+    "category": "Data Library",
+    "related": ["Python", "Data Analysis"],
+    "transferable": []
+  },
+  "Scikit-learn": {
+    "aliases": ["sklearn", "Scikit Learn"],
+    "category": "Machine Learning Library",
+    "related": ["Machine Learning", "Python"],
+    "transferable": []
+  },
+  "OCR": {
+    "aliases": ["Optical Character Recognition", "Nhan dang ky tu", "Nhận dạng ký tự"],
+    "category": "Computer Vision",
+    "related": ["Image Processing", "Computer Vision"],
+    "transferable": []
+  },
+  "Face Detection": {
+    "aliases": ["Face Detector", "Phat hien khuon mat", "Phát hiện khuôn mặt"],
+    "category": "Computer Vision",
+    "related": ["Face Recognition", "Face Alignment", "OpenCV"],
+    "transferable": []
+  },
+  "Face Recognition": {
+    "aliases": ["Facial Recognition", "FaceNet", "ArcFace", "Nhan dien khuon mat", "Nhận diện khuôn mặt"],
+    "category": "Computer Vision",
+    "related": ["Face Detection", "Face Matching", "Biometrics", "eKYC"],
+    "transferable": []
+  },
+  "Face Matching": {
+    "aliases": ["Face Match", "Face Verification", "Facial Verification", "So khop khuon mat", "So khớp khuôn mặt", "Xac thuc khuon mat", "Xác thực khuôn mặt"],
+    "category": "Biometrics",
+    "related": ["Face Recognition", "eKYC", "Biometrics"],
+    "transferable": []
+  },
+  "Face Alignment": {
+    "aliases": ["Facial Alignment", "Can chinh khuon mat", "Căn chỉnh khuôn mặt"],
+    "category": "Computer Vision",
+    "related": ["Face Detection", "Facial Landmark Detection"],
+    "transferable": []
+  },
+  "Facial Landmark Detection": {
+    "aliases": ["Face Landmark Detection", "Landmark Detection", "Facial Landmarks", "Face Landmarks", "Phat hien diem moc khuon mat", "Phát hiện điểm mốc khuôn mặt"],
+    "category": "Computer Vision",
+    "related": ["Face Alignment", "Face Detection"],
+    "transferable": []
+  },
+  "Liveness Detection": {
+    "aliases": ["Face Liveness Detection", "Liveness", "Phat hien song", "Phát hiện sống", "Kiem tra song", "Kiểm tra sống"],
+    "category": "Biometrics",
+    "related": ["Anti-Spoofing", "eKYC", "Face Matching"],
+    "transferable": []
+  },
+  "Anti-Spoofing": {
+    "aliases": ["Anti Spoofing", "Face Anti-Spoofing", "Spoof Detection", "Presentation Attack Detection", "Chong gia mao", "Chống giả mạo", "Phat hien gia mao", "Phát hiện giả mạo"],
+    "category": "Biometrics",
+    "related": ["Liveness Detection", "eKYC", "Deepfake Detection"],
+    "transferable": []
+  },
+  "Deepfake Detection": {
+    "aliases": ["Deepfake", "Deep Fake Detection", "Phat hien deepfake", "Phát hiện deepfake"],
+    "category": "AI Security",
+    "related": ["Anti-Spoofing", "Computer Vision"],
+    "transferable": []
+  },
+  "eKYC": {
+    "aliases": ["Electronic Know Your Customer", "Electronic KYC", "Digital Identity", "Dinh danh dien tu", "Định danh điện tử", "Xac minh danh tinh", "Xác minh danh tính"],
+    "category": "Identity Verification",
+    "related": ["Biometrics", "Face Matching", "Liveness Detection", "Anti-Spoofing"],
+    "transferable": []
+  },
+  "Biometrics": {
+    "aliases": ["Biometric", "Sinh trac hoc", "Sinh trắc học"],
+    "category": "Identity Verification",
+    "related": ["eKYC", "Face Recognition", "Face Matching"],
+    "transferable": []
+  },
+  "Model Optimization": {
+    "aliases": ["Model Optimisation", "Toi uu mo hinh", "Tối ưu mô hình", "Optimize Models"],
+    "category": "Model Deployment",
+    "related": ["Quantization", "Pruning", "Knowledge Distillation", "ONNX"],
+    "transferable": []
+  },
+  "Quantization": {
+    "aliases": ["Model Quantization", "Luong tu hoa", "Lượng tử hóa"],
+    "category": "Model Optimization",
+    "related": ["Model Optimization", "Mobile AI"],
+    "transferable": []
+  },
+  "Pruning": {
+    "aliases": ["Model Pruning", "Cat tia mo hinh", "Cắt tỉa mô hình"],
+    "category": "Model Optimization",
+    "related": ["Model Optimization", "Mobile AI"],
+    "transferable": []
+  },
+  "Knowledge Distillation": {
+    "aliases": ["Distillation", "Chung cat tri thuc", "Chưng cất tri thức"],
+    "category": "Model Optimization",
+    "related": ["Model Optimization", "Deep Learning"],
+    "transferable": []
+  },
+  "Data Augmentation": {
+    "aliases": ["Augmentation", "Tang cuong du lieu", "Tăng cường dữ liệu"],
+    "category": "Data Processing",
+    "related": ["Image Processing", "Computer Vision"],
+    "transferable": []
+  },
+  "Image Normalization": {
+    "aliases": ["Image Normalize", "Chuan hoa anh", "Chuẩn hóa ảnh", "Image Quality Normalization"],
+    "category": "Image Processing",
+    "related": ["Image Processing", "Computer Vision"],
+    "transferable": []
+  },
+  "Mobile AI": {
+    "aliases": ["Mobile AI Deployment", "Mobile Inference Frameworks", "On-device AI", "On Device Inference", "Mobile Inference", "Edge AI", "AI tren di dong", "AI trên di động"],
+    "category": "Model Deployment",
+    "related": ["Android", "iOS", "TensorFlow", "ONNX", "Model Optimization"],
+    "transferable": []
+  },
+  "Android": {
+    "aliases": ["Android AI", "Android SDK"],
+    "category": "Mobile",
+    "related": ["Mobile AI", "TensorFlow", "ONNX"],
+    "transferable": ["iOS"]
+  },
+  "iOS": {
+    "aliases": ["iOS AI", "iOS SDK"],
+    "category": "Mobile",
+    "related": ["Mobile AI", "TensorFlow", "ONNX"],
+    "transferable": ["Android"]
+  },
+  "TensorRT": {
+    "aliases": ["NVIDIA TensorRT"],
+    "category": "Model Deployment",
+    "related": ["ONNX", "Model Optimization", "Mobile AI"],
+    "transferable": []
+  },
+  "FAR": {
+    "aliases": ["False Acceptance Rate", "False Accept Rate"],
+    "category": "Biometrics Metric",
+    "related": ["FRR", "AUC", "Biometrics"],
+    "transferable": []
+  },
+  "FRR": {
+    "aliases": ["False Rejection Rate", "False Reject Rate"],
+    "category": "Biometrics Metric",
+    "related": ["FAR", "AUC", "Biometrics"],
+    "transferable": []
+  },
+  "AUC": {
+    "aliases": ["Area Under Curve", "ROC AUC"],
+    "category": "Model Metric",
+    "related": ["FAR", "FRR", "Machine Learning"],
     "transferable": []
   }
 }

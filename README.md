@@ -11,10 +11,10 @@ The project does not train a recruitment model from scratch. The MVP starts with
 The project is currently in:
 
 ```text
-Phase 11 - Python API Service
+Phase 12 - Vietnamese-English Parser, Taxonomy, and Evidence Foundation
 ```
 
-This phase adds a FastAPI HTTP service so a PHP web application can send JD/CV JSON payloads and receive ranked candidates with review cards. The existing CLI pipeline remains available.
+This phase improves Vietnamese-English JD/CV handling before adding multilingual embeddings. The CLI and FastAPI API remain available with the same interfaces.
 
 ## Planned Processing Flow
 
@@ -101,10 +101,19 @@ Included:
 - Pydantic request models for job and candidate payloads.
 - Health and screening endpoints.
 - Unit tests for payload pipeline and API endpoints.
+- Vietnamese-English JD and resume section parsing.
+- Common mojibake repair for UTF-8 text misdecoded as Windows-1252.
+- Taxonomy-based full-text skill extraction fallback.
+- Expanded AI, Computer Vision, eKYC, biometrics, and model optimization taxonomy.
+- Vietnamese skill aliases normalized to canonical English skill names.
+- Vietnamese action verbs for evidence detection.
+- AI/Computer Vision/eKYC/Mobile AI domain detection.
+- Unit tests for bilingual parsing, skill extraction, Vietnamese aliases, and evidence.
 
 Not included yet:
 
 - Full Streamlit UI.
+- Local multilingual embedding model in the core ranking flow.
 
 ## Run CLI Pipeline
 
@@ -195,10 +204,24 @@ Alias normalization:
 python -c "from src.skill_taxonomy import load_taxonomy; from src.skill_normalizer import normalize_skills; taxonomy=load_taxonomy('data/taxonomy/skills.json'); print(normalize_skills(['JS', 'SpringBoot', 'Postgres'], taxonomy))"
 ```
 
+Vietnamese alias normalization:
+
+```bash
+python -c "from src.skill_taxonomy import load_taxonomy; from src.skill_normalizer import normalize_skills; taxonomy=load_taxonomy('data/taxonomy/skills.json'); print(normalize_skills(['nhận diện khuôn mặt', 'chong gia mao', 'Định danh điện tử'], taxonomy))"
+```
+
 Normalize parser output:
 
 ```bash
 python -c "from src.document_loader import load_text_file; from src.resume_parser import parse_resume; from src.skill_taxonomy import load_taxonomy; from src.skill_normalizer import normalize_skills; taxonomy=load_taxonomy('data/taxonomy/skills.json'); profile=parse_resume(load_text_file('data/cvs/cv_strong.txt')); print(normalize_skills(profile['raw_skills'], taxonomy))"
+```
+
+## Run Taxonomy Skill Extraction Check
+
+Extract skills from Vietnamese text:
+
+```bash
+python -c "from src.skill_taxonomy import load_taxonomy; from src.skill_extractor import extract_taxonomy_skills_from_text; taxonomy=load_taxonomy('data/taxonomy/skills.json'); text='Xây dựng hệ thống nhận diện khuôn mặt và chống giả mạo trong quy trình eKYC bằng PyTorch.'; print(extract_taxonomy_skills_from_text(text, taxonomy))"
 ```
 
 ## Run Skill Matching Check
@@ -261,7 +284,7 @@ Then run:
 streamlit run app.py
 ```
 
-In Phase 11, the app still shows a placeholder page because the functional UI is planned for a later phase.
+In Phase 12, the app still shows a placeholder page because the functional UI is planned for a later phase.
 
 ## Development Workflow
 
@@ -278,7 +301,7 @@ Work is organized by phase. Each phase should have:
 The next planned phase is:
 
 ```text
-Phase 12 - Streamlit UI
+Phase 13 - Local Multilingual Embedding
 ```
 
-That phase will turn the working pipeline into a simple interactive Streamlit app for uploading or selecting JD/CV text files and viewing rankings/review cards.
+That phase should add a local multilingual embedding model, such as BGE-M3 or multilingual-e5, as an optional semantic signal on top of the explainable rule-based and taxonomy pipeline.

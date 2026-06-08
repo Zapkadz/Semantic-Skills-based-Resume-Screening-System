@@ -6,6 +6,8 @@ import re
 from datetime import date
 from typing import Any
 
+from src.text_normalization import normalize_search_text
+
 
 SCORE_WEIGHTS = {
     "skill_semantic": 0.40,
@@ -40,7 +42,8 @@ SENIORITY_ORDER = {
 
 DATE_PATTERN = re.compile(
     r"(?P<start_month>\d{1,2})/(?P<start_year>\d{4})\s*-\s*"
-    r"(?P<end_month>\d{1,2}|present|current|now)/?(?P<end_year>\d{4})?",
+    r"(?P<end_month>\d{1,2}|present|current|now|nay|hiện tại|hien tai)"
+    r"/?(?P<end_year>\d{4})?",
     re.IGNORECASE,
 )
 
@@ -259,14 +262,19 @@ def detect_candidate_seniority(
         return "Senior"
     if "middle" in profile_text or " mid " in f" {profile_text} ":
         return "Middle"
+    if "lead" in profile_text or "truong nhom" in profile_text:
+        return "Senior"
 
     if years >= 5:
         return "Senior"
     if years >= 2:
         return "Middle"
-    if years >= 0.5 or "developer" in profile_text or "engineer" in profile_text:
+    if years >= 0.5 or any(
+        keyword in profile_text
+        for keyword in ("developer", "engineer", "ky su", "lap trinh vien")
+    ):
         return "Junior"
-    if "intern" in profile_text or "fresher" in profile_text:
+    if "intern" in profile_text or "fresher" in profile_text or "thuc tap" in profile_text:
         return "Intern/Fresher"
 
     return "Not specified"
@@ -294,6 +302,53 @@ def detect_candidate_domains(resume_profile: dict[str, Any]) -> list[str]:
         domains.append("Testing")
     if any(keyword in profile_text for keyword in ("data analyst", "analytics")):
         domains.append("Data")
+    if any(
+        keyword in profile_text
+        for keyword in (
+            "artificial intelligence",
+            "machine learning",
+            "deep learning",
+            "model",
+            "neural network",
+            "tri tue nhan tao",
+            "hoc may",
+        )
+    ):
+        domains.append("AI/Machine Learning")
+    if any(
+        keyword in profile_text
+        for keyword in (
+            "computer vision",
+            "face recognition",
+            "face detection",
+            "image",
+            "video",
+            "opencv",
+            "thi giac may tinh",
+            "nhan dien khuon mat",
+        )
+    ):
+        domains.append("Computer Vision")
+    if any(
+        keyword in profile_text
+        for keyword in (
+            "ekyc",
+            "biometric",
+            "biometrics",
+            "liveness",
+            "anti spoofing",
+            "face matching",
+            "face verification",
+            "xac thuc khuon mat",
+            "chong gia mao",
+        )
+    ):
+        domains.append("eKYC/Biometrics")
+    if any(
+        keyword in profile_text
+        for keyword in ("mobile", "android", "ios", "on device", "edge")
+    ):
+        domains.append("Mobile AI")
     if not domains and any(
         keyword in profile_text
         for keyword in ("developer", "engineer", "software")
@@ -314,7 +369,13 @@ def _duration_to_months(duration: str) -> int:
     end_month_text = match.group("end_month")
     end_year_text = match.group("end_year")
 
-    if end_month_text.casefold() in {"present", "current", "now"}:
+    if normalize_search_text(end_month_text) in {
+        "present",
+        "current",
+        "now",
+        "nay",
+        "hien tai",
+    }:
         today = date.today()
         end_month = today.month
         end_year = today.year
@@ -352,7 +413,7 @@ def _profile_text(resume_profile: dict[str, Any]) -> str:
             ]
         )
 
-    return " ".join(part for part in text_parts if part).casefold()
+    return normalize_search_text(" ".join(part for part in text_parts if part))
 
 
 def _normalize_label(value: str) -> str:

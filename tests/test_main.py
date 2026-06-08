@@ -35,6 +35,7 @@ def test_main_runs_pipeline_and_writes_requested_outputs(
     tmp_path: Path,
     capsys,
 ) -> None:
+    cv_dir = _demo_cv_dir(tmp_path)
     output_json = tmp_path / "ranking_results.json"
     output_dir = tmp_path / "reports"
 
@@ -43,7 +44,7 @@ def test_main_runs_pipeline_and_writes_requested_outputs(
             "--jd",
             "data/jobs/jd_backend_java.txt",
             "--cv-dir",
-            "data/cvs",
+            str(cv_dir),
             "--output-json",
             str(output_json),
             "--output-dir",
@@ -67,3 +68,11 @@ def test_main_runs_pipeline_and_writes_requested_outputs(
     saved_card = output_dir / "rank-01-nguyen-van-a.md"
     assert saved_card.exists()
     assert "Recommendation: Strong Review" in saved_card.read_text(encoding="utf-8")
+
+
+def _demo_cv_dir(tmp_path: Path) -> Path:
+    cv_dir = tmp_path / "cvs"
+    cv_dir.mkdir()
+    cv_text = Path("data/cvs/cv_strong.txt").read_text(encoding="utf-8")
+    (cv_dir / "cv_strong.txt").write_text(cv_text, encoding="utf-8")
+    return cv_dir

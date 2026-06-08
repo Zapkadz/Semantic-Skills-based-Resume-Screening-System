@@ -87,3 +87,24 @@ def test_build_alias_map_rejects_ambiguous_aliases() -> None:
 
     with pytest.raises(ValueError, match="ambiguous"):
         build_alias_map(taxonomy)
+
+
+def test_taxonomy_contains_computer_vision_and_ekyc_skills() -> None:
+    taxonomy = load_taxonomy(TAXONOMY_PATH)
+
+    for skill in [
+        "Computer Vision",
+        "Face Recognition",
+        "Liveness Detection",
+        "Anti-Spoofing",
+        "eKYC",
+        "Quantization",
+        "Knowledge Distillation",
+    ]:
+        assert skill in taxonomy
+        assert set(taxonomy[skill]) == {
+            "aliases",
+            "category",
+            "related",
+            "transferable",
+        }

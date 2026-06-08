@@ -63,3 +63,53 @@ def test_parse_jd_supports_inline_requirements_heading() -> None:
 
     assert criteria["must_have_skills"] == ["API testing"]
     assert criteria["domain"] == ["Backend", "Web Application", "Testing"]
+
+
+def test_parse_jd_supports_bare_english_headings_and_stops_at_benefits() -> None:
+    criteria = parse_jd(
+        "AI Computer Vision Engineer\n"
+        "\n"
+        "Job Description\n"
+        "Build computer vision models for eKYC.\n"
+        "\n"
+        "Requirements\n"
+        "- Strong Python programming skills.\n"
+        "- At least 3 years of experience.\n"
+        "- Face Detection\n"
+        "\n"
+        "Benefits\n"
+        "- Laptop support"
+    )
+
+    assert criteria["must_have_skills"] == [
+        "Strong Python programming skills.",
+        "Face Detection",
+    ]
+    assert criteria["responsibilities"] == [
+        "Build computer vision models for eKYC."
+    ]
+    assert criteria["minimum_experience_years"] == 3
+    assert criteria["seniority"] == "Middle"
+    assert criteria["domain"] == [
+        "AI/Machine Learning",
+        "Computer Vision",
+        "eKYC/Biometrics",
+    ]
+
+
+def test_parse_jd_supports_vietnamese_headings_and_experience() -> None:
+    criteria = parse_jd(
+        "Backend Developer\n"
+        "\n"
+        "Yêu cầu\n"
+        "- Java\n"
+        "- Tối thiểu 2 năm kinh nghiệm\n"
+        "\n"
+        "Mô tả công việc\n"
+        "- Xây dựng REST API."
+    )
+
+    assert criteria["must_have_skills"] == ["Java"]
+    assert criteria["responsibilities"] == ["Xây dựng REST API."]
+    assert criteria["minimum_experience_years"] == 2
+    assert criteria["seniority"] == "Middle"

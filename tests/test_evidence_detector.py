@@ -179,3 +179,28 @@ def test_demo_pipeline_adds_strong_evidence_to_must_have_matches() -> None:
     assert enriched_matches[3]["evidence_text"] == (
         "Designed MySQL database schemas for product and order modules."
     )
+
+
+def test_detect_evidence_uses_vietnamese_aliases_and_action_verbs() -> None:
+    taxonomy = load_taxonomy(TAXONOMY_PATH)
+    profile = {
+        "raw_skills": [],
+        "work_experience": [],
+        "projects": [
+            {
+                "description": [
+                    "Xây dựng hệ thống nhận diện khuôn mặt cho quy trình eKYC.",
+                ],
+                "technologies": [],
+            }
+        ],
+    }
+
+    evidence = detect_evidence("Face Recognition", profile, taxonomy)
+
+    assert evidence == {
+        "skill": "Face Recognition",
+        "evidence_level": 3,
+        "evidence_text": "Xây dựng hệ thống nhận diện khuôn mặt cho quy trình eKYC.",
+        "evidence_source": "projects",
+    }
