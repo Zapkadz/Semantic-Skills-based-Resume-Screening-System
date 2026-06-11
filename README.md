@@ -11,10 +11,10 @@ The project does not train a recruitment model from scratch. The MVP starts with
 The project is currently in:
 
 ```text
-Phase 15 - Human-in-the-loop Taxonomy Suggestion Queue
+Phase 16 - Admin Taxonomy Review and Merged Runtime Taxonomy
 ```
 
-This phase turns repeated unknown requirements from open-set matching into a pending taxonomy suggestion queue. The AI project can suggest canonical skill names, aliases, frequency, example contexts, evidence snippets, and nearest existing taxonomy skills, but it does not automatically modify the taxonomy.
+This phase adds a Python-side taxonomy merge and validation layer for Admin-approved custom skills and aliases. The project still does not automatically modify the base taxonomy. Instead, approved custom taxonomy entries can be exported into one merged runtime taxonomy JSON file for CLI/API screening.
 
 ## Planned Processing Flow
 
@@ -38,6 +38,7 @@ CV / JD text
 |-- app.py
 |-- api.py
 |-- main.py
+|-- taxonomy_merge.py
 |-- taxonomy_suggest.py
 |-- requirements.txt
 |-- README.md
@@ -124,6 +125,10 @@ Included:
 - Versioned taxonomy suggestion queue JSON output.
 - Standalone `taxonomy_suggest.py` CLI.
 - Unit tests for observation collection, suggestion generation, save/load, and CLI output.
+- Admin-approved custom taxonomy overlay merge helpers.
+- Standalone `taxonomy_merge.py` CLI for exporting one merged runtime taxonomy.
+- Atomic merged taxonomy JSON writer.
+- Unit tests for custom skill merge, alias updates, conflicts, validation, save/load, and CLI output.
 
 Not included yet:
 
@@ -234,6 +239,44 @@ The suggestion queue is a local JSON artifact:
 ```
 
 The Python project does not auto-update `data/taxonomy/skills.json`. Admin approval is expected in a later web/admin phase.
+
+## Run Taxonomy Merge
+
+After Admin approves custom skills or aliases, the web side can export a custom taxonomy overlay JSON. A sample contract is available at:
+
+```text
+docs/integration/sample-custom-taxonomy-overlay.json
+```
+
+Merge the base taxonomy with that custom overlay into one runtime taxonomy file:
+
+```bash
+python taxonomy_merge.py --base data/taxonomy/skills.json --custom docs/integration/sample-custom-taxonomy-overlay.json --output outputs/skills_merged.json
+```
+
+For web integration, the intended runtime output path is:
+
+```text
+C:\topcv_ai_runtime\taxonomy\skills_merged.json
+```
+
+The merged taxonomy keeps the same schema as `data/taxonomy/skills.json`, so CLI/API can use it directly.
+
+CLI:
+
+```bash
+python main.py --jd data/jobs/jd_backend_java.txt --cv-dir data/cvs --taxonomy outputs/skills_merged.json
+```
+
+API payload:
+
+```json
+{
+  "taxonomy_path": "C:\\topcv_ai_runtime\\taxonomy\\skills_merged.json"
+}
+```
+
+The merge command does not modify `data/taxonomy/skills.json`.
 
 ## Run Python API Service
 
@@ -428,7 +471,7 @@ Work is organized by phase. Each phase should have:
 The next planned phase is:
 
 ```text
-Phase 16 - Admin Taxonomy Suggestion Review
+Phase 17 - Web Integration Hardening and End-to-end Admin AI Flow
 ```
 
-That phase can add a web/Admin review workflow to approve, reject, or merge pending taxonomy suggestions before updating a custom taxonomy store.
+That phase can validate the full PHP web flow: generate suggestions, Admin approves them, export merged taxonomy, and run screening again using the updated runtime taxonomy.

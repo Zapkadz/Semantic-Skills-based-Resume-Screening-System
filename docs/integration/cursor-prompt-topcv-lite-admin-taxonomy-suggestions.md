@@ -675,4 +675,74 @@ Sau khi lam xong, bao lai:
 - Admin URL de test.
 - Merged taxonomy path.
 - Cach web AI screening dang dung taxonomy path moi.
+
+## 14. Cap nhat Phase 16 - Python merge helper da co san
+
+AI Python project hien da co CLI merge/validate taxonomy:
+
+```powershell
+cd C:\SEMANTIC_SKILLS_RESUME
+.\.venv\Scripts\Activate.ps1
+python taxonomy_merge.py --base data/taxonomy/skills.json --custom C:\topcv_ai_runtime\taxonomy\custom_taxonomy.json --output C:\topcv_ai_runtime\taxonomy\skills_merged.json
+```
+
+Vi vay cach tich hop duoc de xuat la:
+
+```text
+Admin approve/reject trong web
+  -> web luu decision vao DB
+  -> web export approved decisions thanh custom_taxonomy.json
+  -> web goi python taxonomy_merge.py
+  -> python validate/merge
+  -> tao/ghi de skills_merged.json
+  -> web goi AI screening voi taxonomy_path hoac --taxonomy tro vao skills_merged.json
+```
+
+Sample custom overlay co san tai:
+
+```text
+C:\SEMANTIC_SKILLS_RESUME\docs\integration\sample-custom-taxonomy-overlay.json
+```
+
+Format custom overlay:
+
+```json
+{
+  "version": 1,
+  "custom_skills": [
+    {
+      "skill_name": "Carbon Footprint Analysis",
+      "category": "Sustainability / ESG",
+      "aliases": ["carbon footprint analysis", "CO2 emission reporting"],
+      "related": [],
+      "transferable": [],
+      "source": "admin_approved",
+      "source_suggestion_id": "tax-sug-carbon-footprint-analysis"
+    }
+  ],
+  "alias_updates": [
+    {
+      "target_skill_name": "Face Recognition",
+      "aliases": ["face identification"],
+      "source": "admin_approved",
+      "source_suggestion_id": "tax-sug-face-verification"
+    }
+  ]
+}
+```
+
+Neu dung Python helper, web khong can tu viet lai toan bo logic merge phuc tap. Web chi can:
+
+- export `custom_taxonomy.json` dung format tren;
+- goi `taxonomy_merge.py`;
+- doc exit code;
+- neu exit code thanh cong thi dung `skills_merged.json`;
+- neu loi thi hien message Admin va ghi log technical detail.
+
+Luu y:
+
+- Python helper se reject alias conflict, vi du mot alias map sang hai skill khac nhau.
+- Python helper se ghi file theo cach an toan bang temp file roi replace.
+- Python helper khong sua `data/taxonomy/skills.json`.
+- Runtime AI van chi dung mot file duy nhat: `skills_merged.json`.
 ```

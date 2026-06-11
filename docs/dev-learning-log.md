@@ -2262,3 +2262,115 @@ Co the noi:
 ```text
 He thong khong tu dong mo rong taxonomy. Khi gap requirement la nhieu lan, AI chi tao de xuat gom canonical name, aliases, tan suat va vi du evidence. Admin phai duyet truoc khi skill moi duoc them vao taxonomy, giup dam bao chat luong va tranh sai lech.
 ```
+
+---
+
+## Phase 16 - Admin Taxonomy Review and Merged Runtime Taxonomy
+
+### 1. Muc tieu
+
+Phase 16 them tang merge/validate taxonomy de cac skill da duoc Admin duyet co the duoc dua vao AI screening ma khong sua taxonomy goc.
+
+Thiet ke:
+
+```text
+Base taxonomy
+  + Admin-approved custom overlay
+  = one merged runtime taxonomy
+```
+
+### 2. Van de giai quyet
+
+Phase 15 da tao duoc pending suggestions, nhung web/Admin can mot cach an toan de dua cac decision da duyet quay lai vao he thong. Neu sua truc tiep `data/taxonomy/skills.json` thi kho audit va de loi khi update source code.
+
+Phase 16 giai quyet bang cach tao file runtime rieng:
+
+```text
+C:\topcv_ai_runtime\taxonomy\skills_merged.json
+```
+
+AI CLI/API chi can doc file merged nay.
+
+### 3. Cach xu ly
+
+Them:
+
+- `src/taxonomy_merge.py`
+- `taxonomy_merge.py`
+- `tests/test_taxonomy_merge.py`
+- `docs/integration/sample-custom-taxonomy-overlay.json`
+- `docs/refactoring/phase-16-refactoring-plan.md`
+
+Module merge lam:
+
+- Validate custom overlay JSON.
+- Add custom skills.
+- Add aliases vao existing base/custom skill.
+- Dedupe aliases.
+- Reject ambiguous aliases.
+- Atomic write merged taxonomy.
+
+### 4. CLI moi
+
+Lenh:
+
+```powershell
+python taxonomy_merge.py --base data/taxonomy/skills.json --custom docs/integration/sample-custom-taxonomy-overlay.json --output outputs/skills_merged.json
+```
+
+### 5. Cach AI dung taxonomy merged
+
+CLI:
+
+```powershell
+python main.py --jd data/jobs/jd_backend_java.txt --cv-dir data/cvs --taxonomy outputs/skills_merged.json
+```
+
+API:
+
+```json
+{
+  "taxonomy_path": "C:\\topcv_ai_runtime\\taxonomy\\skills_merged.json"
+}
+```
+
+### 6. File da thay doi
+
+- `README.md`
+- `docs/dev-learning-log.md`
+- `docs/phases/phase-16-admin-taxonomy-review-merged-taxonomy.md`
+- `docs/refactoring/phase-16-refactoring-plan.md`
+- `docs/integration/cursor-prompt-topcv-lite-admin-taxonomy-suggestions.md`
+- `docs/integration/sample-custom-taxonomy-overlay.json`
+- `taxonomy_merge.py`
+- `src/taxonomy_merge.py`
+- `tests/test_taxonomy_merge.py`
+
+### 7. Cach test
+
+Chay:
+
+```bash
+pytest
+```
+
+Test rieng:
+
+```bash
+pytest tests/test_taxonomy_merge.py
+```
+
+Manual check:
+
+```bash
+python taxonomy_merge.py --base data/taxonomy/skills.json --custom docs/integration/sample-custom-taxonomy-overlay.json --output outputs/skills_merged.json
+python main.py --jd data/jobs/jd_backend_java.txt --cv-dir data/cvs --taxonomy outputs/skills_merged.json
+```
+
+### 8. Ghi chu cho bao cao
+
+Co the noi:
+
+```text
+He thong khong de AI tu dong sua taxonomy. Thay vao do, cac skill moi duoc Admin duyet se duoc luu thanh custom taxonomy overlay. He thong merge overlay nay voi taxonomy goc de tao mot runtime taxonomy duy nhat cho cac lan sang loc tiep theo. Cach thiet ke nay giup dam bao kha nang giai thich, kiem soat chat luong va truy vet thay doi.
+```
