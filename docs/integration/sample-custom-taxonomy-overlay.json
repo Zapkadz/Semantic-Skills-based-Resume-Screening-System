@@ -1,0 +1,28 @@
+{
+  "version": 1,
+  "custom_skills": [
+    {
+      "skill_name": "Carbon Footprint Analysis",
+      "category": "Sustainability / ESG",
+      "aliases": [
+        "carbon footprint analysis",
+        "CO2 emission reporting",
+        "carbon accounting"
+      ],
+      "related": [],
+      "transferable": [],
+      "source": "admin_approved",
+      "source_suggestion_id": "tax-sug-carbon-footprint-analysis"
+    }
+  ],
+  "alias_updates": [
+    {
+      "target_skill_name": "Face Recognition",
+      "aliases": [
+        "face identification"
+      ],
+      "source": "admin_approved",
+      "source_suggestion_id": "tax-sug-face-verification"
+    }
+  ]
+}

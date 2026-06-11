@@ -5,4 +5,4 @@ pytest
 sentence-transformers
 fastapi
 uvicorn
-httpx
+httpx2
