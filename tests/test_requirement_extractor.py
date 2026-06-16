@@ -1,0 +1,130 @@
+from src.requirement_extractor import (
+    build_screening_confidence,
+    extract_unknown_requirement_texts,
+)
+
+
+def test_extract_unknown_requirement_texts_decomposes_long_security_requirements() -> None:
+    job_criteria = {
+        "must_have_skills": [
+            "Qualifications & Experience",
+            "Professional requirements: Proficiency in Linux, Nutanix administration, Commvault, and Qualys; ability to perform patch upgrades for both Windows and Linux.",
+            "At least 3 yeear of experience in IT Security Operations, Governance, Compliance, Personal Data Protection, preferably in banking/finance.",
+            "Knowledge of vulnerability management tools (e.g., Qualys) and access control principles.",
+            "Understanding of Personal Data Protection regulations.",
+            "Skills",
+            "Strong analytical, detail-oriented, and process-driven mindset.",
+            "Relevant certifications: Security+, CEH, ISO 27001, or Privacy certifications (CIPP/E, CIPM) are an advantage.",
+        ]
+    }
+
+    requirements = extract_unknown_requirement_texts(job_criteria, "", {})
+
+    assert requirements == [
+        "Linux",
+        "Nutanix administration",
+        "Commvault",
+        "Qualys",
+        "patch upgrades for Windows",
+        "IT Security Operations",
+        "Governance",
+        "Compliance",
+        "Personal Data Protection",
+        "vulnerability management",
+        "access control",
+        "CIPP/E",
+        "CIPM",
+        "CEH",
+        "ISO 27001",
+        "Security+",
+    ]
+
+
+def test_extract_unknown_requirement_texts_skips_taxonomy_known_phrases() -> None:
+    taxonomy = {
+        "Python": {
+            "aliases": ["Python programming"],
+            "category": "Programming Language",
+            "related": [],
+            "transferable": [],
+        },
+        "REST API": {
+            "aliases": ["REST APIs"],
+            "category": "Backend",
+            "related": [],
+            "transferable": [],
+        },
+    }
+    job_criteria = {
+        "must_have_skills": [
+            "Strong Python programming skills.",
+            "REST API",
+        ]
+    }
+
+    assert extract_unknown_requirement_texts(job_criteria, "", taxonomy) == []
+
+
+def test_extract_unknown_requirement_texts_skips_plain_experience_field() -> None:
+    job_criteria = {
+        "must_have_skills": [
+            "Linux",
+            "3 năm",
+            "3 years",
+        ]
+    }
+
+    assert extract_unknown_requirement_texts(job_criteria, "", {}) == ["Linux"]
+
+
+def test_extract_unknown_requirement_texts_strips_vietnamese_technical_leadins() -> None:
+    job_criteria = {
+        "must_have_skills": [
+            "Thành thạo cơ sở dữ liệu Oracle",
+            "Có kiến thức về Monolithic, Micro-service, OOP",
+            "Có hiểu biết cơ bản về DevOps, CI/CD.",
+        ]
+    }
+
+    assert extract_unknown_requirement_texts(job_criteria, "", {}) == [
+        "Oracle",
+        "OOP",
+        "Monolithic",
+        "Micro-service",
+        "CI/CD",
+        "DevOps",
+    ]
+
+
+def test_build_screening_confidence_warns_when_open_set_embedding_is_disabled() -> None:
+    confidence = build_screening_confidence(
+        known_requirements=[],
+        open_set_requirements=["Qualys"],
+        embedding_matcher=None,
+    )
+
+    assert confidence == {
+        "level": "low",
+        "known_requirement_count": 0,
+        "open_set_requirement_count": 1,
+        "embedding_enabled": False,
+        "warnings": [
+            "Open-set requirements detected but embedding matcher is disabled."
+        ],
+    }
+
+
+def test_build_screening_confidence_is_medium_for_embedding_open_set_only() -> None:
+    confidence = build_screening_confidence(
+        known_requirements=[],
+        open_set_requirements=["Qualys"],
+        embedding_matcher=object(),
+    )
+
+    assert confidence == {
+        "level": "medium",
+        "known_requirement_count": 0,
+        "open_set_requirement_count": 1,
+        "embedding_enabled": True,
+        "warnings": [],
+    }

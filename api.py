@@ -12,23 +12,29 @@ from src.embedding_matcher import (
 from src.payload_pipeline import run_screening_payload
 
 
-API_PHASE = "Phase 11 - Python API Service"
+API_PHASE = "Phase 17 - Taxonomy-independent Open-set Screening Core"
 
 app = FastAPI(
     title="Semantic Skills Resume Screening API",
-    version="0.11.0",
+    version="0.17.0",
 )
 
 _API_EMBEDDING_MATCHER: SemanticEmbeddingMatcher | None = None
 
 
 @app.get("/health")
-def health_check() -> dict[str, str]:
+def health_check() -> dict[str, object]:
     """Return API health information."""
+    matcher = _get_api_embedding_matcher()
     return {
         "status": "ok",
         "service": "semantic-skills-resume-screening",
         "phase": API_PHASE,
+        "embedding_enabled": matcher is not None,
+        "embedding_model": matcher.model_name if matcher else "",
+        "embedding_loaded": matcher.is_available() if matcher else False,
+        "embedding_local_only": matcher.local_files_only if matcher else False,
+        "embedding_threshold": matcher.threshold if matcher else None,
     }
 
 

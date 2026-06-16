@@ -11,11 +11,15 @@ def test_health_endpoint_returns_service_status() -> None:
     response = client.get("/health")
 
     assert response.status_code == 200
-    assert response.json() == {
-        "status": "ok",
-        "service": "semantic-skills-resume-screening",
-        "phase": "Phase 11 - Python API Service",
-    }
+    result = response.json()
+    assert result["status"] == "ok"
+    assert result["service"] == "semantic-skills-resume-screening"
+    assert result["phase"] == "Phase 17 - Taxonomy-independent Open-set Screening Core"
+    assert "embedding_enabled" in result
+    assert "embedding_model" in result
+    assert "embedding_loaded" in result
+    assert "embedding_local_only" in result
+    assert "embedding_threshold" in result
 
 
 def test_screening_endpoint_returns_ranked_candidates() -> None:

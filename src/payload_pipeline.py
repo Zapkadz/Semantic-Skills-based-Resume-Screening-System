@@ -9,33 +9,42 @@ from src.api_models import CandidatePayload, JobPayload, ScreeningRequest
 from src.embedding_matcher import SemanticEmbeddingMatcher
 from src.evidence_detector import detect_all_evidence
 from src.jd_parser import parse_jd
+from src.jd_requirement_classifier import build_scoring_requirement_lines
 from src.open_set_matcher import (
     build_taxonomy_coverage,
     find_semantic_requirement_evidence,
-    split_known_and_unknown_requirements,
 )
+from src.requirement_extractor import build_screening_confidence
 from src.resume_parser import parse_resume
 from src.review_card_generator import generate_review_card
 from src.scorer import rank_candidates, score_candidate
 from src.screening_pipeline import (
     DEFAULT_TAXONOMY_PATH,
+    _build_open_set_requirements,
     _build_job_skill_list,
+    _build_requirement_group_summary,
     _enrich_resume_skills,
+    _with_requirement_groups,
 )
 from src.semantic_matcher import match_skills
+from src.skill_extractor import merge_skill_lists
 from src.skill_normalizer import normalize_skills
 from src.skill_taxonomy import load_taxonomy
+from src.text_normalization import html_to_plain_text, strip_list_marker
 
 
 def build_jd_text_from_payload(job: dict[str, Any] | JobPayload) -> str:
     """Build parser-friendly JD text from a web job payload."""
     job_payload = _to_plain_dict(job)
-    raw_text = str(job_payload.get("raw_text", "")).strip()
+    raw_text = _clean_payload_text(job_payload.get("raw_text", ""))
     if raw_text:
+        job_title = _clean_payload_text(job_payload.get("job_title", ""))
+        if job_title and not raw_text.casefold().startswith(job_title.casefold()):
+            return f"{job_title}\n\n{raw_text}"
         return raw_text
 
-    job_title = str(job_payload.get("job_title", "")).strip()
-    description = str(job_payload.get("description", "")).strip()
+    job_title = _clean_payload_text(job_payload.get("job_title", ""))
+    description = _clean_payload_text(job_payload.get("description", ""))
     requirements = _string_list(
         job_payload.get("requirements") or job_payload.get("must_have_skills")
     )
@@ -71,7 +80,7 @@ def build_cv_document_from_payload(
 ) -> dict[str, Any]:
     """Build a loader-like document dict from a candidate payload."""
     candidate_payload = _to_plain_dict(candidate)
-    cv_text = str(candidate_payload.get("cv_text", "")).strip()
+    cv_text = _clean_payload_text(candidate_payload.get("cv_text", ""))
 
     if not cv_text:
         cv_text = _build_structured_cv_text(candidate_payload)
@@ -113,30 +122,44 @@ def run_screening_payload(
 
     job_text = build_jd_text_from_payload(job_payload)
     job_criteria = parse_jd(job_text)
+    job_criteria = _with_requirement_groups(job_criteria, job_text, taxonomy)
+    required_requirement_lines, nice_to_have_requirement_lines = (
+        build_scoring_requirement_lines(job_criteria["requirement_groups"])
+    )
     required_skills = _build_job_skill_list(
-        job_criteria.get("must_have_skills", []),
-        job_text,
+        required_requirement_lines,
+        "\n".join(required_requirement_lines),
         taxonomy,
         use_full_text_fallback=True,
         include_unknown_skills=False,
     )
-    open_set_requirements = split_known_and_unknown_requirements(
-        job_criteria.get("must_have_skills", []),
+    unknown_requirements = _build_open_set_requirements(
+        {**job_criteria, "must_have_skills": required_requirement_lines},
+        "\n".join(required_requirement_lines),
         required_skills,
         taxonomy,
     )
-    unknown_requirements = open_set_requirements["unknown_requirements"]
     taxonomy_coverage = build_taxonomy_coverage(
         required_skills,
         unknown_requirements,
     )
     nice_to_have_skills = _build_job_skill_list(
-        job_criteria.get("nice_to_have_skills", []),
-        "",
+        nice_to_have_requirement_lines,
+        "\n".join(nice_to_have_requirement_lines),
         taxonomy,
         use_full_text_fallback=False,
         include_unknown_skills=embedding_matcher is not None,
     )
+    if embedding_matcher is not None:
+        nice_to_have_skills = merge_skill_lists(
+            nice_to_have_skills,
+            _build_open_set_requirements(
+                {**job_criteria, "must_have_skills": nice_to_have_requirement_lines},
+                "\n".join(nice_to_have_requirement_lines),
+                nice_to_have_skills,
+                taxonomy,
+            ),
+        )
 
     candidate_results = [
         _process_candidate_payload(
@@ -162,6 +185,8 @@ def run_screening_payload(
             required_skills,
             nice_to_have_skills,
             taxonomy_coverage,
+            unknown_requirements,
+            embedding_matcher,
         ),
         "candidates": ranked_candidates,
     }
@@ -214,6 +239,10 @@ def _process_candidate_payload(
     return {
         **scored_candidate,
         "open_set_requirement_matches": open_set_matches,
+        "requirement_group_summary": _build_requirement_group_summary(
+            scored_matches,
+            nice_to_have_matches,
+        ),
         "application_id": document.get("application_id"),
         "candidate_id": document.get("candidate_id"),
         "email": document.get("email", ""),
@@ -231,20 +260,30 @@ def _build_job_output(
     required_skills: list[str],
     nice_to_have_skills: list[str],
     taxonomy_coverage: dict[str, Any] | None = None,
+    open_set_requirements: list[str] | None = None,
+    embedding_matcher: SemanticEmbeddingMatcher | None = None,
 ) -> dict[str, Any]:
     """Build a stable API job response object."""
+    open_set_requirements = open_set_requirements or []
     return {
         "job_id": job_payload.get("job_id"),
-        "title": job_criteria.get("job_title", ""),
+        "title": job_criteria.get("job_title", "") or job_payload.get("job_title", ""),
         "must_have_skills": required_skills,
         "nice_to_have_skills": nice_to_have_skills,
+        "open_set_requirements": open_set_requirements,
         "minimum_experience_years": job_criteria.get("minimum_experience_years", 0),
         "seniority": job_criteria.get("seniority", "Not specified"),
         "domain": job_criteria.get("domain", []),
         "taxonomy_coverage": taxonomy_coverage or build_taxonomy_coverage(
             required_skills,
-            [],
+            open_set_requirements,
         ),
+        "screening_confidence": build_screening_confidence(
+            required_skills,
+            open_set_requirements,
+            embedding_matcher,
+        ),
+        "requirement_groups": job_criteria.get("requirement_groups", {}),
     }
 
 
@@ -341,7 +380,7 @@ def _build_candidate_source_filename(candidate_payload: dict[str, Any]) -> str:
     if candidate_id is not None:
         return f"candidate-{candidate_id}.txt"
 
-    candidate_name = str(candidate_payload.get("candidate_name", "candidate")).strip()
+    candidate_name = _clean_payload_text(candidate_payload.get("candidate_name", "candidate"))
     return f"{_slugify(candidate_name or 'candidate')}.txt"
 
 
@@ -350,11 +389,25 @@ def _string_list(value: Any) -> list[str]:
     if value is None:
         return []
     if isinstance(value, str):
-        return [line.strip("- ").strip() for line in value.splitlines() if line.strip()]
+        return _split_payload_text(value)
     if isinstance(value, list):
-        return [str(item).strip() for item in value if str(item).strip()]
+        lines: list[str] = []
+        for item in value:
+            lines.extend(_split_payload_text(item))
+        return lines
 
-    return [str(value).strip()] if str(value).strip() else []
+    return _split_payload_text(value)
+
+
+def _split_payload_text(value: Any) -> list[str]:
+    """Split plain or HTML payload text into parser-friendly lines."""
+    text = _clean_payload_text(value)
+    return [strip_list_marker(line) for line in text.splitlines() if strip_list_marker(line)]
+
+
+def _clean_payload_text(value: Any) -> str:
+    """Normalize user/editor payload text without changing its meaning."""
+    return html_to_plain_text(str(value or "")).strip()
 
 
 def _format_bullets(items: list[str]) -> list[str]:

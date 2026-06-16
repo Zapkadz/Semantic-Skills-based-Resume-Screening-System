@@ -37,6 +37,10 @@ def generate_review_card(
     missing_skills = list(candidate_result.get("missing_skills", []))
     nice_to_have_matches = list(candidate_result.get("nice_to_have_matches", []))
     score_breakdown = dict(candidate_result.get("scores", {}))
+    requirement_groups = _get_requirement_groups(job_criteria)
+    requirement_group_summary = dict(
+        candidate_result.get("requirement_group_summary", {})
+    )
 
     evidence_highlights = build_evidence_highlights(matched_skills)
     strengths = build_strengths(score_breakdown, evidence_highlights)
@@ -65,6 +69,9 @@ def generate_review_card(
         "matched_skills": matched_skills,
         "missing_skills": missing_skills,
         "nice_to_have_matches": nice_to_have_matches,
+        "requirement_groups": requirement_groups,
+        "requirement_group_summary": requirement_group_summary,
+        "requirement_notes": build_requirement_notes(requirement_groups),
         "evidence_highlights": evidence_highlights,
         "strengths": strengths,
         "concerns": concerns,
@@ -122,6 +129,11 @@ def format_review_card_markdown(review_card: dict[str, Any]) -> str:
         lines.extend(f"- {skill}" for skill in missing_skills)
     else:
         lines.append("- None")
+
+    requirement_notes = review_card.get("requirement_notes", [])
+    if requirement_notes:
+        lines.extend(["", "## Requirement Notes"])
+        lines.extend(_format_bullets(requirement_notes))
 
     lines.extend(["", "## Suggested Interview Questions"])
     questions = review_card.get("suggested_interview_questions", [])
@@ -239,6 +251,19 @@ def build_concerns(
     concerns: list[str] = []
     matched_skills = matched_skills or []
 
+    if _meets_experience_but_has_incomplete_hard_skill_evidence(
+        score_breakdown,
+        missing_skills,
+        matched_skills,
+    ):
+        concerns.append(
+            (
+                "The candidate appears to meet the experience requirement, "
+                "but hard-skill evidence is incomplete; review missing and "
+                "weakly evidenced must-have skills before shortlisting."
+            )
+        )
+
     if missing_skills:
         concerns.append(
             f"Missing must-have skills: {_join_readable_list(missing_skills)}."
@@ -285,6 +310,38 @@ def build_concerns(
         concerns.append("No major concerns detected from the available scoring signals.")
 
     return concerns
+
+
+def _meets_experience_but_has_incomplete_hard_skill_evidence(
+    score_breakdown: dict[str, float],
+    missing_skills: list[str],
+    matched_skills: list[dict[str, Any]],
+) -> bool:
+    """Flag candidates whose years/domain should not hide hard-skill gaps."""
+    if score_breakdown.get("experience", 0.0) < 0.75:
+        return False
+
+    if score_breakdown.get("evidence", 0.0) < 0.50:
+        return True
+
+    if missing_skills:
+        return True
+
+    positive_matches = [
+        match
+        for match in matched_skills
+        if float(match.get("score", 0.0)) > 0.0
+        and match.get("match_type") not in {"no_match", "no_semantic_evidence"}
+    ]
+    if not positive_matches:
+        return True
+
+    weak_matches = [
+        match
+        for match in positive_matches
+        if int(match.get("evidence_level", 0)) <= 1
+    ]
+    return len(weak_matches) / len(positive_matches) >= 0.50
 
 
 def build_interview_questions(
@@ -346,12 +403,52 @@ def build_interview_questions(
     return questions[:limit]
 
 
+def build_requirement_notes(requirement_groups: dict[str, list[str]]) -> list[str]:
+    """Build recruiter notes for non-technical JD requirement groups."""
+    notes: list[str] = []
+
+    education = requirement_groups.get("education", [])
+    if education:
+        education = [_strip_sentence_end(item) for item in education]
+        notes.append(
+            "Education requirements should be reviewed separately: "
+            f"{_join_readable_list(education)}."
+        )
+
+    soft_skills = requirement_groups.get("soft_skills", [])
+    if soft_skills:
+        soft_skills = [_strip_sentence_end(item) for item in soft_skills]
+        notes.append(
+            "Soft skills should be verified during interview: "
+            f"{_join_readable_list(soft_skills)}."
+        )
+
+    domain_context = requirement_groups.get("domain_context", [])
+    if domain_context:
+        domain_context = [_strip_sentence_end(item) for item in domain_context]
+        notes.append(
+            "Domain context to consider: "
+            f"{_join_readable_list(domain_context)}."
+        )
+
+    return notes
+
+
 def _get_job_title(job_criteria: dict[str, Any] | None) -> str:
     """Return a job title from optional job criteria."""
     if not job_criteria:
         return ""
 
     return str(job_criteria.get("job_title", "")).strip()
+
+
+def _get_requirement_groups(job_criteria: dict[str, Any] | None) -> dict[str, list[str]]:
+    """Return requirement groups from optional job criteria."""
+    if not job_criteria:
+        return {}
+
+    groups = job_criteria.get("requirement_groups", {})
+    return groups if isinstance(groups, dict) else {}
 
 
 def _display_skill(match: dict[str, Any]) -> str:

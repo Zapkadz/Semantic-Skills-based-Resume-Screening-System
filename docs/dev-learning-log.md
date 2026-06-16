@@ -2374,3 +2374,218 @@ Co the noi:
 ```text
 He thong khong de AI tu dong sua taxonomy. Thay vao do, cac skill moi duoc Admin duyet se duoc luu thanh custom taxonomy overlay. He thong merge overlay nay voi taxonomy goc de tao mot runtime taxonomy duy nhat cho cac lan sang loc tiep theo. Cach thiet ke nay giup dam bao kha nang giai thich, kiem soat chat luong va truy vet thay doi.
 ```
+
+---
+
+## Phase 17 - Taxonomy-independent Open-set Screening Core
+
+### 1. Muc tieu
+
+Phase 17 giai quyet van de he thong cham diem thap khi JD/CV thuoc nganh chua co trong taxonomy.
+
+Nguyen tac moi:
+
+```text
+Taxonomy la lop chuan hoa/giai thich.
+Open-set semantic matching la lop giup he thong xu ly skill/nganh moi.
+```
+
+### 2. Van de giai quyet
+
+Case JD_2 IT Security/GRC cho thay:
+
+- JD title bi trong.
+- Domain bi match sai do substring `edge` trong `knowledge`.
+- CV phu hop nhung diem thap vi taxonomy chua co IT Security/GRC.
+- Neu chi them taxonomy cho JD_2 thi se thanh va tung case.
+
+Phase 17 khong them taxonomy de fix rieng JD_2. Thay vao do, he thong tach requirement ngoai taxonomy va match bang embedding.
+
+### 3. Cach xu ly
+
+Them:
+
+- `src/requirement_extractor.py`
+- `tests/test_requirement_extractor.py`
+- `docs/refactoring/phase-17-refactoring-plan.md`
+
+Cap nhat:
+
+- `src/screening_pipeline.py`
+- `src/payload_pipeline.py`
+- `src/open_set_matcher.py`
+- `src/evidence_detector.py`
+- `src/jd_parser.py`
+- `src/scorer.py`
+
+### 4. Output moi
+
+Job output co them:
+
+```json
+{
+  "open_set_requirements": [],
+  "screening_confidence": {
+    "level": "high",
+    "known_requirement_count": 0,
+    "open_set_requirement_count": 0,
+    "embedding_enabled": false,
+    "warnings": []
+  }
+}
+```
+
+Neu embedding tat nhung JD co open-set requirements:
+
+```json
+{
+  "level": "low",
+  "warnings": [
+    "Open-set requirements detected but embedding matcher is disabled."
+  ]
+}
+```
+
+### 5. Manual benchmark
+
+Voi JD_2 va CV_1/CV_3:
+
+Khong embedding:
+
+```text
+David Chen - 36/100 - Not Enough Evidence
+Kevin Walker - 32/100 - Not Enough Evidence
+```
+
+Co BGE-M3:
+
+```text
+David Chen - 72/100 - Review
+Kevin Walker - 36/100 - Not Enough Evidence
+```
+
+Dieu nay cho thay Phase 17 khong can them IT Security taxonomy rieng van co the cai thien ranking khi embedding duoc bat.
+
+### 6. Cach test
+
+Chay:
+
+```bash
+pytest
+```
+
+Ket qua Phase 17:
+
+```text
+143 passed
+```
+
+### 7. Ghi chu cho bao cao
+
+Co the noi:
+
+```text
+He thong ket hop taxonomy-based matching va open-set semantic matching. Voi skill da co trong taxonomy, he thong dung rule-based matching de dam bao giai thich ro rang. Voi requirement chua co trong taxonomy, he thong khong bo qua ma tach thanh capability units va dung multilingual embedding de tim bang chung gan nghia trong CV. Ket qua nay duoc danh dau la semantic-only de recruiter biet can verify. Cach tiep can nay giup he thong van hoat dong voi nganh nghe moi ma khong can them taxonomy thu cong cho tung case.
+```
+
+---
+
+## Phase 18 - JD Requirement Classification and Weighted Scoring Refinement
+
+### 1. Muc tieu
+
+Phase 18 giai quyet van de JD dai lam diem bi keo thap vi he thong tinh moi dong requirement nhu must-have skill.
+
+Case thuc te:
+
+```text
+JD_3 Fullstack Developer
+CV_3_3 phu hop hon CV_3_1, ranking dung,
+nhung diem CV_3_3 chi 55/100 vi soft skill, education va nice-to-have bi tinh nhu missing must-have.
+```
+
+### 2. Cach xu ly
+
+Them:
+
+- `src/jd_requirement_classifier.py`
+- `tests/test_jd_requirement_classifier.py`
+- `docs/phases/phase-18-jd-requirement-classification-weighted-scoring.md`
+
+Cap nhat:
+
+- `src/jd_parser.py` nhan heading `Dieu kien bat buoc` va `Dieu kien uu tien`.
+- `src/screening_pipeline.py` va `src/payload_pipeline.py` dung classifier truoc scoring.
+- `src/requirement_extractor.py` strip cac tien to ky thuat tieng Viet nhu `Thanh thao`, `Co kien thuc ve`, `co so du lieu`.
+- `src/review_card_generator.py` them requirement notes cho education, soft skills va domain context.
+
+### 3. Output moi
+
+Job output co them:
+
+```json
+{
+  "requirement_groups": {
+    "must_have_technical": [],
+    "nice_to_have_technical": [],
+    "soft_skills": [],
+    "education": [],
+    "experience": [],
+    "certifications": [],
+    "domain_context": [],
+    "responsibilities": [],
+    "ignored": []
+  }
+}
+```
+
+Candidate output co them:
+
+```json
+{
+  "requirement_group_summary": {
+    "must_have_matched": 0,
+    "must_have_total": 0,
+    "nice_to_have_matched": 0,
+    "nice_to_have_total": 0
+  }
+}
+```
+
+Review card co them `Requirement Notes` de recruiter biet:
+
+- Education nen review rieng.
+- Soft skills nen verify khi phong van.
+- Domain context nen dung de tham khao.
+
+### 4. Manual benchmark
+
+Voi `JD_3.txt`, `CV_3_1.txt`, `CV_3_3.txt` va BGE-M3:
+
+Truoc Phase 18:
+
+```text
+Le Quoc Bao - 55/100 - Maybe Review
+Nguyen Van Hung - 46/100 - Low Priority
+```
+
+Sau Phase 18:
+
+```text
+Le Quoc Bao - 76/100 - Review
+Nguyen Van Hung - 51/100 - Low Priority
+```
+
+Ket qua nay hop ly hon:
+
+- Ranking van giu dung.
+- CV phu hop hon khong bi phat nang vi soft skills/hoc van/nice-to-have.
+- Missing skills cua CV_3_3 chi con cac technical gaps nhu `OOP`, `FrontEnd va BackEnd API`.
+
+### 5. Ghi chu cho bao cao
+
+Co the noi:
+
+```text
+He thong khong so khop JD theo kieu keyword phang. Truoc khi scoring, moi dong JD duoc phan loai thanh ky nang chuyen mon bat buoc, ky nang uu tien, ky nang mem, hoc van, kinh nghiem, chung chi va ngu canh nganh nghe. Diem phu hop duoc tinh chu yeu tren ky nang chuyen mon bat buoc va bang chung trong CV; cac yeu cau uu tien chi dong vai tro cong diem, con ky nang mem/hoc van duoc dung de ho tro review va phong van. Cach nay giup ket qua xep hang cong bang hon va giai thich duoc hon.
+```

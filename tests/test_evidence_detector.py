@@ -114,6 +114,26 @@ def test_detect_evidence_returns_level_1_for_summary_only() -> None:
     assert evidence["evidence_source"] == "summary"
 
 
+def test_detect_evidence_returns_level_1_for_certification() -> None:
+    profile = {
+        "summary": "",
+        "headline": "",
+        "raw_skills": [],
+        "work_experience": [],
+        "projects": [],
+        "certifications": ["ISO 27001 Lead Implementer"],
+    }
+
+    evidence = detect_evidence("ISO 27001", profile)
+
+    assert evidence == {
+        "skill": "ISO 27001",
+        "evidence_level": 1,
+        "evidence_text": "ISO 27001 Lead Implementer",
+        "evidence_source": "certifications",
+    }
+
+
 def test_detect_evidence_returns_level_0_when_skill_is_missing() -> None:
     profile = {
         "summary": "Frontend developer.",

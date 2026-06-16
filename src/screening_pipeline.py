@@ -11,10 +11,17 @@ from src.document_loader import load_text_file, load_text_files_from_directory
 from src.embedding_matcher import SemanticEmbeddingMatcher
 from src.evidence_detector import detect_all_evidence
 from src.jd_parser import parse_jd
+from src.jd_requirement_classifier import (
+    build_scoring_requirement_lines,
+    classify_jd_requirements,
+)
 from src.open_set_matcher import (
     build_taxonomy_coverage,
     find_semantic_requirement_evidence,
-    split_known_and_unknown_requirements,
+)
+from src.requirement_extractor import (
+    build_screening_confidence,
+    extract_unknown_requirement_texts,
 )
 from src.resume_parser import parse_resume
 from src.review_card_generator import (
@@ -25,7 +32,7 @@ from src.scorer import rank_candidates, score_candidate
 from src.semantic_matcher import match_skills
 from src.skill_extractor import extract_taxonomy_skills_from_text, merge_skill_lists
 from src.skill_normalizer import normalize_skills
-from src.skill_taxonomy import load_taxonomy
+from src.skill_taxonomy import load_taxonomy, make_lookup_key
 
 
 DEFAULT_TAXONOMY_PATH = "data/taxonomy/skills.json"
@@ -41,32 +48,46 @@ def run_screening_pipeline(
     taxonomy = load_taxonomy(taxonomy_path)
     jd_text = load_text_file(jd_path)
     job_criteria = parse_jd(jd_text)
+    job_criteria = _with_requirement_groups(job_criteria, jd_text, taxonomy)
     cv_documents = load_text_files_from_directory(cv_dir)
 
+    required_requirement_lines, nice_to_have_requirement_lines = (
+        build_scoring_requirement_lines(job_criteria["requirement_groups"])
+    )
     required_skills = _build_job_skill_list(
-        job_criteria.get("must_have_skills", []),
-        jd_text,
+        required_requirement_lines,
+        "\n".join(required_requirement_lines),
         taxonomy,
         use_full_text_fallback=True,
         include_unknown_skills=False,
     )
-    open_set_requirements = split_known_and_unknown_requirements(
-        job_criteria.get("must_have_skills", []),
+    unknown_requirements = _build_open_set_requirements(
+        {**job_criteria, "must_have_skills": required_requirement_lines},
+        "\n".join(required_requirement_lines),
         required_skills,
         taxonomy,
     )
-    unknown_requirements = open_set_requirements["unknown_requirements"]
     taxonomy_coverage = build_taxonomy_coverage(
         required_skills,
         unknown_requirements,
     )
     nice_to_have_skills = _build_job_skill_list(
-        job_criteria.get("nice_to_have_skills", []),
-        "",
+        nice_to_have_requirement_lines,
+        "\n".join(nice_to_have_requirement_lines),
         taxonomy,
         use_full_text_fallback=False,
         include_unknown_skills=embedding_matcher is not None,
     )
+    if embedding_matcher is not None:
+        nice_to_have_skills = merge_skill_lists(
+            nice_to_have_skills,
+            _build_open_set_requirements(
+                {**job_criteria, "must_have_skills": nice_to_have_requirement_lines},
+                "\n".join(nice_to_have_requirement_lines),
+                nice_to_have_skills,
+                taxonomy,
+            ),
+        )
 
     candidate_results = [
         _process_candidate_document(
@@ -91,6 +112,8 @@ def run_screening_pipeline(
             required_skills,
             nice_to_have_skills,
             taxonomy_coverage,
+            unknown_requirements,
+            embedding_matcher,
         ),
         "candidates": ranked_candidates,
     }
@@ -201,6 +224,10 @@ def _process_candidate_document(
     return {
         **scored_candidate,
         "open_set_requirement_matches": open_set_matches,
+        "requirement_group_summary": _build_requirement_group_summary(
+            scored_matches,
+            nice_to_have_matches,
+        ),
         "source_file": document.get("filename", ""),
         "source_path": document.get("path", ""),
     }
@@ -238,6 +265,29 @@ def _build_job_skill_list(
     return []
 
 
+def _build_open_set_requirements(
+    job_criteria: dict[str, Any],
+    jd_text: str,
+    required_skills: list[str],
+    taxonomy: dict[str, dict[str, Any]],
+) -> list[str]:
+    """Build taxonomy-independent open-set requirements for semantic matching."""
+    unknown_requirements = extract_unknown_requirement_texts(
+        job_criteria,
+        jd_text,
+        taxonomy,
+    )
+    known_requirement_keys = {make_lookup_key(skill) for skill in required_skills}
+
+    return merge_skill_lists(
+        [
+            requirement
+            for requirement in unknown_requirements
+            if make_lookup_key(requirement) not in known_requirement_keys
+        ]
+    )
+
+
 def _enrich_resume_skills(
     resume_profile: dict[str, Any],
     raw_text: str,
@@ -267,20 +317,68 @@ def _build_job_output(
     required_skills: list[str],
     nice_to_have_skills: list[str],
     taxonomy_coverage: dict[str, Any] | None = None,
+    open_set_requirements: list[str] | None = None,
+    embedding_matcher: SemanticEmbeddingMatcher | None = None,
 ) -> dict[str, Any]:
     """Build a stable job summary for pipeline output."""
+    open_set_requirements = open_set_requirements or []
     return {
         "title": job_criteria.get("job_title", ""),
         "must_have_skills": required_skills,
         "nice_to_have_skills": nice_to_have_skills,
+        "open_set_requirements": open_set_requirements,
         "minimum_experience_years": job_criteria.get("minimum_experience_years", 0),
         "seniority": job_criteria.get("seniority", "Not specified"),
         "domain": job_criteria.get("domain", []),
         "taxonomy_coverage": taxonomy_coverage or build_taxonomy_coverage(
             required_skills,
-            [],
+            open_set_requirements,
+        ),
+        "screening_confidence": build_screening_confidence(
+            required_skills,
+            open_set_requirements,
+            embedding_matcher,
+        ),
+        "requirement_groups": job_criteria.get("requirement_groups", {}),
+    }
+
+
+def _with_requirement_groups(
+    job_criteria: dict[str, Any],
+    jd_text: str,
+    taxonomy: dict[str, dict[str, Any]],
+) -> dict[str, Any]:
+    """Attach requirement classification groups to parsed JD criteria."""
+    return {
+        **job_criteria,
+        "requirement_groups": classify_jd_requirements(
+            job_criteria,
+            jd_text,
+            taxonomy,
         ),
     }
+
+
+def _build_requirement_group_summary(
+    must_have_matches: list[dict[str, Any]],
+    nice_to_have_matches: list[dict[str, Any]],
+) -> dict[str, int]:
+    """Summarize required and optional match counts for UI/review output."""
+    return {
+        "must_have_matched": _matched_count(must_have_matches),
+        "must_have_total": len(must_have_matches),
+        "nice_to_have_matched": _matched_count(nice_to_have_matches),
+        "nice_to_have_total": len(nice_to_have_matches),
+    }
+
+
+def _matched_count(matches: list[dict[str, Any]]) -> int:
+    """Count matches that have some positive signal."""
+    return sum(
+        1
+        for match in matches
+        if match.get("match_type") not in {"no_match", "no_semantic_evidence"}
+    )
 
 
 def _build_review_card_filename(candidate: dict[str, Any]) -> str:

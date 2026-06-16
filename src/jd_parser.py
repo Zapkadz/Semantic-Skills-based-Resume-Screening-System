@@ -21,6 +21,8 @@ RAW_SECTION_ALIASES = {
     "qualifications": "requirements",
     "job requirements": "requirements",
     "required qualifications": "requirements",
+    "condition bat buoc": "requirements",
+    "dieu kien bat buoc": "requirements",
     "yêu cầu": "requirements",
     "yeu cau": "requirements",
     "yêu cầu công việc": "requirements",
@@ -37,6 +39,7 @@ RAW_SECTION_ALIASES = {
     "bonus": "nice_to_have",
     "ưu tiên": "nice_to_have",
     "uu tien": "nice_to_have",
+    "dieu kien uu tien": "nice_to_have",
     "điểm cộng": "nice_to_have",
     "diem cong": "nice_to_have",
     "lợi thế": "nice_to_have",
@@ -62,7 +65,7 @@ RAW_SECTION_ALIASES = {
 SECTION_ALIASES = build_section_aliases(RAW_SECTION_ALIASES)
 
 EXPERIENCE_PATTERN = re.compile(
-    r"(\d+)\+?\s*(?:year|years|yr|yrs|năm|nam)",
+    r"(\d+)\+?\s*(?:year|years|yeear|yr|yrs|năm|nam)",
     re.IGNORECASE,
 )
 
@@ -77,7 +80,7 @@ def parse_jd(text: str) -> dict[str, Any]:
     requirements = _parse_simple_list(sections.get("requirements", []))
     nice_to_have = _parse_simple_list(sections.get("nice_to_have", []))
     responsibilities = _parse_simple_list(sections.get("responsibilities", []))
-    job_title = non_empty_intro[0] if non_empty_intro else ""
+    job_title = _infer_job_title(non_empty_intro, responsibilities)
     minimum_years = _extract_minimum_experience_years(requirements)
 
     return {
@@ -106,6 +109,41 @@ def _parse_section_heading(line: str) -> tuple[str | None, str]:
 def _parse_simple_list(lines: list[str]) -> list[str]:
     """Parse bullet or line-based section content into a clean list."""
     return [_strip_bullet(line) for line in lines if _strip_bullet(line)]
+
+
+def _infer_job_title(
+    intro_lines: list[str],
+    responsibilities: list[str],
+) -> str:
+    """Infer a JD title from intro text or the first responsibility heading."""
+    if intro_lines:
+        return intro_lines[0]
+
+    for responsibility in responsibilities:
+        clean_responsibility = responsibility.strip()
+        if _looks_like_title_fallback(clean_responsibility):
+            return clean_responsibility
+
+    return ""
+
+
+def _looks_like_title_fallback(value: str) -> bool:
+    """Return True for short heading-like responsibility lines."""
+    if not value or len(value) > 80:
+        return False
+    if value.endswith("."):
+        return False
+    if len(value.split()) > 8:
+        return False
+
+    normalized_value = normalize_search_text(value)
+    if any(
+        normalized_value.startswith(verb)
+        for verb in ("build", "develop", "manage", "monitor", "perform", "support")
+    ):
+        return False
+
+    return True
 
 
 def _extract_minimum_experience_years(requirements: list[str]) -> int:
@@ -160,9 +198,9 @@ def _detect_domain(
     text = normalize_search_text(text)
     domains: list[str] = []
 
-    if any(
-        keyword in text
-        for keyword in (
+    if _contains_any_phrase(
+        text,
+        (
             "backend developer",
             "backend service",
             "rest api",
@@ -170,34 +208,35 @@ def _detect_domain(
             "api testing",
             "api development",
             "spring",
-        )
+        ),
     ):
         domains.append("Backend")
-    if any(
-        keyword in text
-        for keyword in ("web", "rest api", "restful api", "api testing", "web application")
+    if _contains_any_phrase(
+        text,
+        ("web", "rest api", "restful api", "api testing", "web application"),
     ):
         domains.append("Web Application")
-    if any(keyword in text for keyword in ("qa", "tester", "testing")):
+    if _contains_any_phrase(text, ("qa", "tester", "testing")):
         domains.append("Testing")
-    if any(keyword in text for keyword in ("data analyst", "analytics", "dashboard")):
+    if _contains_any_phrase(text, ("data analyst", "analytics", "dashboard")):
         domains.append("Data")
-    if any(
-        keyword in text
-        for keyword in (
+    if _contains_any_phrase(
+        text,
+        (
             "artificial intelligence",
             "machine learning",
             "deep learning",
             "model",
+            "models",
             "neural network",
             "tri tue nhan tao",
             "hoc may",
-        )
+        ),
     ):
         domains.append("AI/Machine Learning")
-    if any(
-        keyword in text
-        for keyword in (
+    if _contains_any_phrase(
+        text,
+        (
             "computer vision",
             "face recognition",
             "face detection",
@@ -206,12 +245,12 @@ def _detect_domain(
             "opencv",
             "thi giac may tinh",
             "nhan dien khuon mat",
-        )
+        ),
     ):
         domains.append("Computer Vision")
-    if any(
-        keyword in text
-        for keyword in (
+    if _contains_any_phrase(
+        text,
+        (
             "ekyc",
             "biometric",
             "biometrics",
@@ -221,16 +260,48 @@ def _detect_domain(
             "face verification",
             "xac thuc khuon mat",
             "chong gia mao",
-        )
+        ),
     ):
         domains.append("eKYC/Biometrics")
-    if any(
-        keyword in text
-        for keyword in ("mobile", "android", "ios", "on device", "edge")
+    if _contains_any_phrase(
+        text,
+        (
+            "it security",
+            "security operations",
+            "governance",
+            "compliance",
+            "vulnerability management",
+            "access management",
+            "access control",
+            "risk management",
+            "personal data protection",
+            "audit",
+            "iso 27001",
+        ),
+    ):
+        domains.append("IT Security/GRC")
+    if _contains_any_phrase(
+        text,
+        ("mobile", "android", "ios", "on device", "edge ai", "edge device"),
     ):
         domains.append("Mobile AI")
 
     return domains
+
+
+def _contains_any_phrase(text: str, phrases: tuple[str, ...]) -> bool:
+    """Return True when normalized text contains any phrase with boundaries."""
+    return any(_contains_phrase(text, phrase) for phrase in phrases)
+
+
+def _contains_phrase(text: str, phrase: str) -> bool:
+    """Check phrase existence with word boundaries to avoid substring hits."""
+    normalized_phrase = normalize_search_text(phrase)
+    if not normalized_phrase:
+        return False
+
+    pattern = rf"(?<!\w){re.escape(normalized_phrase)}(?!\w)"
+    return bool(re.search(pattern, text))
 
 
 def _strip_bullet(line: str) -> str:

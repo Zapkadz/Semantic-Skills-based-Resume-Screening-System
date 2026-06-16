@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import html
 import re
 import unicodedata
 
@@ -9,7 +10,7 @@ import unicodedata
 MOJIBAKE_MARKERS = ("Ã", "Â", "â", "Ä", "Æ", "á»", "áº", "á»", "€", "™")
 
 LIST_MARKER_PATTERN = re.compile(
-    r"^\s*(?:[-*+•–—]\s*|\d+[\.)]\s*|[A-Za-z][\.)]\s*)"
+    r"^\s*(?:[-*+•–—?]\s*|\d+[\.)]\s*|[A-Za-z][\.)]\s*)"
 )
 
 
@@ -30,6 +31,28 @@ def repair_mojibake(text: str) -> str:
         return repaired
 
     return text
+
+
+def html_to_plain_text(text: str) -> str:
+    """Convert light HTML/editor content into parser-friendly plain text."""
+    if not isinstance(text, str) or not text:
+        return text
+
+    decoded = html.unescape(repair_mojibake(text)).replace("\xa0", " ")
+    decoded = re.sub(r"(?i)<\s*br\s*/?\s*>", "\n", decoded)
+    decoded = re.sub(r"(?i)<\s*li[^>]*>", "\n- ", decoded)
+    decoded = re.sub(
+        r"(?i)</\s*(p|div|li|ul|ol|h[1-6]|tr|table|section)\s*>",
+        "\n",
+        decoded,
+    )
+    decoded = re.sub(r"(?i)<\s*(p|div|ul|ol|h[1-6]|tr|table|section)[^>]*>", "\n", decoded)
+    decoded = re.sub(r"<[^>]+>", " ", decoded)
+    decoded = html.unescape(decoded).replace("\xa0", " ")
+    decoded = re.sub(r"[ \t\f\v]+", " ", decoded)
+    decoded = re.sub(r" *\n *", "\n", decoded)
+    decoded = re.sub(r"\n{3,}", "\n\n", decoded)
+    return decoded.strip()
 
 
 def strip_accents(text: str) -> str:
