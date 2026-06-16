@@ -6,11 +6,15 @@ from typing import Any
 
 from src.api_models import JobRecommendationRequest
 from src.embedding_matcher import SemanticEmbeddingMatcher
+from src.job_catalog_loader import build_job_catalog
+from src.job_indexer import build_job_index_documents
+from src.job_retriever import build_candidate_query_profile, retrieve_candidate_jobs
 from src.payload_pipeline import build_cv_document_from_payload, run_screening_payload
 from src.screening_pipeline import DEFAULT_TAXONOMY_PATH
 
 
 DEFAULT_TOP_K = 10
+DEFAULT_RETRIEVAL_TOP_N = 50
 MAX_WHY_FIT_ITEMS = 4
 MAX_IMPROVEMENT_ITEMS = 5
 
@@ -28,20 +32,47 @@ def run_job_recommendation_payload(
     candidate_payload = _to_plain_dict(payload_data.get("candidate", {}))
     job_payloads = [_to_plain_dict(job) for job in payload_data.get("jobs", [])]
     options = _to_plain_dict(payload_data.get("options", {}))
-    top_k = _coerce_top_k(options.get("top_k", DEFAULT_TOP_K))
+    top_k = _coerce_positive_int(
+        options.get("top_k", DEFAULT_TOP_K),
+        option_name="top_k",
+    )
 
     if not job_payloads:
         raise ValueError("Recommendation payload must include at least one job.")
 
     candidate_document = build_cv_document_from_payload(candidate_payload)
+    candidate_profile = build_candidate_query_profile(
+        candidate_payload,
+        taxonomy_path=taxonomy_path,
+        candidate_document=candidate_document,
+    )
+    job_catalog = build_job_catalog(job_payloads, taxonomy_path=taxonomy_path)
+    indexed_jobs = build_job_index_documents(job_catalog)
+    retrieval_top_n = min(
+        len(indexed_jobs),
+        _coerce_positive_int(
+            options.get(
+                "retrieval_top_n",
+                _default_retrieval_top_n(top_k, len(indexed_jobs)),
+            ),
+            option_name="retrieval_top_n",
+        ),
+    )
+    retrieved_jobs = retrieve_candidate_jobs(
+        candidate_profile,
+        indexed_jobs,
+        top_n=retrieval_top_n,
+        embedding_matcher=embedding_matcher,
+    )
     job_recommendations = [
         _build_job_recommendation(
             candidate_payload,
-            job_payload,
+            retrieved_job["job_card"]["job_payload"],
             taxonomy_path,
             embedding_matcher,
+            retrieval_metadata=retrieved_job,
         )
-        for job_payload in job_payloads
+        for retrieved_job in retrieved_jobs
     ]
     ranked_jobs = _rank_job_recommendations(job_recommendations)
     top_jobs = [
@@ -63,10 +94,12 @@ def run_job_recommendation_payload(
         "top_jobs": top_jobs,
         "retrieval_stats": {
             "jobs_received": len(job_payloads),
-            "jobs_retrieved": len(job_payloads),
-            "jobs_reranked": len(job_payloads),
+            "jobs_indexed": len(indexed_jobs),
+            "jobs_retrieved": len(retrieved_jobs),
+            "jobs_reranked": len(job_recommendations),
             "top_k": min(top_k, len(job_payloads)),
-            "retrieval_applied": False,
+            "retrieval_top_n": retrieval_top_n,
+            "retrieval_applied": len(retrieved_jobs) < len(job_payloads),
         },
     }
 
@@ -76,6 +109,7 @@ def _build_job_recommendation(
     job_payload: dict[str, Any],
     taxonomy_path: str,
     embedding_matcher: SemanticEmbeddingMatcher | None,
+    retrieval_metadata: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Run one candidate-vs-one-job screening and convert it to a job result."""
     screening_result = run_screening_payload(
@@ -89,10 +123,15 @@ def _build_job_recommendation(
     job_output = screening_result["job"]
     candidate_result = screening_result["candidates"][0]
     review_card = candidate_result.get("review_card", {})
+    retrieval_metadata = retrieval_metadata or {}
 
     return {
         "job_id": job_output.get("job_id", job_payload.get("job_id")),
         "job_title": job_output.get("title", ""),
+        "retrieval_rank": retrieval_metadata.get("retrieval_rank"),
+        "retrieval_score": retrieval_metadata.get("retrieval_score"),
+        "retrieval_reasons": retrieval_metadata.get("retrieval_reasons", []),
+        "retrieval_components": retrieval_metadata.get("retrieval_components", {}),
         "fit_score": candidate_result.get("final_score", 0),
         "base_score": candidate_result.get("base_score", 0),
         "recommendation": candidate_result.get("recommendation", ""),
@@ -148,6 +187,7 @@ def _rank_job_recommendations(
         key=lambda job: (
             -int(job.get("fit_score", 0)),
             -float(job.get("scores", {}).get("evidence", 0.0)),
+            -float(job.get("retrieval_score") or 0.0),
             -int(job.get("base_score", 0)),
             str(job.get("job_title", "")).casefold(),
         ),
@@ -267,17 +307,29 @@ def _build_what_to_improve(
     ]
 
 
-def _coerce_top_k(value: Any) -> int:
-    """Convert top_k values from dict payloads into a validated positive integer."""
+def _coerce_positive_int(value: Any, option_name: str) -> int:
+    """Convert an option value from dict payloads into a positive integer."""
     try:
-        top_k = int(value)
+        parsed_value = int(value)
     except (TypeError, ValueError) as exc:
-        raise ValueError("Recommendation option top_k must be a positive integer.") from exc
+        raise ValueError(
+            f"Recommendation option {option_name} must be a positive integer."
+        ) from exc
 
-    if top_k <= 0:
-        raise ValueError("Recommendation option top_k must be a positive integer.")
+    if parsed_value <= 0:
+        raise ValueError(
+            f"Recommendation option {option_name} must be a positive integer."
+        )
 
-    return top_k
+    return parsed_value
+
+
+def _default_retrieval_top_n(top_k: int, jobs_count: int) -> int:
+    """Pick a safe top-N retrieval size before expensive reranking."""
+    if jobs_count <= 0:
+        return DEFAULT_RETRIEVAL_TOP_N
+
+    return min(jobs_count, max(top_k * 3, 10))
 
 
 def _to_plain_dict(value: Any) -> dict[str, Any]:

@@ -14,10 +14,12 @@ def test_run_job_recommendation_payload_returns_ranked_top_jobs() -> None:
     }
     assert result["retrieval_stats"] == {
         "jobs_received": 3,
-        "jobs_retrieved": 3,
-        "jobs_reranked": 3,
+        "jobs_indexed": 3,
+        "jobs_retrieved": 2,
+        "jobs_reranked": 2,
         "top_k": 2,
-        "retrieval_applied": False,
+        "retrieval_top_n": 2,
+        "retrieval_applied": True,
     }
 
     assert len(result["top_jobs"]) == 2
@@ -26,6 +28,9 @@ def test_run_job_recommendation_payload_returns_ranked_top_jobs() -> None:
     assert top_job["rank"] == 1
     assert top_job["job_id"] == 10
     assert top_job["job_title"] == "Backend Java Developer"
+    assert top_job["retrieval_rank"] == 1
+    assert top_job["retrieval_score"] > 0
+    assert top_job["retrieval_reasons"]
     assert top_job["fit_score"] >= 80
     assert top_job["matched_must_have_skills"] == [
         "Java",
@@ -164,5 +169,6 @@ def _demo_recommendation_payload() -> dict:
         ],
         "options": {
             "top_k": 2,
+            "retrieval_top_n": 2,
         },
     }

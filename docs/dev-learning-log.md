@@ -2860,4 +2860,126 @@ Co the noi:
 ```text
 Sau employer-side screening, he thong duoc mo rong sang candidate-side job recommendation ma khong can xay dung mot AI tach biet. He thong tai su dung person-job fit core da co, sau do dong goi thanh mot API moi nhan 1 CV va danh sach JD, cham diem tung job, xep hang va tra ve Top cong viec phu hop kem giai thich. Cach lam nay giu tinh nhat quan giua hai chieu employer-side va candidate-side, dong thoi de mo rong them retrieval index va ca nhan hoa o cac phase tiep theo.
 ```
+
+---
+
+## Phase 21 - Job Retrieval Index for Active JDs
+
+### 1. Muc tieu
+
+Phase 21 tach retrieval khoi reranking trong candidate-side recommendation.
+
+Thay vi:
+
+```text
+1 CV -> score tat ca jobs trong request
+```
+
+he thong chuyen sang:
+
+```text
+1 CV
+  -> build candidate query profile
+  -> build job catalog/index
+  -> retrieve top-N jobs
+  -> rerank retrieved jobs bang AI core
+```
+
+Muc tieu la:
+
+- giam tai tinh toan;
+- chuan bi cho active JD catalog lon hon;
+- tra ve retrieval debug metadata de web va bao cao de inspect.
+
+### 2. Cach xu ly
+
+Them:
+
+- `src/job_catalog_loader.py`
+- `src/job_indexer.py`
+- `src/job_retriever.py`
+- `tests/test_job_catalog_loader.py`
+- `tests/test_job_indexer.py`
+- `tests/test_job_retriever.py`
+
+Cap nhat:
+
+- `src/job_recommendation_pipeline.py`
+- `src/api_models.py`
+- `api.py`
+- `tests/test_job_recommendation_pipeline.py`
+- `tests/test_api.py`
+- `README.md`
+- `docs/integration/sample-recommend-jobs-request.json`
+
+### 3. Logic retrieval
+
+He thong build:
+
+- `job_card`: JD da parse va normalize
+- `index_document`: searchable representation cho retrieval
+- `candidate_query_profile`: skills, domain, title, summary, experience
+
+Sparse retrieval score dua tren:
+
+- must-have skill overlap
+- title overlap
+- domain overlap
+- nice-to-have overlap
+- experience compatibility
+
+Neu embedding available, dense similarity duoc tron them vao retrieval score.
+
+### 4. Output moi
+
+Moi `top_job` trong response candidate-side co them:
+
+```json
+{
+  "retrieval_rank": 1,
+  "retrieval_score": 0.84,
+  "retrieval_reasons": [
+    "Strong must-have skill overlap.",
+    "Domain overlap detected."
+  ],
+  "retrieval_components": {}
+}
+```
+
+`retrieval_stats` co them:
+
+- `jobs_indexed`
+- `jobs_retrieved`
+- `jobs_reranked`
+- `retrieval_top_n`
+- `retrieval_applied`
+
+### 5. Cach test
+
+Targeted:
+
+```bash
+python -m pytest tests/test_job_catalog_loader.py tests/test_job_indexer.py tests/test_job_retriever.py tests/test_job_recommendation_pipeline.py tests/test_api.py
+```
+
+Full regression:
+
+```bash
+pytest
+```
+
+### 6. Ket qua mong doi
+
+- retrieval layer chay truoc reranking;
+- top jobs co retrieval metadata de debug;
+- `/recommend-jobs` van giu contract Phase 20 nhung thong minh hon;
+- `/screening` khong bi anh huong.
+
+### 7. Ghi chu cho bao cao
+
+Co the noi:
+
+```text
+Candidate-side recommendation duoc mo rong theo kien truc retrieve -> rerank. O Phase 21, he thong khong cham diem tren toan bo tap JD active nua, ma dau tien xay dung job catalog va retrieval index, sau do lay ra top-N cong viec kha nang dua tren overlap ve ky nang, chuc danh, domain va kinh nghiem. Tap nay moi duoc dua vao AI core de rerank chi tiet. Cach tiep can nay phu hop voi cac he thong search/recommender thuc te va de mo rong hon trong cac phase sau.
+```
 ```

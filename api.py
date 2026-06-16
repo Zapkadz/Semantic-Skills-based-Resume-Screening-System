@@ -13,11 +13,11 @@ from src.job_recommendation_pipeline import run_job_recommendation_payload
 from src.payload_pipeline import run_screening_payload
 
 
-API_PHASE = "Phase 20 - Candidate-side Job Recommendation Payload and API"
+API_PHASE = "Phase 21 - Job Retrieval Index for Active JDs"
 
 app = FastAPI(
     title="Semantic Skills Resume Screening API",
-    version="0.20.0",
+    version="0.21.0",
 )
 
 _API_EMBEDDING_MATCHER: SemanticEmbeddingMatcher | None = None

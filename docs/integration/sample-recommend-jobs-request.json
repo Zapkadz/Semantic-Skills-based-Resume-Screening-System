@@ -42,6 +42,7 @@
     }
   ],
   "options": {
-    "top_k": 2
+    "top_k": 2,
+    "retrieval_top_n": 2
   }
 }
