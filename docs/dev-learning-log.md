@@ -2675,4 +2675,189 @@ Co the noi:
 
 ```text
 Diem cua he thong gom hai lop. Lop thu nhat la weighted score de tong hop cac tin hieu nhu skill, evidence, kinh nghiem, seniority va domain. Lop thu hai la hard-skill gate, dong vai tro dieu kien toi thieu cho cac ky nang chuyen mon bat buoc. Neu ung vien co nhieu nam kinh nghiem nhung bang chung hard skills khong du, he thong se cap diem va recommendation xuong Maybe Review. Cach nay phu hop voi nguyen tac tuyen dung dua tren person-job fit va KSAO: kinh nghiem la tin hieu ho tro, con ky nang bat buoc va bang chung thuc hien moi la dieu kien chinh de shortlist.
+
+---
+
+## Phase 20 - Candidate-side Job Recommendation Payload and API
+
+### 1. Muc tieu
+
+Phase 20 mo rong AI core hien co sang bai toan nguoc lai:
+
+```text
+1 CV -> tim Top matching JDs
+```
+
+Muc tieu cua phase nay la:
+
+- giu nguyen employer-side screening flow;
+- them candidate-side payload/API rieng;
+- tai su dung screening core hien co thay vi viet mot AI moi;
+- tra ve danh sach top jobs co giai thich co ban.
+
+### 2. Cach xu ly
+
+Them:
+
+- `src/job_recommendation_pipeline.py`
+- `docs/integration/sample-recommend-jobs-request.json`
+- `tests/test_job_recommendation_pipeline.py`
+
+Cap nhat:
+
+- `api.py`
+- `src/api_models.py`
+- `src/payload_pipeline.py`
+- `tests/test_api.py`
+- `tests/test_payload_pipeline.py`
+- `README.md`
+
+### 3. Thiet ke thuc te
+
+Employer flow hien tai van giu nguyen:
+
+```text
+POST /screening
+1 JD -> rank many CVs
+```
+
+Candidate flow moi:
+
+```text
+POST /recommend-jobs
+1 CV -> score many JDs -> sort -> top_k
+```
+
+Phase 20 chua lam retrieval index. Candidate-side flow nhan:
+
+- `candidate`
+- `jobs`
+- `options.top_k`
+
+roi chay AI core cho tung job trong request.
+
+Huong nay duoc chon vi:
+
+- regression risk thap;
+- khong pha web employer da tich hop;
+- de test, de giai thich;
+- toi uu retrieval/index de Phase 21 xu ly sau.
+
+### 4. Payload moi
+
+Request:
+
+```json
+{
+  "candidate": {
+    "candidate_id": 456,
+    "resume_text": "..."
+  },
+  "jobs": [
+    {
+      "job_id": 10,
+      "title": "Backend Java Developer",
+      "job_description_text": "..."
+    }
+  ],
+  "options": {
+    "top_k": 10
+  }
+}
+```
+
+Phase 20 cung bo sung alias de web goi linh hoat hon:
+
+- `resume_text` ben canh `cv_text`
+- `title` ben canh `job_title`
+- `job_description_text` ben canh `raw_text`
+
+### 5. Output moi
+
+Response candidate-side co dang:
+
+```json
+{
+  "candidate": {},
+  "top_jobs": [
+    {
+      "rank": 1,
+      "job_id": 10,
+      "job_title": "Backend Java Developer",
+      "fit_score": 86,
+      "base_score": 86,
+      "recommendation": "Strong Review",
+      "matched_must_have_skills": [],
+      "missing_must_have_skills": [],
+      "optional_strengths": [],
+      "why_fit": [],
+      "what_to_improve": [],
+      "review_card": {}
+    }
+  ],
+  "retrieval_stats": {}
+}
+```
+
+Y nghia:
+
+- `fit_score`: diem sau gate.
+- `base_score`: diem truoc gate.
+- `why_fit`: vi sao job nay hop.
+- `what_to_improve`: nen bo sung gi vao CV de tang fit.
+
+### 6. Logics dung lai
+
+Phase 20 khong viet lai parser/scorer. He thong tai su dung:
+
+- parse CV/JD
+- taxonomy + normalization
+- rule-based va semantic matching
+- evidence detection
+- weighted scoring
+- hard-skill gate
+- review card
+
+Noi ngan gon:
+
+```text
+Candidate-side recommendation
+= screening core dao chieu query
+```
+
+### 7. Cach test
+
+Targeted regression:
+
+```bash
+python -m pytest tests/test_payload_pipeline.py tests/test_job_recommendation_pipeline.py tests/test_api.py
+```
+
+Full regression:
+
+```bash
+pytest
+```
+
+Manual API:
+
+```bash
+curl -X POST http://127.0.0.1:8000/recommend-jobs -H "Content-Type: application/json" -d @docs/integration/sample-recommend-jobs-request.json
+```
+
+### 8. Ket qua mong doi
+
+- `/screening` van giu nguyen contract cu.
+- `/recommend-jobs` nhan 1 CV + nhieu JDs.
+- Ket qua tra ve top jobs da sap xep.
+- Output co matched/missing skills va goi y cai thien CV.
+- Alias payload moi khong pha backward compatibility.
+
+### 9. Ghi chu cho bao cao
+
+Co the noi:
+
+```text
+Sau employer-side screening, he thong duoc mo rong sang candidate-side job recommendation ma khong can xay dung mot AI tach biet. He thong tai su dung person-job fit core da co, sau do dong goi thanh mot API moi nhan 1 CV va danh sach JD, cham diem tung job, xep hang va tra ve Top cong viec phu hop kem giai thich. Cach lam nay giu tinh nhat quan giua hai chieu employer-side va candidate-side, dong thoi de mo rong them retrieval index va ca nhan hoa o cac phase tiep theo.
+```
 ```

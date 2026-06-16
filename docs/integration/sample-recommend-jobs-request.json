@@ -1,0 +1,47 @@
+{
+  "candidate": {
+    "candidate_id": 456,
+    "candidate_name": "Nguyen Van A",
+    "resume_text": "Nguyen Van A\nBackend Developer\n\nSummary:\nBackend developer with experience building Java Spring Boot services and REST APIs.\n\nSkills:\n- Java\n- Spring Boot\n- REST API\n- MySQL\n- Docker\n\nWork Experience:\nBackend Developer Intern - ABC Tech\n06/2024 - 12/2024\n- Built REST APIs using Java and Spring Boot.\n- Designed MySQL database schemas for product and order modules.\n- Used Docker Compose for local development and testing.\n\nProjects:\nE-commerce API\n- Developed authentication and order management modules.\n- Implemented JWT login for backend services.\n- Created RESTful APIs with Spring Boot and MySQL.\n\nEducation:\nBachelor of Software Engineering"
+  },
+  "jobs": [
+    {
+      "job_id": 10,
+      "title": "Backend Java Developer",
+      "requirements": [
+        "Java",
+        "Spring Boot",
+        "REST API",
+        "SQL",
+        "Basic Docker",
+        "1+ year backend experience"
+      ],
+      "nice_to_have": [
+        "AWS"
+      ]
+    },
+    {
+      "job_id": 20,
+      "title": "Frontend React Developer",
+      "requirements": [
+        "JavaScript",
+        "React",
+        "CSS",
+        "2+ years frontend experience"
+      ]
+    },
+    {
+      "job_id": 30,
+      "title": "IT Security Analyst",
+      "requirements": [
+        "Qualys",
+        "Vulnerability Management",
+        "Linux Administration",
+        "ISO 27001"
+      ]
+    }
+  ],
+  "options": {
+    "top_k": 2
+  }
+}

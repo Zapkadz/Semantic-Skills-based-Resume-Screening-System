@@ -14,7 +14,7 @@ def test_health_endpoint_returns_service_status() -> None:
     result = response.json()
     assert result["status"] == "ok"
     assert result["service"] == "semantic-skills-resume-screening"
-    assert result["phase"] == "Phase 19 - Hard-skill Gate and Evidence Calibration"
+    assert result["phase"] == "Phase 20 - Candidate-side Job Recommendation Payload and API"
     assert "embedding_enabled" in result
     assert "embedding_model" in result
     assert "embedding_loaded" in result
@@ -76,6 +76,55 @@ def test_screening_endpoint_returns_400_for_missing_candidate_cv_text() -> None:
     assert "Candidate payload must include" in response.json()["detail"]
 
 
+def test_recommend_jobs_endpoint_returns_ranked_top_jobs() -> None:
+    response = client.post("/recommend-jobs", json=_demo_recommendation_payload())
+
+    assert response.status_code == 200
+    result = response.json()
+
+    assert result["candidate"]["candidate_id"] == 456
+    assert result["candidate"]["candidate_name"] == "Nguyen Van A"
+    assert result["retrieval_stats"]["jobs_received"] == 3
+    assert result["retrieval_stats"]["top_k"] == 2
+    assert len(result["top_jobs"]) == 2
+
+    top_job = result["top_jobs"][0]
+    assert top_job["rank"] == 1
+    assert top_job["job_id"] == 10
+    assert top_job["job_title"] == "Backend Java Developer"
+    assert top_job["fit_score"] >= 80
+    assert top_job["matched_must_have_skills"] == [
+        "Java",
+        "Spring Boot",
+        "REST API",
+        "SQL",
+        "Docker",
+    ]
+    assert top_job["review_card"]["job_title"] == "Backend Java Developer"
+
+
+def test_recommend_jobs_endpoint_returns_422_for_invalid_schema() -> None:
+    response = client.post("/recommend-jobs", json={})
+
+    assert response.status_code == 422
+
+
+def test_recommend_jobs_endpoint_returns_400_for_empty_job_list() -> None:
+    response = client.post(
+        "/recommend-jobs",
+        json={
+            "candidate": {
+                "candidate_name": "No Jobs Candidate",
+                "cv_text": "No Jobs Candidate\nBackend Developer",
+            },
+            "jobs": [],
+        },
+    )
+
+    assert response.status_code == 400
+    assert "at least one job" in response.json()["detail"]
+
+
 def _demo_api_payload() -> dict:
     return {
         "job": {
@@ -105,4 +154,52 @@ def _demo_api_payload() -> dict:
                 "cv_text": load_text_file("data/cvs/cv_strong.txt"),
             }
         ],
+    }
+
+
+def _demo_recommendation_payload() -> dict:
+    return {
+        "candidate": {
+            "candidate_id": 456,
+            "candidate_name": "Nguyen Van A",
+            "cv_text": load_text_file("data/cvs/cv_strong.txt"),
+        },
+        "jobs": [
+            {
+                "job_id": 10,
+                "job_title": "Backend Java Developer",
+                "requirements": [
+                    "Java",
+                    "Spring Boot",
+                    "REST API",
+                    "SQL",
+                    "Basic Docker",
+                    "1+ year backend experience",
+                ],
+                "nice_to_have": ["AWS"],
+            },
+            {
+                "job_id": 20,
+                "job_title": "Frontend React Developer",
+                "requirements": [
+                    "JavaScript",
+                    "React",
+                    "CSS",
+                    "2+ years frontend experience",
+                ],
+            },
+            {
+                "job_id": 30,
+                "job_title": "IT Security Analyst",
+                "requirements": [
+                    "Qualys",
+                    "Vulnerability Management",
+                    "Linux Administration",
+                    "ISO 27001",
+                ],
+            },
+        ],
+        "options": {
+            "top_k": 2,
+        },
     }

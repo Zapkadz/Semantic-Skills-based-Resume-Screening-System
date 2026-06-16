@@ -4,19 +4,20 @@ from __future__ import annotations
 
 from fastapi import FastAPI, HTTPException
 
-from src.api_models import ScreeningRequest
+from src.api_models import JobRecommendationRequest, ScreeningRequest
 from src.embedding_matcher import (
     SemanticEmbeddingMatcher,
     build_embedding_matcher_from_env,
 )
+from src.job_recommendation_pipeline import run_job_recommendation_payload
 from src.payload_pipeline import run_screening_payload
 
 
-API_PHASE = "Phase 19 - Hard-skill Gate and Evidence Calibration"
+API_PHASE = "Phase 20 - Candidate-side Job Recommendation Payload and API"
 
 app = FastAPI(
     title="Semantic Skills Resume Screening API",
-    version="0.19.0",
+    version="0.20.0",
 )
 
 _API_EMBEDDING_MATCHER: SemanticEmbeddingMatcher | None = None
@@ -43,6 +44,18 @@ def screen_candidates(request: ScreeningRequest) -> dict:
     """Screen candidate CV payloads against one job payload."""
     try:
         return run_screening_payload(
+            request,
+            embedding_matcher=_get_api_embedding_matcher(),
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@app.post("/recommend-jobs")
+def recommend_jobs(request: JobRecommendationRequest) -> dict:
+    """Recommend top matching jobs for one candidate payload."""
+    try:
+        return run_job_recommendation_payload(
             request,
             embedding_matcher=_get_api_embedding_matcher(),
         )

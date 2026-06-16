@@ -11,10 +11,10 @@ The project does not train a recruitment model from scratch. The MVP starts with
 The project is currently in:
 
 ```text
-Phase 19 - Hard-skill Gate and Evidence Calibration
+Phase 20 - Candidate-side Job Recommendation Payload and API
 ```
 
-This phase adds a hard-skill evidence gate after the weighted score. The base score still uses the existing scorecard weights, but candidates cannot be promoted to `Review` or `Strong Review` when must-have technical evidence is too weak.
+This phase keeps the employer-side screening API and adds a candidate-side recommendation API. The system can now accept one CV plus a list of jobs, then return the top matching jobs with fit scores, matched skills, missing skills, and improvement suggestions.
 
 ## Planned Processing Flow
 
@@ -146,6 +146,11 @@ Included:
 - Hard-skill gate caps high recommendations when must-have technical evidence is weak.
 - Candidate output includes `base_score` and `hard_skill_gate` metadata.
 - Review cards explain when a score was capped by the hard-skill gate.
+- Candidate-side job recommendation payload pipeline for one CV and many JDs.
+- `POST /recommend-jobs` endpoint for top matching job recommendations.
+- Support for `resume_text`, `title`, and `job_description_text` payload aliases.
+- Candidate-side output with `top_jobs`, fit scores, matched must-have skills, missing skills, `why_fit`, and `what_to_improve`.
+- Sample request JSON for the recommendation endpoint.
 
 Not included yet:
 
@@ -367,6 +372,20 @@ final_score: 87
 recommendation: Strong Review
 ```
 
+Run candidate-side job recommendation from a sample JSON payload:
+
+```bash
+curl -X POST http://127.0.0.1:8000/recommend-jobs -H "Content-Type: application/json" -d @docs/integration/sample-recommend-jobs-request.json
+```
+
+Expected response includes:
+
+```text
+candidate_name: Nguyen Van A
+top_jobs[0].job_title: Backend Java Developer
+top_jobs[0].fit_score: 86
+```
+
 ## Run Document Loader Tests
 
 ```bash
@@ -512,7 +531,7 @@ Work is organized by phase. Each phase should have:
 The next planned phase is:
 
 ```text
-Phase 20 - Web Integration Hardening and Candidate-facing Job Recommendation
+Phase 21 - Job Retrieval Index for Candidate-side Recommendation
 ```
 
-That phase can validate the PHP web flow with Phase 19 API output and then plan the candidate-side flow: one CV to top matching JDs with skill gaps and CV improvement suggestions.
+That phase can move beyond request-time job lists and build a retrieval/index layer for larger active JD catalogs before reranking.

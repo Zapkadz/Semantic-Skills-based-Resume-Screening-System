@@ -36,15 +36,23 @@ from src.text_normalization import html_to_plain_text, strip_list_marker
 def build_jd_text_from_payload(job: dict[str, Any] | JobPayload) -> str:
     """Build parser-friendly JD text from a web job payload."""
     job_payload = _to_plain_dict(job)
-    raw_text = _clean_payload_text(job_payload.get("raw_text", ""))
+    raw_text = _clean_payload_text(
+        job_payload.get("raw_text") or job_payload.get("job_description_text", "")
+    )
     if raw_text:
-        job_title = _clean_payload_text(job_payload.get("job_title", ""))
+        job_title = _clean_payload_text(
+            job_payload.get("job_title") or job_payload.get("title", "")
+        )
         if job_title and not raw_text.casefold().startswith(job_title.casefold()):
             return f"{job_title}\n\n{raw_text}"
         return raw_text
 
-    job_title = _clean_payload_text(job_payload.get("job_title", ""))
-    description = _clean_payload_text(job_payload.get("description", ""))
+    job_title = _clean_payload_text(
+        job_payload.get("job_title") or job_payload.get("title", "")
+    )
+    description = _clean_payload_text(
+        job_payload.get("description") or job_payload.get("job_description_text", "")
+    )
     requirements = _string_list(
         job_payload.get("requirements") or job_payload.get("must_have_skills")
     )
@@ -80,7 +88,9 @@ def build_cv_document_from_payload(
 ) -> dict[str, Any]:
     """Build a loader-like document dict from a candidate payload."""
     candidate_payload = _to_plain_dict(candidate)
-    cv_text = _clean_payload_text(candidate_payload.get("cv_text", ""))
+    cv_text = _clean_payload_text(
+        candidate_payload.get("cv_text") or candidate_payload.get("resume_text", "")
+    )
 
     if not cv_text:
         cv_text = _build_structured_cv_text(candidate_payload)
@@ -88,7 +98,8 @@ def build_cv_document_from_payload(
     if not cv_text:
         candidate_name = str(candidate_payload.get("candidate_name", "")).strip()
         raise ValueError(
-            f"Candidate payload must include cv_text or structured CV data: {candidate_name}"
+            "Candidate payload must include cv_text/resume_text or structured CV data: "
+            f"{candidate_name}"
         )
 
     filename = _build_candidate_source_filename(candidate_payload)

@@ -77,6 +77,22 @@ def test_build_jd_text_from_payload_prefers_raw_text() -> None:
     assert build_jd_text_from_payload({"raw_text": raw_text}) == raw_text
 
 
+def test_build_jd_text_from_payload_accepts_title_and_job_description_text() -> None:
+    text = build_jd_text_from_payload(
+        {
+            "title": "Identity Platform Specialist",
+            "job_description_text": "Requirements:\n- identity verification",
+        }
+    )
+
+    assert text == (
+        "Identity Platform Specialist\n"
+        "\n"
+        "Requirements:\n"
+        "- identity verification"
+    )
+
+
 def test_build_jd_text_from_payload_strips_php_editor_html() -> None:
     job = {
         "job_title": "IT Security & IT Governance Officer",
@@ -130,6 +146,21 @@ def test_build_cv_document_from_payload_uses_cv_text_and_ids() -> None:
         "cv_file_path": "",
         "candidate_name": "Nguyen Van A",
     }
+
+
+def test_build_cv_document_from_payload_accepts_resume_text_alias() -> None:
+    candidate = {
+        "candidate_id": "cand-01",
+        "candidate_name": "Digital ID Candidate",
+        "resume_text": "Digital ID Candidate\nIdentity Engineer\n\nSkills:\n- identity verification",
+    }
+
+    document = build_cv_document_from_payload(candidate)
+
+    assert document["filename"] == "candidate-cand-01.txt"
+    assert document["text"] == (
+        "Digital ID Candidate\nIdentity Engineer\n\nSkills:\n- identity verification"
+    )
 
 
 def test_build_cv_document_from_payload_can_build_structured_cv_text() -> None:
