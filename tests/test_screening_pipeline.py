@@ -19,6 +19,7 @@ def test_run_screening_pipeline_returns_ranked_demo_result(tmp_path: Path) -> No
         "title": "Backend Java Developer",
         "must_have_skills": ["Java", "Spring Boot", "REST API", "SQL", "Docker"],
         "nice_to_have_skills": ["AWS", "Kafka", "Kubernetes"],
+        "open_set_requirements": [],
         "minimum_experience_years": 1,
         "seniority": "Junior",
         "domain": ["Backend", "Web Application"],
@@ -28,6 +29,35 @@ def test_run_screening_pipeline_returns_ranked_demo_result(tmp_path: Path) -> No
             "coverage_ratio": 1.0,
             "known_requirements": ["Java", "Spring Boot", "REST API", "SQL", "Docker"],
             "unknown_requirements": [],
+        },
+        "screening_confidence": {
+            "level": "high",
+            "known_requirement_count": 5,
+            "open_set_requirement_count": 0,
+            "embedding_enabled": False,
+            "warnings": [],
+        },
+        "requirement_groups": {
+            "must_have_technical": [
+                "Java",
+                "Spring Boot",
+                "REST API",
+                "SQL",
+                "Basic Docker",
+            ],
+            "nice_to_have_technical": ["AWS", "Kafka", "Kubernetes"],
+            "soft_skills": [],
+            "education": [],
+            "experience": ["1+ year backend experience"],
+            "certifications": [],
+            "domain_context": [],
+            "responsibilities": [
+                "Develop backend services.",
+                "Build RESTful APIs.",
+                "Work with relational databases.",
+                "Collaborate with frontend developers.",
+            ],
+            "ignored": [],
         },
     }
     assert len(result["candidates"]) == 1

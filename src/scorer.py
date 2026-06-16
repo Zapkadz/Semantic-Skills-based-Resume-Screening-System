@@ -6,7 +6,7 @@ import re
 from datetime import date
 from typing import Any
 
-from src.text_normalization import normalize_search_text
+from src.text_normalization import normalize_search_text, repair_mojibake, strip_accents
 
 
 SCORE_WEIGHTS = {
@@ -42,9 +42,14 @@ SENIORITY_ORDER = {
 
 DATE_PATTERN = re.compile(
     r"(?P<start_month>\d{1,2})/(?P<start_year>\d{4})\s*-\s*"
-    r"(?P<end_month>\d{1,2}|present|current|now|nay|hiện tại|hien tai)"
+    r"(?P<end_month>\d{1,2}|present|current|now|nay|hien tai)"
     r"/?(?P<end_year>\d{4})?",
     re.IGNORECASE,
+)
+EXPLICIT_EXPERIENCE_PATTERN = re.compile(
+    r"(?:(?:over|more than|at least|minimum|hon|tren|toi thieu)\s+)?"
+    r"(?P<years>\d+)\+?\s*(?:year|years|yr|yrs|nam)\s+"
+    r"(?:of\s+)?(?:experience|kinh nghiem)"
 )
 
 
@@ -245,7 +250,9 @@ def estimate_experience_years(resume_profile: dict[str, Any]) -> float:
     for entry in resume_profile.get("work_experience", []):
         total_months += _duration_to_months(entry.get("duration", ""))
 
-    return total_months / 12
+    duration_years = total_months / 12
+    explicit_years = _extract_explicit_experience_years(resume_profile)
+    return max(duration_years, explicit_years)
 
 
 def detect_candidate_seniority(
@@ -285,39 +292,31 @@ def detect_candidate_domains(resume_profile: dict[str, Any]) -> list[str]:
     profile_text = _profile_text(resume_profile)
     domains: list[str] = []
 
-    if any(
-        keyword in profile_text
-        for keyword in ("backend", "api", "service", "spring")
-    ):
+    if _contains_any_phrase(profile_text, ("backend", "api", "spring")):
         domains.append("Backend")
-    if any(
-        keyword in profile_text
-        for keyword in ("web", "rest", "api", "application")
-    ):
+    if _contains_any_phrase(profile_text, ("web", "rest", "api", "web application")):
         domains.append("Web Application")
-    if any(
-        keyword in profile_text
-        for keyword in ("qa", "tester", "api testing", "software testing")
-    ):
+    if _contains_any_phrase(profile_text, ("qa", "tester", "api testing", "software testing")):
         domains.append("Testing")
-    if any(keyword in profile_text for keyword in ("data analyst", "analytics")):
+    if _contains_any_phrase(profile_text, ("data analyst", "analytics")):
         domains.append("Data")
-    if any(
-        keyword in profile_text
-        for keyword in (
+    if _contains_any_phrase(
+        profile_text,
+        (
             "artificial intelligence",
             "machine learning",
             "deep learning",
             "model",
+            "models",
             "neural network",
             "tri tue nhan tao",
             "hoc may",
-        )
+        ),
     ):
         domains.append("AI/Machine Learning")
-    if any(
-        keyword in profile_text
-        for keyword in (
+    if _contains_any_phrase(
+        profile_text,
+        (
             "computer vision",
             "face recognition",
             "face detection",
@@ -326,12 +325,12 @@ def detect_candidate_domains(resume_profile: dict[str, Any]) -> list[str]:
             "opencv",
             "thi giac may tinh",
             "nhan dien khuon mat",
-        )
+        ),
     ):
         domains.append("Computer Vision")
-    if any(
-        keyword in profile_text
-        for keyword in (
+    if _contains_any_phrase(
+        profile_text,
+        (
             "ekyc",
             "biometric",
             "biometrics",
@@ -341,12 +340,29 @@ def detect_candidate_domains(resume_profile: dict[str, Any]) -> list[str]:
             "face verification",
             "xac thuc khuon mat",
             "chong gia mao",
-        )
+        ),
     ):
         domains.append("eKYC/Biometrics")
-    if any(
-        keyword in profile_text
-        for keyword in ("mobile", "android", "ios", "on device", "edge")
+    if _contains_any_phrase(
+        profile_text,
+        (
+            "it security",
+            "security operations",
+            "governance",
+            "compliance",
+            "vulnerability management",
+            "access management",
+            "access governance",
+            "risk management",
+            "personal data protection",
+            "audit",
+            "iso 27001",
+        ),
+    ):
+        domains.append("IT Security/GRC")
+    if _contains_any_phrase(
+        profile_text,
+        ("mobile", "android", "ios", "on device", "edge ai", "edge device"),
     ):
         domains.append("Mobile AI")
     if not domains and any(
@@ -360,7 +376,8 @@ def detect_candidate_domains(resume_profile: dict[str, Any]) -> list[str]:
 
 def _duration_to_months(duration: str) -> int:
     """Convert a simple duration string to inclusive months."""
-    match = DATE_PATTERN.search(duration or "")
+    normalized_duration = _normalize_duration_text(duration)
+    match = DATE_PATTERN.search(normalized_duration)
     if not match:
         return 0
 
@@ -385,6 +402,33 @@ def _duration_to_months(duration: str) -> int:
 
     month_delta = (end_year - start_year) * 12 + (end_month - start_month) + 1
     return max(month_delta, 0)
+
+
+def _normalize_duration_text(duration: str) -> str:
+    """Normalize date ranges from English/Vietnamese CV text."""
+    normalized = strip_accents(repair_mojibake(duration or "")).casefold()
+    normalized = normalized.replace("–", "-").replace("—", "-")
+    normalized = re.sub(r"\b(?:to|den|toi)\b", "-", normalized)
+    normalized = re.sub(r"\s+", " ", normalized)
+    return normalized.strip()
+
+
+def _extract_explicit_experience_years(resume_profile: dict[str, Any]) -> float:
+    """Extract explicit summary phrases like 'over 5 years of experience'."""
+    text_parts = [
+        str(resume_profile.get("headline", "")),
+        str(resume_profile.get("summary", "")),
+    ]
+    for entry in resume_profile.get("work_experience", []):
+        text_parts.append(str(entry.get("title", "")))
+        text_parts.extend(str(item) for item in entry.get("description", []))
+
+    normalized_text = normalize_search_text(" ".join(text_parts))
+    matches = [
+        int(match.group("years"))
+        for match in EXPLICIT_EXPERIENCE_PATTERN.finditer(normalized_text)
+    ]
+    return float(max(matches)) if matches else 0.0
 
 
 def _profile_text(resume_profile: dict[str, Any]) -> str:
@@ -419,6 +463,21 @@ def _profile_text(resume_profile: dict[str, Any]) -> str:
 def _normalize_label(value: str) -> str:
     """Normalize label-like text for comparison."""
     return " ".join(value.strip().casefold().split())
+
+
+def _contains_any_phrase(text: str, phrases: tuple[str, ...]) -> bool:
+    """Return True when normalized text contains any phrase with boundaries."""
+    return any(_contains_phrase(text, phrase) for phrase in phrases)
+
+
+def _contains_phrase(text: str, phrase: str) -> bool:
+    """Check phrase existence with word boundaries."""
+    normalized_phrase = normalize_search_text(phrase)
+    if not normalized_phrase:
+        return False
+
+    pattern = rf"(?<!\w){re.escape(normalized_phrase)}(?!\w)"
+    return bool(re.search(pattern, text))
 
 
 def _round_score(value: float) -> float:

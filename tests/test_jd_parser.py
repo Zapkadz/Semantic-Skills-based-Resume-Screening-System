@@ -113,3 +113,30 @@ def test_parse_jd_supports_vietnamese_headings_and_experience() -> None:
     assert criteria["responsibilities"] == ["Xây dựng REST API."]
     assert criteria["minimum_experience_years"] == 2
     assert criteria["seniority"] == "Middle"
+
+
+def test_parse_jd_infers_title_from_first_responsibility_heading() -> None:
+    criteria = parse_jd(
+        "Mô tả Công việc\n"
+        "1. IT Security Operations\n"
+        "- Monitor security logs.\n"
+        "\n"
+        "Yêu Cầu Công Việc\n"
+        "- At least 3 yeear of experience in IT Security Operations, Governance, Compliance.\n"
+        "- Knowledge of vulnerability management tools."
+    )
+
+    assert criteria["job_title"] == "IT Security Operations"
+    assert criteria["minimum_experience_years"] == 3
+    assert criteria["seniority"] == "Middle"
+    assert criteria["domain"] == ["IT Security/GRC"]
+
+
+def test_parse_jd_domain_matching_does_not_match_edge_inside_knowledge() -> None:
+    criteria = parse_jd(
+        "Data Engineer\n\n"
+        "Requirements:\n"
+        "- Knowledge of vulnerability management tools."
+    )
+
+    assert "Mobile AI" not in criteria["domain"]

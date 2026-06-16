@@ -168,6 +168,33 @@ def test_generate_review_card_flags_semantic_only_unknown_requirements() -> None
     )
 
 
+def test_generate_review_card_flags_experience_met_but_hard_skill_evidence_incomplete() -> None:
+    candidate_result = _sample_candidate_result()
+    candidate_result["scores"] = {
+        "skill_semantic": 0.68,
+        "evidence": 0.45,
+        "experience": 1.0,
+        "seniority": 0.85,
+        "domain": 1.0,
+        "nice_to_have": 0.5,
+    }
+    candidate_result["missing_skills"] = [
+        "ONNX",
+        "model optimization under resource constraints",
+    ]
+
+    card = generate_review_card(candidate_result, {"job_title": "Computer Vision Engineer"})
+
+    assert card["concerns"][0] == (
+        "The candidate appears to meet the experience requirement, "
+        "but hard-skill evidence is incomplete; review missing and "
+        "weakly evidenced must-have skills before shortlisting."
+    )
+    assert card["concerns"][1] == (
+        "Missing must-have skills: ONNX and model optimization under resource constraints."
+    )
+
+
 def test_demo_pipeline_generates_explainable_review_card() -> None:
     taxonomy = load_taxonomy(TAXONOMY_PATH)
     profile = parse_resume(load_text_file("data/cvs/cv_strong.txt"))

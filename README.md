@@ -11,10 +11,10 @@ The project does not train a recruitment model from scratch. The MVP starts with
 The project is currently in:
 
 ```text
-Phase 16 - Admin Taxonomy Review and Merged Runtime Taxonomy
+Phase 18 - JD Requirement Classification and Weighted Scoring Refinement
 ```
 
-This phase adds a Python-side taxonomy merge and validation layer for Admin-approved custom skills and aliases. The project still does not automatically modify the base taxonomy. Instead, approved custom taxonomy entries can be exported into one merged runtime taxonomy JSON file for CLI/API screening.
+This phase classifies JD lines into must-have technical requirements, nice-to-have technical requirements, soft skills, education, experience, certifications, domain context, and responsibilities before scoring. This prevents soft skills, education, and optional requirements from being treated as missing must-have technical skills.
 
 ## Planned Processing Flow
 
@@ -129,6 +129,19 @@ Included:
 - Standalone `taxonomy_merge.py` CLI for exporting one merged runtime taxonomy.
 - Atomic merged taxonomy JSON writer.
 - Unit tests for custom skill merge, alias updates, conflicts, validation, save/load, and CLI output.
+- Taxonomy-independent requirement extraction for open-set JD capabilities.
+- Open-set screening confidence metadata.
+- Open-set evidence ranking that combines semantic similarity with exact phrase evidence strength.
+- JD title fallback for description-first job posts.
+- Safer domain matching with word-boundary phrase checks.
+- IT Security/GRC domain detection without requiring taxonomy skills.
+- Certification evidence candidates for security/compliance roles.
+- JD requirement classification into must-have technical, nice-to-have technical, soft skills, education, experience, certifications, domain context, responsibilities, and ignored lines.
+- Required/preferred heading detection for English and Vietnamese JD sections, including `Dieu kien bat buoc` and `Dieu kien uu tien`.
+- Scoring pipeline now feeds only must-have technical requirements into must-have matching.
+- Nice-to-have technical requirements are scored as optional gaps instead of hard missing skills.
+- Review cards now include requirement notes for education, soft skills, and domain context.
+- Candidate output includes `requirement_group_summary`.
 
 Not included yet:
 
@@ -179,6 +192,30 @@ python main.py --jd data/jobs/jd_backend_java.txt --cv-dir data/cvs --enable-emb
 For a fully offline demo after the model is cached, set `HF_HUB_OFFLINE=1` before running the command.
 
 The embedding model is loaded lazily. If the model is unavailable, the system falls back to the rule-based taxonomy matcher.
+
+For open-set JD requirements outside the taxonomy, use embedding mode:
+
+```bash
+python main.py --jd data/jobs/JD_2.txt --cv-dir outputs/test_cv1_cv3 --enable-embedding --embedding-model BAAI/bge-m3 --embedding-local-only --output-json outputs/jd2_cv1_cv3_phase17_bge.json
+```
+
+Expected Phase 17 behavior for the local JD_2/CV_1/CV_3 benchmark when BGE-M3 is available:
+
+```text
+David Chen - 72/100 - Review
+Kevin Walker - 36/100 - Not Enough Evidence
+```
+
+Without embedding, open-set requirements are still extracted, but `screening_confidence` warns that semantic matching is disabled.
+
+Expected Phase 18 behavior for the local JD_3/CV_3_1/CV_3_3 benchmark when BGE-M3 is available:
+
+```text
+Lê Quốc Bảo - 76/100 - Review
+Nguyễn Văn Hưng - 51/100 - Low Priority
+```
+
+In this benchmark, education and soft-skill lines are no longer counted as missing technical skills, and preferred requirements are reported as optional gaps.
 
 When a JD contains a requirement outside the taxonomy, the output now includes coverage metadata:
 
@@ -454,7 +491,7 @@ Then run:
 streamlit run app.py
 ```
 
-In Phase 15, the app still shows a placeholder page because the functional UI is planned for a later phase.
+In Phase 17, the app still shows a placeholder page because the functional UI is planned for a later phase.
 
 ## Development Workflow
 
@@ -471,7 +508,7 @@ Work is organized by phase. Each phase should have:
 The next planned phase is:
 
 ```text
-Phase 17 - Web Integration Hardening and End-to-end Admin AI Flow
+Phase 18 - Web Integration Hardening and Candidate-facing Job Recommendation
 ```
 
-That phase can validate the full PHP web flow: generate suggestions, Admin approves them, export merged taxonomy, and run screening again using the updated runtime taxonomy.
+That phase can validate the PHP web flow with Phase 17 API output and then plan the candidate-side flow: one CV to top matching JDs with skill gaps and CV improvement suggestions.

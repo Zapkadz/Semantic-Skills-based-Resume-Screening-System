@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from typing import Any
 
 from src.embedding_matcher import SemanticEmbeddingMatcher
@@ -24,6 +25,7 @@ UNKNOWN_TAXONOMY_STATUS = "unknown"
 MAX_UNKNOWN_REQUIREMENT_WORDS = 10
 MAX_UNKNOWN_REQUIREMENT_LENGTH = 120
 MIN_EVIDENCE_TEXT_LENGTH = 4
+EVIDENCE_SIMILARITY_TOLERANCE = 0.15
 
 
 def split_known_and_unknown_requirements(
@@ -94,6 +96,11 @@ def find_semantic_requirement_evidence(
     if not unknown_requirements or embedding_matcher is None:
         return []
 
+    effective_threshold = (
+        getattr(embedding_matcher, "threshold", threshold)
+        if threshold == DEFAULT_OPEN_SET_SIMILARITY_THRESHOLD
+        else threshold
+    )
     evidence_candidates = _collect_open_set_evidence_candidates(resume_profile)
     if not evidence_candidates:
         return [
@@ -115,10 +122,15 @@ def find_semantic_requirement_evidence(
         similarities,
     ):
         best_candidate = _best_evidence_candidate(
+            requirement,
             requirement_similarities,
             evidence_candidates,
+            effective_threshold,
         )
-        if best_candidate is None or best_candidate["similarity"] < threshold:
+        if best_candidate is None or (
+            best_candidate["similarity"] < effective_threshold
+            and not best_candidate.get("contains_requirement")
+        ):
             matches.append(_build_no_semantic_evidence_match(requirement))
             continue
 
@@ -198,22 +210,68 @@ def _collect_open_set_evidence_candidates(
 
 
 def _best_evidence_candidate(
+    requirement: str,
     similarities: list[float],
     evidence_candidates: list[dict[str, str]],
+    threshold: float,
 ) -> dict[str, Any] | None:
-    """Return the evidence candidate with the highest semantic similarity."""
-    best_candidate: dict[str, Any] | None = None
-    best_similarity: float | None = None
+    """Return the best evidence candidate balancing similarity and evidence strength."""
+    all_candidates = [
+        {
+            **candidate,
+            "similarity": round(similarity, 4),
+            "evidence_level": calculate_candidate_evidence_level(candidate),
+            "contains_requirement": _contains_requirement_phrase(
+                candidate["text"],
+                requirement,
+            ),
+        }
+        for similarity, candidate in zip(similarities, evidence_candidates)
+    ]
+    exact_candidates = [
+        candidate for candidate in all_candidates if candidate["contains_requirement"]
+    ]
+    if exact_candidates:
+        return max(
+            exact_candidates,
+            key=lambda candidate: (
+                candidate["evidence_level"],
+                candidate["similarity"],
+            ),
+        )
 
-    for similarity, candidate in zip(similarities, evidence_candidates):
-        if best_similarity is None or similarity > best_similarity:
-            best_similarity = similarity
-            best_candidate = {
-                **candidate,
-                "similarity": round(similarity, 4),
-            }
+    ranked_candidates = [
+        candidate for candidate in all_candidates if candidate["similarity"] >= threshold
+    ]
+    if not ranked_candidates:
+        return None
 
-    return best_candidate
+    best_similarity = max(candidate["similarity"] for candidate in ranked_candidates)
+    similarity_floor = max(threshold, best_similarity - EVIDENCE_SIMILARITY_TOLERANCE)
+    eligible_candidates = [
+        candidate
+        for candidate in ranked_candidates
+        if candidate["similarity"] >= similarity_floor
+    ]
+
+    return max(
+        eligible_candidates,
+        key=lambda candidate: (
+            candidate["evidence_level"],
+            candidate["similarity"],
+        ),
+    )
+
+
+def _contains_requirement_phrase(text: str, requirement: str) -> bool:
+    """Return True when evidence text contains the open-set requirement phrase."""
+    normalized_text = normalize_search_text(text)
+    normalized_requirement = normalize_search_text(requirement)
+    if not normalized_text or not normalized_requirement:
+        return False
+
+    pattern = rf"(?<!\w){re.escape(normalized_requirement)}(?!\w)"
+    return bool(re.search(pattern, normalized_text))
 
 
 def _build_semantic_only_match(
@@ -221,7 +279,6 @@ def _build_semantic_only_match(
     evidence_candidate: dict[str, Any],
 ) -> dict[str, Any]:
     """Build a scored semantic-only match for an unknown requirement."""
-    evidence_level = calculate_candidate_evidence_level(evidence_candidate)
     return {
         "required_skill": requirement,
         "candidate_skill": None,
@@ -229,7 +286,7 @@ def _build_semantic_only_match(
         "taxonomy_status": UNKNOWN_TAXONOMY_STATUS,
         "score": OPEN_SET_MATCH_SCORE,
         "similarity": evidence_candidate["similarity"],
-        "evidence_level": evidence_level,
+        "evidence_level": evidence_candidate["evidence_level"],
         "evidence_text": evidence_candidate["text"],
         "evidence_source": evidence_candidate["source"],
     }

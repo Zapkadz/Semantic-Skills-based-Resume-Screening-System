@@ -19,6 +19,31 @@ class FakeMultilingualEmbeddingModel:
         return [vectors.get(text, [0.0, 1.0]) for text in texts]
 
 
+class FakeSecurityEmbeddingModel:
+    def encode(self, texts: list[str]) -> list[list[float]]:
+        concepts = [
+            ("linux", ("linux",)),
+            ("qualys", ("qualys",)),
+            ("vulnerability", ("vulnerability",)),
+            ("access", ("access", "pam")),
+            ("data_protection", ("personal data protection", "data protection")),
+            ("governance", ("governance",)),
+            ("compliance", ("compliance", "iso 27001")),
+            ("security", ("security operations", "it security", "security+")),
+            ("ceh", ("ceh", "certified ethical hacker")),
+        ]
+        vectors: list[list[float]] = []
+        for text in texts:
+            normalized_text = text.casefold()
+            vector = [
+                1.0 if any(alias in normalized_text for alias in aliases) else 0.0
+                for _, aliases in concepts
+            ]
+            vectors.append(vector if any(vector) else [0.0 for _ in concepts])
+
+        return vectors
+
+
 def test_build_jd_text_from_payload_uses_structured_sections() -> None:
     job = {
         "job_title": "Backend Java Developer",
@@ -50,6 +75,36 @@ def test_build_jd_text_from_payload_prefers_raw_text() -> None:
     raw_text = "QA Tester\n\nRequirements:\n- API testing"
 
     assert build_jd_text_from_payload({"raw_text": raw_text}) == raw_text
+
+
+def test_build_jd_text_from_payload_strips_php_editor_html() -> None:
+    job = {
+        "job_title": "IT Security & IT Governance Officer",
+        "requirements": [
+            (
+                "<p><strong>1. Qualifications &amp; Experience</strong></p>"
+                "<p>•&nbsp;<strong>Professional requirements: Proficiency in Linux</strong>, "
+                "Nutanix administration, Commvault, and Qualys.</p>"
+                "<p>• At least 3 yeear of experience in "
+                "<strong>IT Security Operations, Governance, Compliance, "
+                "Personal Data Protection</strong>.</p>"
+            )
+        ],
+        "responsibilities": [
+            (
+                "<p><strong>1. IT Security Operations</strong></p>"
+                "<p>• Manage and monitor Qualys vulnerability scanning platform.</p>"
+            )
+        ],
+    }
+
+    text = build_jd_text_from_payload(job)
+
+    assert "<p>" not in text
+    assert "&nbsp;" not in text
+    assert "- Professional requirements: Proficiency in Linux" in text
+    assert "- At least 3 yeear of experience in IT Security Operations" in text
+    assert "- Manage and monitor Qualys vulnerability scanning platform." in text
 
 
 def test_build_cv_document_from_payload_uses_cv_text_and_ids() -> None:
@@ -144,12 +199,20 @@ def test_run_screening_payload_returns_ranked_candidates_with_web_ids() -> None:
         "SQL",
         "Docker",
     ]
+    assert result["job"]["open_set_requirements"] == []
     assert result["job"]["taxonomy_coverage"] == {
         "known_count": 5,
         "unknown_count": 0,
         "coverage_ratio": 1.0,
         "known_requirements": ["Java", "Spring Boot", "REST API", "SQL", "Docker"],
         "unknown_requirements": [],
+    }
+    assert result["job"]["screening_confidence"] == {
+        "level": "high",
+        "known_requirement_count": 5,
+        "open_set_requirement_count": 0,
+        "embedding_enabled": False,
+        "warnings": [],
     }
 
     candidate = result["candidates"][0]
@@ -280,6 +343,253 @@ def test_run_screening_payload_can_use_injected_multilingual_embedding_matcher()
         "known_requirements": [],
         "unknown_requirements": ["identity verification"],
     }
+    assert result["job"]["open_set_requirements"] == ["identity verification"]
+    assert result["job"]["screening_confidence"] == {
+        "level": "medium",
+        "known_requirement_count": 0,
+        "open_set_requirement_count": 1,
+        "embedding_enabled": True,
+        "warnings": [],
+    }
+
+
+def test_run_screening_payload_open_set_security_role_without_taxonomy(
+    tmp_path,
+) -> None:
+    taxonomy_path = tmp_path / "empty_taxonomy.json"
+    taxonomy_path.write_text("{}", encoding="utf-8")
+    embedding_matcher = SemanticEmbeddingMatcher(
+        model=FakeSecurityEmbeddingModel(),
+        threshold=0.70,
+    )
+    payload = {
+        "job": {
+            "job_id": 40,
+            "job_title": "IT Security & IT Governance Officer",
+            "requirements": [
+                "Professional requirements: Proficiency in Linux and Qualys.",
+                "At least 3 yeear of experience in IT Security Operations, Governance, Compliance, Personal Data Protection.",
+                "Knowledge of vulnerability management tools and access control principles.",
+                "Relevant certifications: Security+, CEH, ISO 27001 are an advantage.",
+            ],
+        },
+        "candidates": [
+            {
+                "application_id": 888,
+                "candidate_name": "David Chen",
+                "cv_text": (
+                    "David Chen\n"
+                    "Senior IT Security & Governance Officer\n"
+                    "\n"
+                    "Summary:\n"
+                    "IT Security and Governance professional with experience in vulnerability management, access governance, compliance, personal data protection, and Qualys.\n"
+                    "\n"
+                    "Skills:\n"
+                    "- Qualys\n"
+                    "- Linux Administration\n"
+                    "- Access Management\n"
+                    "- Vulnerability Management\n"
+                    "- Personal Data Protection\n"
+                    "- IT Governance\n"
+                    "- Compliance Management\n"
+                    "\n"
+                    "Work Experience:\n"
+                    "Senior IT Security Officer - Global Banking Technology\n"
+                    "01/2021 - Present\n"
+                    "- Managed enterprise vulnerability management using Qualys.\n"
+                    "- Reviewed access requests according to PAM procedures.\n"
+                    "- Supported ISO 27001 compliance and regulatory audits.\n"
+                    "- Ensured compliance with Personal Data Protection regulations.\n"
+                    "\n"
+                    "Certifications:\n"
+                    "CompTIA Security+\n"
+                    "Certified Ethical Hacker (CEH)\n"
+                    "ISO 27001 Lead Implementer"
+                ),
+            }
+        ],
+    }
+
+    result = run_screening_payload(
+        payload,
+        taxonomy_path=str(taxonomy_path),
+        embedding_matcher=embedding_matcher,
+    )
+
+    assert result["job"]["must_have_skills"] == []
+    assert "Qualys" in result["job"]["open_set_requirements"]
+    assert "vulnerability management" in result["job"]["open_set_requirements"]
+    assert result["job"]["screening_confidence"]["level"] == "medium"
+    assert result["job"]["domain"] == ["IT Security/GRC"]
+
+    candidate = result["candidates"][0]
+    assert candidate["candidate_name"] == "David Chen"
+    assert candidate["final_score"] >= 70
+    assert candidate["recommendation"] in {"Review", "Strong Review"}
+    assert any(
+        match["match_type"] == "semantic_only_match"
+        for match in candidate["open_set_requirement_matches"]
+    )
+
+
+def test_run_screening_payload_separates_soft_education_and_nice_to_have() -> None:
+    payload = {
+        "job": {
+            "job_id": 50,
+            "job_title": "Fullstack Developer",
+            "requirements": [
+                "Dieu kien bat buoc:",
+                "Tot nghiep Dai hoc nganh CNTT.",
+                "Thanh thao Java, Spring Boot, Angular, Javascript.",
+                "Toi thieu 02 nam kinh nghiem phat trien ung dung.",
+                "Kha nang lam viec theo nhom, giao tiep, trinh bay.",
+                "Dieu kien uu tien:",
+                "Co kinh nghiem su dung Git, GitLab, Docker container.",
+            ],
+        },
+        "candidates": [
+            {
+                "application_id": 999,
+                "candidate_name": "Fullstack Candidate",
+                "cv_text": (
+                    "Fullstack Candidate\n"
+                    "Backend Developer\n"
+                    "\n"
+                    "Skills:\n"
+                    "- Java\n"
+                    "- Spring Boot\n"
+                    "- Docker\n"
+                    "\n"
+                    "Work Experience:\n"
+                    "Backend Developer - ABC\n"
+                    "01/2020 - Present\n"
+                    "- Built Java Spring Boot APIs."
+                ),
+            }
+        ],
+    }
+
+    result = run_screening_payload(payload)
+
+    groups = result["job"]["requirement_groups"]
+    assert groups["education"] == ["Tot nghiep Dai hoc nganh CNTT."]
+    assert groups["soft_skills"] == [
+        "Kha nang lam viec theo nhom, giao tiep, trinh bay."
+    ]
+    assert groups["experience"] == [
+        "Toi thieu 02 nam kinh nghiem phat trien ung dung."
+    ]
+    assert groups["nice_to_have_technical"] == [
+        "Co kinh nghiem su dung Git, GitLab, Docker container."
+    ]
+
+    candidate = result["candidates"][0]
+    assert "Tot nghiep Dai hoc nganh CNTT." not in candidate["missing_skills"]
+    assert (
+        "Kha nang lam viec theo nhom, giao tiep, trinh bay."
+        not in candidate["missing_skills"]
+    )
+    assert "Co kinh nghiem su dung Git" not in " ".join(candidate["missing_skills"])
+    assert candidate["review_card"]["requirement_notes"] == [
+        "Education requirements should be reviewed separately: Tot nghiep Dai hoc nganh CNTT.",
+        "Soft skills should be verified during interview: Kha nang lam viec theo nhom, giao tiep, trinh bay.",
+    ]
+
+
+def test_run_screening_payload_handles_html_jd_from_php_editor(
+    tmp_path,
+) -> None:
+    taxonomy_path = tmp_path / "empty_taxonomy.json"
+    taxonomy_path.write_text("{}", encoding="utf-8")
+    embedding_matcher = SemanticEmbeddingMatcher(
+        model=FakeSecurityEmbeddingModel(),
+        threshold=0.70,
+    )
+    payload = {
+        "job": {
+            "job_id": 18,
+            "job_title": "IT Security & IT Governance Officer",
+            "requirements": [
+                (
+                    "<p><strong>1. Qualifications &amp; Experience</strong></p>"
+                    "<p>•&nbsp;<strong>Professional requirements: Proficiency in Linux</strong>, "
+                    "Nutanix administration, Commvault, and Qualys; ability to perform "
+                    "patch upgrades for both Windows and Linux.</p>"
+                    "<p>• At least 3 yeear of experience in "
+                    "<strong>IT Security Operations, Governance, Compliance, "
+                    "Personal Data Protection</strong>, preferably in banking/finance.</p>"
+                    "<p>• Knowledge of vulnerability management tools (e.g., Qualys) "
+                    "and access control principles.</p>"
+                    "<p>• Relevant certifications: Security+, CEH, ISO 27001 are an advantage.</p>"
+                )
+            ],
+            "responsibilities": [
+                (
+                    "<p><strong>1. IT Security Operations</strong></p>"
+                    "<p>• Manage and monitor Qualys vulnerability scanning platform.</p>"
+                    "<p>• Review and approve system access requests based on security matrices.</p>"
+                )
+            ],
+        },
+        "candidates": [
+            {
+                "application_id": 15,
+                "candidate_id": 4,
+                "candidate_name": "Phan Thanh Kiet",
+                "cv_text": (
+                    "Phan Thanh Kiet\n"
+                    "IT Security & Governance Officer\n"
+                    "\n"
+                    "Summary:\n"
+                    "IT Security and Governance professional with over 5 years of experience "
+                    "in security operations, vulnerability management, access governance, "
+                    "compliance, personal data protection, and IT risk management. "
+                    "Experienced with Qualys and Linux administration.\n"
+                    "\n"
+                    "Skills:\n"
+                    "- Qualys\n"
+                    "- Vulnerability Management\n"
+                    "- Access Management\n"
+                    "- Linux Administration\n"
+                    "- Personal Data Protection\n"
+                    "- IT Governance\n"
+                    "- Compliance Management\n"
+                    "\n"
+                    "Work Experience:\n"
+                    "IT Security Analyst - Asia Financial Services\n"
+                    "07/2018 - 12/2020\n"
+                    "- Managed user access lifecycle and security audits.\n"
+                    "\n"
+                    "Senior IT Security & Governance Officer - Global Banking Technology\n"
+                    "01/2021 – Hien tai\n"
+                    "- Manage enterprise vulnerability management using Qualys.\n"
+                    "- Review access requests according to security matrices and PAM procedures.\n"
+                    "- Support ISO 27001 compliance and regulatory audits.\n"
+                    "- Ensure compliance with Personal Data Protection regulations.\n"
+                    "\n"
+                    "Certifications:\n"
+                    "CompTIA Security+\n"
+                    "Certified Ethical Hacker (CEH)\n"
+                    "ISO 27001 Lead Implementer"
+                ),
+            }
+        ],
+    }
+
+    result = run_screening_payload(
+        payload,
+        taxonomy_path=str(taxonomy_path),
+        embedding_matcher=embedding_matcher,
+    )
+
+    assert "Qualys" in result["job"]["open_set_requirements"]
+    assert "vulnerability management" in result["job"]["open_set_requirements"]
+    assert result["job"]["screening_confidence"]["open_set_requirement_count"] > 1
+
+    candidate = result["candidates"][0]
+    assert candidate["experience_years"] >= 5
+    assert candidate["final_score"] >= 55
+    assert candidate["recommendation"] in {"Maybe Review", "Review", "Strong Review"}
 
 
 def _demo_screening_payload() -> dict:

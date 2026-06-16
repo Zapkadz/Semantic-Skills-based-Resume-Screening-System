@@ -177,6 +177,9 @@ def _collect_evidence_candidates(resume_profile: dict[str, Any]) -> list[dict[st
     for skill in resume_profile.get("raw_skills", []):
         candidates.append({"source": "skills", "text": skill})
 
+    for certification in resume_profile.get("certifications", []):
+        candidates.append({"source": "certifications", "text": certification})
+
     return [
         {"source": candidate["source"], "text": candidate["text"].strip()}
         for candidate in candidates

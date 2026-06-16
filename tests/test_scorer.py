@@ -91,11 +91,54 @@ def test_estimate_experience_years_from_demo_resume_duration() -> None:
     assert round(estimate_experience_years(profile), 2) == 0.58
 
 
+def test_estimate_experience_years_handles_vietnamese_present_duration() -> None:
+    profile = {
+        "work_experience": [
+            {"duration": "07/2018 - 12/2020"},
+            {"duration": "01/2021 – Hiện tại"},
+        ]
+    }
+
+    assert estimate_experience_years(profile) >= 5
+
+
+def test_estimate_experience_years_uses_summary_years_as_fallback() -> None:
+    profile = {
+        "headline": "IT Security & Governance Officer",
+        "summary": "IT Security professional with over 5 years of experience.",
+        "work_experience": [{"duration": ""}],
+    }
+
+    assert estimate_experience_years(profile) == 5
+
+
 def test_detect_candidate_seniority_and_domains_from_demo_resume() -> None:
     profile = parse_resume(load_text_file("data/cvs/cv_strong.txt"))
 
     assert detect_candidate_seniority(profile) == "Junior"
     assert detect_candidate_domains(profile) == ["Backend", "Web Application"]
+
+
+def test_detect_candidate_domains_detects_security_grc_without_service_false_positive() -> None:
+    profile = {
+        "headline": "Senior IT Security & Governance Officer",
+        "summary": (
+            "Experienced in banking and financial services with vulnerability "
+            "management, access governance, compliance, personal data protection, "
+            "and IT risk management."
+        ),
+        "raw_skills": [
+            "Qualys",
+            "Vulnerability Management",
+            "Access Management",
+            "IT Governance",
+            "Compliance Management",
+        ],
+        "work_experience": [],
+        "projects": [],
+    }
+
+    assert detect_candidate_domains(profile) == ["IT Security/GRC"]
 
 
 def test_score_candidate_returns_explainable_demo_result() -> None:
