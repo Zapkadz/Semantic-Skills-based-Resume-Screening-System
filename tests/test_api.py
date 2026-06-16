@@ -15,7 +15,7 @@ def test_health_endpoint_returns_service_status() -> None:
     assert result["status"] == "ok"
     assert result["service"] == "semantic-skills-resume-screening"
     assert result["phase"] == (
-        "Phase 23 - Skill-gap Explanation and CV Improvement Suggestions"
+        "Phase 24 - JD Quality Gate and Recommendation Eligibility"
     )
     assert "embedding_enabled" in result
     assert "embedding_model" in result
@@ -92,6 +92,13 @@ def test_recommend_jobs_endpoint_returns_ranked_top_jobs() -> None:
     assert result["retrieval_stats"]["jobs_reranked"] == 2
     assert result["retrieval_stats"]["top_k"] == 2
     assert result["retrieval_stats"]["retrieval_top_n"] == 2
+    assert result["job_quality_stats"] == {
+        "jobs_received": 3,
+        "eligible_jobs": 3,
+        "excluded_jobs": 0,
+    }
+    assert result["excluded_jobs"] == []
+    assert result["warnings"] == []
     assert len(result["top_jobs"]) == 2
 
     top_job = result["top_jobs"][0]
@@ -125,6 +132,11 @@ def test_recommend_jobs_endpoint_returns_ranked_top_jobs() -> None:
     ]
     assert top_job["cv_improvement_suggestions"]
     assert top_job["next_best_actions"]
+    assert top_job["job_quality"]["recommendation_eligible"] is True
+    assert top_job["job_quality"]["quality_label"] in {
+        "eligible",
+        "eligible_with_warning",
+    }
     assert top_job["review_card"]["job_title"] == "Backend Java Developer"
 
 

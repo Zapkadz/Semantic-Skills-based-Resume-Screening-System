@@ -111,6 +111,7 @@ def score_retrieved_job_match(
         "screening_confidence": job_output.get("screening_confidence", {}),
         "open_set_requirements": job_output.get("open_set_requirements", []),
         "requirement_groups": job_output.get("requirement_groups", {}),
+        "job_quality": job_card.get("job_quality", {}),
         "review_card": review_card,
     }
 

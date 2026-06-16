@@ -70,6 +70,12 @@ EXPERIENCE_PATTERN = re.compile(
 )
 
 
+EXPERIENCE_ONLY_PATTERN = re.compile(
+    r"^\s*\d+\+?\s*(?:year|years|yeear|yr|yrs|nam)\s*$",
+    re.IGNORECASE,
+)
+
+
 def parse_jd(text: str) -> dict[str, Any]:
     """Parse job description raw text into job criteria."""
     text = repair_mojibake(text)
@@ -149,7 +155,8 @@ def _looks_like_title_fallback(value: str) -> bool:
 def _extract_minimum_experience_years(requirements: list[str]) -> int:
     """Extract the first minimum years value from requirement lines."""
     for requirement in requirements:
-        match = EXPERIENCE_PATTERN.search(requirement)
+        normalized_requirement = normalize_search_text(requirement)
+        match = EXPERIENCE_PATTERN.search(normalized_requirement)
         if match:
             return int(match.group(1))
 
@@ -159,9 +166,11 @@ def _extract_minimum_experience_years(requirements: list[str]) -> int:
 def _is_experience_requirement(item: str) -> bool:
     """Detect whether a requirement line describes experience instead of a skill."""
     normalized_item = normalize_search_text(item)
-    return bool(EXPERIENCE_PATTERN.search(item)) and any(
-        keyword in normalized_item
-        for keyword in ("experience", "kinh nghiem")
+    if EXPERIENCE_ONLY_PATTERN.match(normalized_item):
+        return True
+
+    return bool(EXPERIENCE_PATTERN.search(normalized_item)) and any(
+        keyword in normalized_item for keyword in ("experience", "kinh nghiem")
     )
 
 

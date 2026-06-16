@@ -46,7 +46,17 @@ def run_job_recommendation_payload(
         candidate_document=candidate_document,
     )
     job_catalog = build_job_catalog(job_payloads, taxonomy_path=taxonomy_path)
-    indexed_jobs = build_job_index_documents(job_catalog)
+    eligible_job_catalog = [
+        job
+        for job in job_catalog
+        if job.get("job_quality", {}).get("recommendation_eligible") is True
+    ]
+    excluded_jobs = [
+        _build_excluded_job_summary(job)
+        for job in job_catalog
+        if job.get("job_quality", {}).get("recommendation_eligible") is not True
+    ]
+    indexed_jobs = build_job_index_documents(eligible_job_catalog)
     retrieval_top_n = min(
         len(indexed_jobs),
         _coerce_positive_int(
@@ -76,19 +86,28 @@ def run_job_recommendation_payload(
         candidate_document,
         top_jobs,
     )
+    warnings = _build_recommendation_warnings(eligible_job_catalog, excluded_jobs)
 
     return {
         "candidate": candidate_summary,
         "top_jobs": top_jobs,
+        "excluded_jobs": excluded_jobs,
         "retrieval_stats": {
             "jobs_received": len(job_payloads),
             "jobs_indexed": len(indexed_jobs),
             "jobs_retrieved": len(retrieved_jobs),
             "jobs_reranked": len(reranked_jobs),
-            "top_k": min(top_k, len(job_payloads)),
+            "top_k": min(top_k, len(eligible_job_catalog)),
             "retrieval_top_n": retrieval_top_n,
-            "retrieval_applied": len(retrieved_jobs) < len(job_payloads),
+            "retrieval_applied": bool(indexed_jobs)
+            and len(retrieved_jobs) < len(indexed_jobs),
         },
+        "job_quality_stats": {
+            "jobs_received": len(job_payloads),
+            "eligible_jobs": len(eligible_job_catalog),
+            "excluded_jobs": len(excluded_jobs),
+        },
+        "warnings": warnings,
     }
 
 
@@ -110,6 +129,36 @@ def _build_candidate_summary(
         "source_file": candidate_document.get("filename", ""),
         "cv_file_path": candidate_document.get("cv_file_path", ""),
     }
+
+
+def _build_excluded_job_summary(job_card: dict[str, Any]) -> dict[str, Any]:
+    """Build a compact summary for jobs excluded by the JD quality gate."""
+    return {
+        "job_id": job_card.get("job_id"),
+        "job_title": job_card.get("job_title", ""),
+        "job_quality": job_card.get("job_quality", {}),
+        "taxonomy_coverage": job_card.get("taxonomy_coverage", {}),
+        "open_set_requirements": job_card.get("open_set_requirements", []),
+        "requirement_groups": job_card.get("requirement_groups", {}),
+    }
+
+
+def _build_recommendation_warnings(
+    eligible_job_catalog: list[dict[str, Any]],
+    excluded_jobs: list[dict[str, Any]],
+) -> list[str]:
+    """Build top-level candidate-side warnings for recommendation consumers."""
+    warnings: list[str] = []
+    if excluded_jobs:
+        warnings.append(
+            f"{len(excluded_jobs)} jobs were excluded because the JD content was not strong enough for reliable AI recommendation."
+        )
+    if not eligible_job_catalog:
+        warnings.append(
+            "No active jobs contain enough JD content for AI recommendation right now."
+        )
+
+    return warnings
 
 
 

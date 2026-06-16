@@ -36,3 +36,8 @@ def test_build_job_catalog_returns_normalized_job_cards() -> None:
     assert job_card["domain"] == ["Backend", "Web Application"]
     assert job_card["open_set_requirements"] == []
     assert job_card["taxonomy_coverage"]["coverage_ratio"] == 1.0
+    assert job_card["job_quality"]["recommendation_eligible"] is True
+    assert job_card["job_quality"]["quality_label"] in {
+        "eligible",
+        "eligible_with_warning",
+    }

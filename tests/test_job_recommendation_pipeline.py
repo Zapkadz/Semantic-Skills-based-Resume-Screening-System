@@ -21,6 +21,13 @@ def test_run_job_recommendation_payload_returns_ranked_top_jobs() -> None:
         "retrieval_top_n": 2,
         "retrieval_applied": True,
     }
+    assert result["job_quality_stats"] == {
+        "jobs_received": 3,
+        "eligible_jobs": 3,
+        "excluded_jobs": 0,
+    }
+    assert result["excluded_jobs"] == []
+    assert result["warnings"] == []
 
     assert len(result["top_jobs"]) == 2
 
@@ -60,6 +67,11 @@ def test_run_job_recommendation_payload_returns_ranked_top_jobs() -> None:
     ]
     assert top_job["cv_improvement_suggestions"]
     assert top_job["next_best_actions"]
+    assert top_job["job_quality"]["recommendation_eligible"] is True
+    assert top_job["job_quality"]["quality_label"] in {
+        "eligible",
+        "eligible_with_warning",
+    }
     assert top_job["review_card"]["job_title"] == "Backend Java Developer"
 
     second_job = result["top_jobs"][1]
@@ -111,6 +123,33 @@ def test_run_job_recommendation_payload_rejects_empty_job_list() -> None:
 
     with pytest.raises(ValueError, match="at least one job"):
         run_job_recommendation_payload(payload)
+
+
+def test_run_job_recommendation_payload_excludes_placeholder_jobs_from_top_results() -> None:
+    payload = _demo_recommendation_payload()
+    payload["jobs"].append(
+        {
+            "job_id": 99,
+            "job_title": "Test",
+            "description": "test",
+        }
+    )
+
+    result = run_job_recommendation_payload(payload)
+
+    assert result["job_quality_stats"] == {
+        "jobs_received": 4,
+        "eligible_jobs": 3,
+        "excluded_jobs": 1,
+    }
+    assert len(result["excluded_jobs"]) == 1
+    assert result["excluded_jobs"][0]["job_id"] == 99
+    assert (
+        result["excluded_jobs"][0]["job_quality"]["quality_label"]
+        == "insufficient_jd_data"
+    )
+    assert all(job["job_id"] != 99 for job in result["top_jobs"])
+    assert any("excluded" in warning.casefold() for warning in result["warnings"])
 
 
 def _demo_recommendation_payload() -> dict:

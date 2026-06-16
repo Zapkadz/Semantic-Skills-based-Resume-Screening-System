@@ -11,10 +11,10 @@ The project does not train a recruitment model from scratch. The MVP starts with
 The project is currently in:
 
 ```text
-Phase 23 - Skill-gap Explanation and CV Improvement Suggestions
+Phase 24 - JD Quality Gate and Recommendation Eligibility
 ```
 
-This phase adds a structured candidate-side explanation layer on top of retrieval and reranking. Recommended jobs now include skill-gap summaries, missing-vs-weak-evidence separation, and practical CV improvement suggestions that the web UI can render directly.
+This phase adds a JD quality gate before candidate-side retrieval and reranking. Jobs with placeholder or insufficient JD content are now excluded from normal recommendation results, so `Low Fit` is no longer confused with `Insufficient JD Data`.
 
 ## Planned Processing Flow
 
@@ -159,6 +159,8 @@ Included:
 - Candidate-facing `fit_label` and `fit_summary` output for top recommended jobs.
 - Structured `skill_gap_summary` output for candidate-side job recommendations.
 - Candidate-side `skill_gaps`, `cv_improvement_suggestions`, and `next_best_actions`.
+- JD quality gate for candidate-side recommendation.
+- `job_quality`, `excluded_jobs`, `job_quality_stats`, and recommendation warnings.
 
 Not included yet:
 
@@ -395,6 +397,7 @@ top_jobs[0].retrieval_score: ...
 top_jobs[0].fit_score: ...
 top_jobs[0].fit_label: Strong Fit
 top_jobs[0].skill_gap_summary.optional_growth_count: ...
+excluded_jobs: 0 or more low-quality JD records
 ```
 
 ## Run Document Loader Tests
@@ -542,7 +545,7 @@ Work is organized by phase. Each phase should have:
 The next planned phase is:
 
 ```text
-Phase 24 - Preference-aware Ranking
+Phase 25 - Web Payload Quality Hardening and Runtime Diagnostics
 ```
 
-That phase can personalize the candidate-side ranking with user preferences such as location, salary, seniority target, and work-mode constraints, while keeping the current fit core intact.
+That phase can tighten real web payload quality further by auditing cleaned JD/CV text, surfacing missing-data diagnostics, and making runtime AI behavior easier to inspect before adding user-preference ranking.
