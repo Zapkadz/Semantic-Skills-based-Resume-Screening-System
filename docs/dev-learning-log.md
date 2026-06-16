@@ -2982,4 +2982,100 @@ Co the noi:
 ```text
 Candidate-side recommendation duoc mo rong theo kien truc retrieve -> rerank. O Phase 21, he thong khong cham diem tren toan bo tap JD active nua, ma dau tien xay dung job catalog va retrieval index, sau do lay ra top-N cong viec kha nang dua tren overlap ve ky nang, chuc danh, domain va kinh nghiem. Tap nay moi duoc dua vao AI core de rerank chi tiet. Cach tiep can nay phu hop voi cac he thong search/recommender thuc te va de mo rong hon trong cac phase sau.
 ```
+
+---
+
+## Phase 22 - Candidate-side Reranking with the Core Scorer
+
+### 1. Muc tieu
+
+Phase 22 tach candidate-side reranking thanh mot module rieng sau retrieval.
+
+He thong van dung cung AI core person-job fit da co, nhung ket qua duoc dien
+giai lai theo goc nhin ung vien thay vi recruiter.
+
+### 2. Cach xu ly
+
+Them:
+
+- `src/candidate_job_reranker.py`
+- `tests/test_candidate_job_reranker.py`
+
+Cap nhat:
+
+- `src/job_recommendation_pipeline.py`
+- `api.py`
+- `tests/test_job_recommendation_pipeline.py`
+- `tests/test_api.py`
+- `README.md`
+
+### 3. Logic moi
+
+Module reranker lam:
+
+- score tung retrieved job bang screening core;
+- lay `final_score` lam `fit_score`;
+- map diem sang label candidate-side:
+  - `Strong Fit`
+  - `Good Fit`
+  - `Potential Fit`
+  - `Stretch`
+  - `Low Fit`
+- build `fit_summary` ngan gon;
+- sort ket qua theo:
+  - fit score
+  - evidence
+  - hard-skill gate pass
+  - retrieval score
+
+### 4. Output moi
+
+Moi `top_job` duoc bo sung:
+
+```json
+{
+  "fit_score": 86,
+  "fit_label": "Strong Fit",
+  "fit_summary": "This role is a Strong Fit because strong must-have skill coverage."
+}
+```
+
+`recommendation` employer-side van duoc giu lai trong JSON de debug/noi bo,
+nhung UI candidate-side nen uu tien `fit_label`.
+
+### 5. Y nghia thiet ke
+
+Phase nay giai quyet 2 viec:
+
+1. retrieval va reranking khong con bi tron;
+2. nguon goc scoring van giu nhat quan giua employer-side va candidate-side.
+
+Noi ngan gon:
+
+```text
+Same scorer core
+Different presentation layer
+```
+
+### 6. Cach test
+
+Targeted:
+
+```bash
+python -m pytest tests/test_candidate_job_reranker.py tests/test_job_recommendation_pipeline.py tests/test_api.py
+```
+
+Full regression:
+
+```bash
+pytest
+```
+
+### 7. Ghi chu cho bao cao
+
+Co the noi:
+
+```text
+Sau retrieval, cac JD duoc rerank bang chinh AI core person-job fit da dung cho employer-side. Tuy nhien, ket qua khong duoc tra theo nhan review cua recruiter nua, ma duoc map sang cac muc do fit de ung vien de hieu hon, gom Strong Fit, Good Fit, Potential Fit, Stretch va Low Fit. Cach thiet ke nay giu tinh nhat quan ve scoring, nhung dieu chinh lop dien giai theo dung vai tro nguoi dung.
+```
 ```

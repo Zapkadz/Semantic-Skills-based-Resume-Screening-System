@@ -14,7 +14,7 @@ def test_health_endpoint_returns_service_status() -> None:
     result = response.json()
     assert result["status"] == "ok"
     assert result["service"] == "semantic-skills-resume-screening"
-    assert result["phase"] == "Phase 21 - Job Retrieval Index for Active JDs"
+    assert result["phase"] == "Phase 22 - Candidate-side Reranking with the Core Scorer"
     assert "embedding_enabled" in result
     assert "embedding_model" in result
     assert "embedding_loaded" in result
@@ -100,6 +100,8 @@ def test_recommend_jobs_endpoint_returns_ranked_top_jobs() -> None:
     assert top_job["retrieval_score"] > 0
     assert top_job["retrieval_reasons"]
     assert top_job["fit_score"] >= 80
+    assert top_job["fit_label"] == "Strong Fit"
+    assert "Strong Fit" in top_job["fit_summary"]
     assert top_job["matched_must_have_skills"] == [
         "Java",
         "Spring Boot",
