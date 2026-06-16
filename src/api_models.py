@@ -55,6 +55,7 @@ class RecommendationOptions(BaseModel):
     model_config = ConfigDict(extra="allow")
 
     top_k: int = Field(default=10, ge=1, le=100)
+    retrieval_top_n: int = Field(default=50, ge=1, le=500)
 
 
 class ScreeningRequest(BaseModel):

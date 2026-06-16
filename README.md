@@ -11,10 +11,10 @@ The project does not train a recruitment model from scratch. The MVP starts with
 The project is currently in:
 
 ```text
-Phase 20 - Candidate-side Job Recommendation Payload and API
+Phase 21 - Job Retrieval Index for Active JDs
 ```
 
-This phase keeps the employer-side screening API and adds a candidate-side recommendation API. The system can now accept one CV plus a list of jobs, then return the top matching jobs with fit scores, matched skills, missing skills, and improvement suggestions.
+This phase adds a retrieval/index layer before candidate-side reranking. The system can now build a normalized job catalog, create retrieval-friendly job documents, retrieve top-N likely matches for one CV, and only then rerank those jobs with the existing AI fit scorer.
 
 ## Planned Processing Flow
 
@@ -151,6 +151,10 @@ Included:
 - Support for `resume_text`, `title`, and `job_description_text` payload aliases.
 - Candidate-side output with `top_jobs`, fit scores, matched must-have skills, missing skills, `why_fit`, and `what_to_improve`.
 - Sample request JSON for the recommendation endpoint.
+- Job catalog loader for candidate-side recommendation.
+- Retrieval-friendly job index documents with sparse and dense text fields.
+- Candidate query profile builder for retrieval.
+- Top-N job retrieval before reranking, with `retrieval_score` and `retrieval_reasons`.
 
 Not included yet:
 
@@ -383,7 +387,8 @@ Expected response includes:
 ```text
 candidate_name: Nguyen Van A
 top_jobs[0].job_title: Backend Java Developer
-top_jobs[0].fit_score: 86
+top_jobs[0].retrieval_score: ...
+top_jobs[0].fit_score: ...
 ```
 
 ## Run Document Loader Tests
@@ -531,7 +536,7 @@ Work is organized by phase. Each phase should have:
 The next planned phase is:
 
 ```text
-Phase 21 - Job Retrieval Index for Candidate-side Recommendation
+Phase 22 - Candidate-side Reranking with the Core Scorer
 ```
 
-That phase can move beyond request-time job lists and build a retrieval/index layer for larger active JD catalogs before reranking.
+That phase can deepen candidate-side reranking after retrieval, so fit scores and recommendation labels are tuned for the one-CV-to-many-JDs use case.

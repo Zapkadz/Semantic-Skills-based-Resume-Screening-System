@@ -14,7 +14,7 @@ def test_health_endpoint_returns_service_status() -> None:
     result = response.json()
     assert result["status"] == "ok"
     assert result["service"] == "semantic-skills-resume-screening"
-    assert result["phase"] == "Phase 20 - Candidate-side Job Recommendation Payload and API"
+    assert result["phase"] == "Phase 21 - Job Retrieval Index for Active JDs"
     assert "embedding_enabled" in result
     assert "embedding_model" in result
     assert "embedding_loaded" in result
@@ -85,13 +85,20 @@ def test_recommend_jobs_endpoint_returns_ranked_top_jobs() -> None:
     assert result["candidate"]["candidate_id"] == 456
     assert result["candidate"]["candidate_name"] == "Nguyen Van A"
     assert result["retrieval_stats"]["jobs_received"] == 3
+    assert result["retrieval_stats"]["jobs_indexed"] == 3
+    assert result["retrieval_stats"]["jobs_retrieved"] == 2
+    assert result["retrieval_stats"]["jobs_reranked"] == 2
     assert result["retrieval_stats"]["top_k"] == 2
+    assert result["retrieval_stats"]["retrieval_top_n"] == 2
     assert len(result["top_jobs"]) == 2
 
     top_job = result["top_jobs"][0]
     assert top_job["rank"] == 1
     assert top_job["job_id"] == 10
     assert top_job["job_title"] == "Backend Java Developer"
+    assert top_job["retrieval_rank"] == 1
+    assert top_job["retrieval_score"] > 0
+    assert top_job["retrieval_reasons"]
     assert top_job["fit_score"] >= 80
     assert top_job["matched_must_have_skills"] == [
         "Java",
@@ -201,5 +208,6 @@ def _demo_recommendation_payload() -> dict:
         ],
         "options": {
             "top_k": 2,
+            "retrieval_top_n": 2,
         },
     }
