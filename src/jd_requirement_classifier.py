@@ -129,6 +129,10 @@ EXPERIENCE_PATTERN = re.compile(
     r"\b\d+\+?\s*(?:year|years|yr|yrs|nam|n m|yeear)\b",
     re.IGNORECASE,
 )
+EXPERIENCE_ONLY_PATTERN = re.compile(
+    r"^\s*\d+\+?\s*(?:year|years|yr|yrs|nam|n m|yeear)\s*$",
+    re.IGNORECASE,
+)
 
 
 def classify_jd_requirements(
@@ -252,6 +256,9 @@ def _is_noise_line(normalized: str) -> bool:
 
 def _is_experience_line(normalized: str) -> bool:
     """Detect lines that specify experience amount."""
+    if EXPERIENCE_ONLY_PATTERN.match(normalized):
+        return True
+
     return bool(EXPERIENCE_PATTERN.search(normalized)) and (
         "experience" in normalized or "kinh nghiem" in normalized
     )

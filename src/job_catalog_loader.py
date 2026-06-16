@@ -10,6 +10,7 @@ from src.jd_requirement_classifier import (
     build_scoring_requirement_lines,
     classify_jd_requirements,
 )
+from src.job_quality_gate import evaluate_job_quality
 from src.open_set_matcher import build_taxonomy_coverage
 from src.payload_pipeline import build_jd_text_from_payload
 from src.screening_pipeline import (
@@ -60,6 +61,15 @@ def build_job_catalog(
             use_full_text_fallback=False,
             include_unknown_skills=False,
         )
+        job_quality = evaluate_job_quality(
+            job_payload,
+            job_criteria,
+            jd_text,
+            requirement_groups,
+            must_have_skills,
+            nice_to_have_skills,
+            open_set_requirements,
+        )
 
         job_catalog.append(
             {
@@ -84,6 +94,7 @@ def build_job_catalog(
                     open_set_requirements,
                 ),
                 "requirement_groups": requirement_groups,
+                "job_quality": job_quality,
             }
         )
 

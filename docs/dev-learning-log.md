@@ -3198,3 +3198,130 @@ Co the noi:
 ```text
 Sau khi xep hang muc do phu hop giua CV va JD, he thong tiep tuc sinh mot lop giai thich skill-gap cho phia ung vien. Lop nay phan biet giua ky nang bat buoc con thieu, ky nang da co nhung bang chung con yeu, va cac ky nang uu tien co the bo sung them. Tu do, he thong dua ra cac goi y cai thien CV theo huong trung thuc va co the hanh dong duoc, nhu bo sung bang chung o du an/kinh nghiem, viet ro hon cong nghe da dung, va neu co kinh nghiem that thi them ky nang dang bi thieu vao CV.
 ```
+
+---
+
+## Phase 24 - JD Quality Gate and Recommendation Eligibility
+
+### 1. Muc tieu
+
+Phase 24 giai quyet van de du lieu web that:
+
+```text
+Mot so tin tuyen dung test / placeholder / qua ngan
+van duoc candidate-side AI recommendation cham 20-35 diem.
+```
+
+Muc tieu moi:
+
+```text
+Truoc khi xep hang cong viec theo CV,
+he thong phai kiem tra JD co du chat luong de AI danh gia hay khong.
+```
+
+### 2. Cach xu ly
+
+Them:
+
+- `src/job_quality_gate.py`
+- `tests/test_job_quality_gate.py`
+- `docs/refactoring/phase-24-refactoring-plan.md`
+
+Cap nhat:
+
+- `src/job_catalog_loader.py`
+- `src/job_recommendation_pipeline.py`
+- `src/candidate_job_reranker.py`
+- `api.py`
+- `tests/test_job_catalog_loader.py`
+- `tests/test_job_recommendation_pipeline.py`
+- `tests/test_api.py`
+- `README.md`
+
+### 3. Logic moi
+
+Moi job candidate-side duoc phan tich chat luong truoc retrieval:
+
+- placeholder title nhu `Test`, `Demo`, `Test migrate`
+- JD content qua ngan sau khi clean
+- khong co yeu cau ky thuat co y nghia
+- khong co responsibilities co y nghia
+- tong signal qua ngheo
+
+He thong sinh:
+
+- `job_quality.quality_score`
+- `job_quality.quality_label`
+- `job_quality.recommendation_eligible`
+- `job_quality.flags`
+- `job_quality.reasons`
+
+Neu job khong du dieu kien:
+
+- khong dua vao `top_jobs`
+- dua vao `excluded_jobs`
+- them warning top-level
+
+### 4. Output moi
+
+Response candidate-side co them:
+
+```json
+{
+  "excluded_jobs": [],
+  "job_quality_stats": {
+    "jobs_received": 10,
+    "eligible_jobs": 7,
+    "excluded_jobs": 3
+  },
+  "warnings": []
+}
+```
+
+Moi `top_job` co them:
+
+```json
+{
+  "job_quality": {
+    "quality_score": 78,
+    "quality_label": "eligible_with_warning",
+    "recommendation_eligible": true
+  }
+}
+```
+
+### 5. Y nghia thiet ke
+
+Phase 24 tach ro hai tinh huong:
+
+1. `Low Fit`
+   - JD co du du lieu
+   - CV khong phu hop
+
+2. `Insufficient JD Data`
+   - JD khong du yeu cau/noi dung de AI doi sanh
+
+Day la diem rat quan trong cho web va cho bao cao do an, vi no tranh gay hieu nham
+rằng job "khong hop" trong khi thuc te la job "khong du du lieu".
+
+### 6. Cach test
+
+Targeted:
+
+```bash
+python -m pytest tests/test_job_quality_gate.py tests/test_job_catalog_loader.py tests/test_job_recommendation_pipeline.py tests/test_api.py
+```
+
+Full regression:
+
+```bash
+pytest
+```
+
+### 7. Ghi chu cho bao cao
+
+Co the noi:
+
+```text
+Tren du lieu thuc te, khong phai tin tuyen dung nao cung duoc nhap day du va chat luong. Vi vay, truoc khi goi y cong viec cho ung vien, he thong bo sung mot lop JD quality gate de phat hien cac tin placeholder, qua ngan, hoac khong co du yeu cau ky thuat. Cac job khong du du lieu se khong duoc cham fit score binh thuong, ma duoc danh dau la khong du du lieu de AI danh gia. Cach thiet ke nay giup ket qua recommendation thuc te va dang tin hon.
+```
