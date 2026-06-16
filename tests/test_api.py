@@ -14,7 +14,9 @@ def test_health_endpoint_returns_service_status() -> None:
     result = response.json()
     assert result["status"] == "ok"
     assert result["service"] == "semantic-skills-resume-screening"
-    assert result["phase"] == "Phase 22 - Candidate-side Reranking with the Core Scorer"
+    assert result["phase"] == (
+        "Phase 23 - Skill-gap Explanation and CV Improvement Suggestions"
+    )
     assert "embedding_enabled" in result
     assert "embedding_model" in result
     assert "embedding_loaded" in result
@@ -109,6 +111,20 @@ def test_recommend_jobs_endpoint_returns_ranked_top_jobs() -> None:
         "SQL",
         "Docker",
     ]
+    assert top_job["skill_gap_summary"] == {
+        "missing_must_have_count": 0,
+        "weak_evidence_count": 0,
+        "optional_growth_count": 1,
+        "presentation_gap_count": 0,
+    }
+    assert top_job["skill_gaps"]["optional_growth"] == [
+        {
+            "skill": "AWS",
+            "gap_type": "optional_growth",
+        }
+    ]
+    assert top_job["cv_improvement_suggestions"]
+    assert top_job["next_best_actions"]
     assert top_job["review_card"]["job_title"] == "Backend Java Developer"
 
 

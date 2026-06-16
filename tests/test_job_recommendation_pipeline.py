@@ -45,6 +45,21 @@ def test_run_job_recommendation_payload_returns_ranked_top_jobs() -> None:
     assert top_job["optional_strengths"] == []
     assert top_job["why_fit"]
     assert "AWS" in " ".join(top_job["what_to_improve"])
+    assert top_job["skill_gap_summary"] == {
+        "missing_must_have_count": 0,
+        "weak_evidence_count": 0,
+        "optional_growth_count": 1,
+        "presentation_gap_count": 0,
+    }
+    assert top_job["skill_gaps"]["missing_must_have"] == []
+    assert top_job["skill_gaps"]["optional_growth"] == [
+        {
+            "skill": "AWS",
+            "gap_type": "optional_growth",
+        }
+    ]
+    assert top_job["cv_improvement_suggestions"]
+    assert top_job["next_best_actions"]
     assert top_job["review_card"]["job_title"] == "Backend Java Developer"
 
     second_job = result["top_jobs"][1]

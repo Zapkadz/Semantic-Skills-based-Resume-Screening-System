@@ -11,10 +11,10 @@ The project does not train a recruitment model from scratch. The MVP starts with
 The project is currently in:
 
 ```text
-Phase 22 - Candidate-side Reranking with the Core Scorer
+Phase 23 - Skill-gap Explanation and CV Improvement Suggestions
 ```
 
-This phase separates candidate-side reranking into its own module while keeping the existing scorer core. Retrieved jobs are now reranked with candidate-facing fit labels such as `Strong Fit`, `Good Fit`, `Potential Fit`, `Stretch`, and `Low Fit`, plus short fit summaries.
+This phase adds a structured candidate-side explanation layer on top of retrieval and reranking. Recommended jobs now include skill-gap summaries, missing-vs-weak-evidence separation, and practical CV improvement suggestions that the web UI can render directly.
 
 ## Planned Processing Flow
 
@@ -157,6 +157,8 @@ Included:
 - Top-N job retrieval before reranking, with `retrieval_score` and `retrieval_reasons`.
 - Candidate-side reranker module built on the existing scorer core.
 - Candidate-facing `fit_label` and `fit_summary` output for top recommended jobs.
+- Structured `skill_gap_summary` output for candidate-side job recommendations.
+- Candidate-side `skill_gaps`, `cv_improvement_suggestions`, and `next_best_actions`.
 
 Not included yet:
 
@@ -392,6 +394,7 @@ top_jobs[0].job_title: Backend Java Developer
 top_jobs[0].retrieval_score: ...
 top_jobs[0].fit_score: ...
 top_jobs[0].fit_label: Strong Fit
+top_jobs[0].skill_gap_summary.optional_growth_count: ...
 ```
 
 ## Run Document Loader Tests
@@ -539,7 +542,7 @@ Work is organized by phase. Each phase should have:
 The next planned phase is:
 
 ```text
-Phase 23 - Skill-gap Explanation and CV Improvement Suggestions
+Phase 24 - Preference-aware Ranking
 ```
 
-That phase can deepen the candidate-facing explanation layer so each job recommendation is paired with clearer skill-gap guidance and practical CV improvement suggestions.
+That phase can personalize the candidate-side ranking with user preferences such as location, salary, seniority target, and work-mode constraints, while keeping the current fit core intact.
