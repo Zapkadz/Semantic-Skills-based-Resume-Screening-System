@@ -6,6 +6,7 @@ from typing import Any
 
 from src.embedding_matcher import SemanticEmbeddingMatcher
 from src.payload_pipeline import run_screening_payload
+from src.skill_gap_explainer import explain_skill_gaps
 
 
 FIT_LABEL_THRESHOLDS = [
@@ -17,7 +18,6 @@ FIT_LABEL_THRESHOLDS = [
 ]
 
 MAX_WHY_FIT_ITEMS = 4
-MAX_IMPROVEMENT_ITEMS = 5
 
 
 def rerank_candidate_jobs(
@@ -60,11 +60,12 @@ def score_retrieved_job_match(
     job_output = screening_result["job"]
     candidate_result = screening_result["candidates"][0]
     review_card = candidate_result.get("review_card", {})
+    gap_explanation = explain_skill_gaps(candidate_result, job_output)
 
     fit_score = int(candidate_result.get("final_score", 0))
     fit_label = get_candidate_fit_label(fit_score)
     why_fit = build_candidate_why_fit(review_card, candidate_result)
-    what_to_improve = build_candidate_improvement_actions(review_card, candidate_result)
+    what_to_improve = list(gap_explanation.get("next_best_actions", []))
     fit_summary = build_fit_summary(
         fit_label,
         why_fit,
@@ -95,6 +96,13 @@ def score_retrieved_job_match(
         ),
         "why_fit": why_fit,
         "what_to_improve": what_to_improve,
+        "skill_gap_summary": gap_explanation.get("skill_gap_summary", {}),
+        "skill_gaps": gap_explanation.get("skill_gaps", {}),
+        "cv_improvement_suggestions": gap_explanation.get(
+            "cv_improvement_suggestions",
+            [],
+        ),
+        "next_best_actions": gap_explanation.get("next_best_actions", []),
         "requirement_group_summary": candidate_result.get(
             "requirement_group_summary",
             {},
@@ -214,54 +222,6 @@ def build_candidate_why_fit(
 
     return reasons[:MAX_WHY_FIT_ITEMS] or [
         "This role shows some measurable overlap with your current CV."
-    ]
-
-
-def build_candidate_improvement_actions(
-    review_card: dict[str, Any],
-    candidate_result: dict[str, Any],
-) -> list[str]:
-    """Build short candidate-facing actions to improve fit for one job."""
-    improvements: list[str] = []
-    missing_skills = list(candidate_result.get("missing_skills", []))
-    nice_to_have_matches = list(candidate_result.get("nice_to_have_matches", []))
-    score_breakdown = candidate_result.get("scores", {})
-    hard_skill_gate = candidate_result.get("hard_skill_gate", {})
-
-    for skill in missing_skills[:3]:
-        improvements.append(
-            f"Add explicit evidence for {skill} if you have used it in work, projects, or certifications."
-        )
-
-    optional_gaps = [
-        str(match.get("required_skill", "")).strip()
-        for match in nice_to_have_matches
-        if match.get("match_type") == "no_match"
-        and str(match.get("required_skill", "")).strip()
-    ]
-    for skill in optional_gaps[:2]:
-        improvements.append(f"Optional strength to add for this role: {skill}.")
-
-    if float(score_breakdown.get("evidence", 0.0)) < 0.50:
-        improvements.append(
-            "Make your CV more concrete by describing outcomes, technologies, and project responsibilities."
-        )
-
-    if hard_skill_gate.get("applied") is True:
-        improvements.append(
-            "Strengthen must-have hard-skill evidence so this role is not capped by the hard-skill gate."
-        )
-
-    if not improvements:
-        concerns = [
-            str(item).strip()
-            for item in review_card.get("concerns", [])
-            if str(item).strip()
-        ]
-        improvements.extend(concerns[:MAX_IMPROVEMENT_ITEMS])
-
-    return improvements[:MAX_IMPROVEMENT_ITEMS] or [
-        "Your CV already looks broadly aligned with this role; refine evidence details to improve confidence."
     ]
 
 

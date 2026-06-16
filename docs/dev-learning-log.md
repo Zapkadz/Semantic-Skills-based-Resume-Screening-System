@@ -3078,4 +3078,123 @@ Co the noi:
 ```text
 Sau retrieval, cac JD duoc rerank bang chinh AI core person-job fit da dung cho employer-side. Tuy nhien, ket qua khong duoc tra theo nhan review cua recruiter nua, ma duoc map sang cac muc do fit de ung vien de hieu hon, gom Strong Fit, Good Fit, Potential Fit, Stretch va Low Fit. Cach thiet ke nay giu tinh nhat quan ve scoring, nhung dieu chinh lop dien giai theo dung vai tro nguoi dung.
 ```
+
+---
+
+## Phase 23 - Skill-gap Explanation and CV Improvement Suggestions
+
+### 1. Muc tieu
+
+Phase 23 bien candidate-side recommendation thanh co kha nang hanh dong ro hon:
+
+```text
+Job nao hop
+  + thieu skill gi
+  + skill nao da co nhung bang chung con yeu
+  + nen sua CV theo huong nao
+```
+
+Candidate-side output khong chi dung o `fit_label` va `fit_summary`, ma bo sung mot lop giai thich co cau truc de web co the render gon hoac mo rong chi tiet.
+
+### 2. Cach xu ly
+
+Them:
+
+- `src/skill_gap_explainer.py`
+- `tests/test_skill_gap_explainer.py`
+
+Cap nhat:
+
+- `src/candidate_job_reranker.py`
+- `tests/test_candidate_job_reranker.py`
+- `tests/test_job_recommendation_pipeline.py`
+- `tests/test_api.py`
+- `api.py`
+- `README.md`
+
+### 3. Logic moi
+
+Module moi `skill_gap_explainer` nhan candidate-vs-job result da duoc score va sinh ra 4 nhom gap:
+
+- `missing_must_have`
+- `weak_evidence`
+- `optional_growth`
+- `presentation_gaps`
+
+Nguyen tac:
+
+- skill bat buoc khong co match -> `missing_must_have`
+- skill da match nhung `evidence_level <= 1` -> `weak_evidence`
+- nice-to-have chua match -> `optional_growth`
+- evidence tong the yeu / bi hard-skill gate / trinh bay mo ho -> `presentation_gaps`
+
+Tren co so do, he thong build:
+
+- `skill_gap_summary`
+- `skill_gaps`
+- `cv_improvement_suggestions`
+- `next_best_actions`
+
+### 4. Output moi
+
+Moi `top_job` candidate-side co them:
+
+```json
+{
+  "skill_gap_summary": {
+    "missing_must_have_count": 1,
+    "weak_evidence_count": 1,
+    "optional_growth_count": 1,
+    "presentation_gap_count": 2
+  },
+  "skill_gaps": {
+    "missing_must_have": [],
+    "weak_evidence": [],
+    "optional_growth": [],
+    "presentation_gaps": []
+  },
+  "cv_improvement_suggestions": [],
+  "next_best_actions": []
+}
+```
+
+`next_best_actions` duoc gioi han gon de UI hien o card/list, con `cv_improvement_suggestions` giu danh sach day du hon cho modal hoac trang chi tiet.
+
+### 5. Y nghia thiet ke
+
+Phase 23 giai quyet mot van de thuc te:
+
+```text
+Ung vien can biet can cai thien CV nhu the nao,
+khong chi can biet job nao hop hon.
+```
+
+He thong cung tach ro:
+
+- thieu nang luc that;
+- co nang luc nhung bang chung con yeu;
+- co the chi can viet ro hon trong CV.
+
+Dieu nay giup output trung thuc hon, tranh viec AI khuyen "them skill ao" vao CV.
+
+### 6. Cach test
+
+Targeted:
+
+```bash
+python -m pytest tests/test_skill_gap_explainer.py tests/test_candidate_job_reranker.py tests/test_job_recommendation_pipeline.py tests/test_api.py
+```
+
+Full regression:
+
+```bash
+pytest
+```
+
+### 7. Ghi chu cho bao cao
+
+Co the noi:
+
+```text
+Sau khi xep hang muc do phu hop giua CV va JD, he thong tiep tuc sinh mot lop giai thich skill-gap cho phia ung vien. Lop nay phan biet giua ky nang bat buoc con thieu, ky nang da co nhung bang chung con yeu, va cac ky nang uu tien co the bo sung them. Tu do, he thong dua ra cac goi y cai thien CV theo huong trung thuc va co the hanh dong duoc, nhu bo sung bang chung o du an/kinh nghiem, viet ro hon cong nghe da dung, va neu co kinh nghiem that thi them ky nang dang bi thieu vao CV.
 ```
