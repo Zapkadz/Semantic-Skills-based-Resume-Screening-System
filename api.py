@@ -12,11 +12,11 @@ from src.embedding_matcher import (
 from src.payload_pipeline import run_screening_payload
 
 
-API_PHASE = "Phase 17 - Taxonomy-independent Open-set Screening Core"
+API_PHASE = "Phase 19 - Hard-skill Gate and Evidence Calibration"
 
 app = FastAPI(
     title="Semantic Skills Resume Screening API",
-    version="0.17.0",
+    version="0.19.0",
 )
 
 _API_EMBEDDING_MATCHER: SemanticEmbeddingMatcher | None = None

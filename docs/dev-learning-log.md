@@ -2589,3 +2589,90 @@ Co the noi:
 ```text
 He thong khong so khop JD theo kieu keyword phang. Truoc khi scoring, moi dong JD duoc phan loai thanh ky nang chuyen mon bat buoc, ky nang uu tien, ky nang mem, hoc van, kinh nghiem, chung chi va ngu canh nganh nghe. Diem phu hop duoc tinh chu yeu tren ky nang chuyen mon bat buoc va bang chung trong CV; cac yeu cau uu tien chi dong vai tro cong diem, con ky nang mem/hoc van duoc dung de ho tro review va phong van. Cach nay giup ket qua xep hang cong bang hon va giai thich duoc hon.
 ```
+
+---
+
+## Phase 19 - Hard-skill Gate and Evidence Calibration
+
+### 1. Muc tieu
+
+Phase 19 xu ly van de ung vien co nhieu nam kinh nghiem/domain phu hop nhung thieu
+bang chung cho hard skills bat buoc van co the vuot nguong `Review`.
+
+Muc tieu:
+
+- Giu weighted score hien tai de xep hang tong the.
+- Them hard-skill gate sau scoring de dam bao dieu kien toi thieu.
+- Khong de experience/seniority/domain che mat thieu sot hard skills.
+- Review card phai noi ro khi score bi cap.
+
+### 2. Cach xu ly
+
+Them vao `src/scorer.py`:
+
+- `base_score`: diem weighted score truoc gate.
+- `hard_skill_gate`: metadata gom status, score cap, reasons va metrics.
+- `calculate_hard_skill_gate_metrics()`.
+- `evaluate_hard_skill_gate()`.
+- `apply_hard_skill_gate()`.
+
+Rule chinh:
+
+```text
+Neu base_score >= 70 va hard-skill evidence yeu:
+    cap final_score toi da 69
+
+Neu base_score >= 85 nhung confirmed coverage chua du manh:
+    cap final_score toi da 84
+```
+
+Nguong Review:
+
+```text
+skill_semantic >= 0.55
+evidence >= 0.50
+confirmed hard-skill coverage >= 0.60
+```
+
+Confirmed match la match co `score > 0` va `evidence_level >= 2`.
+
+### 3. Output moi
+
+Candidate output co them:
+
+```json
+{
+  "base_score": 72,
+  "final_score": 69,
+  "recommendation": "Maybe Review",
+  "hard_skill_gate": {
+    "passed": false,
+    "applied": true,
+    "score_cap": 69,
+    "reasons": [],
+    "metrics": {
+      "total_must_have": 16,
+      "confirmed_coverage": 0.3125
+    }
+  }
+}
+```
+
+### 4. Review card
+
+Neu gate duoc apply, summary va concerns se noi ro:
+
+```text
+The hard-skill gate capped the base score because must-have skill evidence is incomplete.
+```
+
+Dieu nay giup recruiter thay duoc ung vien co the du kinh nghiem, nhung van can xem
+lai hard skills truoc khi shortlist.
+
+### 5. Ghi chu cho bao cao
+
+Co the noi:
+
+```text
+Diem cua he thong gom hai lop. Lop thu nhat la weighted score de tong hop cac tin hieu nhu skill, evidence, kinh nghiem, seniority va domain. Lop thu hai la hard-skill gate, dong vai tro dieu kien toi thieu cho cac ky nang chuyen mon bat buoc. Neu ung vien co nhieu nam kinh nghiem nhung bang chung hard skills khong du, he thong se cap diem va recommendation xuong Maybe Review. Cach nay phu hop voi nguyen tac tuyen dung dua tren person-job fit va KSAO: kinh nghiem la tin hieu ho tro, con ky nang bat buoc va bang chung thuc hien moi la dieu kien chinh de shortlist.
+```

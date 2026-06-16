@@ -6,6 +6,7 @@ from src.scorer import (
     calculate_evidence_score,
     calculate_experience_score,
     calculate_final_score,
+    calculate_hard_skill_gate_metrics,
     calculate_nice_to_have_score,
     calculate_skill_semantic_score,
     detect_candidate_domains,
@@ -164,6 +165,9 @@ def test_score_candidate_returns_explainable_demo_result() -> None:
     assert result["candidate_name"] == "Nguyen Van A"
     assert result["final_score"] == 87
     assert result["recommendation"] == "Strong Review"
+    assert result["base_score"] == 87
+    assert result["hard_skill_gate"]["passed"] is True
+    assert result["hard_skill_gate"]["applied"] is False
     assert result["scores"] == {
         "skill_semantic": 0.95,
         "evidence": 1.0,
@@ -207,6 +211,105 @@ def test_score_candidate_returns_missing_skills_and_low_recommendation() -> None
     assert result["final_score"] == 18
     assert result["recommendation"] == "Not Enough Evidence"
     assert result["missing_skills"] == ["Java"]
+    assert result["hard_skill_gate"]["applied"] is False
+
+
+def test_hard_skill_gate_metrics_separate_confirmed_weak_and_missing() -> None:
+    matches = [
+        {
+            "required_skill": "Python",
+            "candidate_skill": "Python",
+            "match_type": "exact_match",
+            "score": 1.0,
+            "evidence_level": 1,
+        },
+        {
+            "required_skill": "Face Alignment",
+            "candidate_skill": "Face Matching",
+            "match_type": "semantic_match",
+            "score": 0.85,
+            "evidence_level": 3,
+        },
+        {
+            "required_skill": "ONNX",
+            "candidate_skill": None,
+            "match_type": "no_semantic_evidence",
+            "score": 0.0,
+            "evidence_level": 0,
+        },
+    ]
+
+    assert calculate_hard_skill_gate_metrics(matches) == {
+        "total_must_have": 3,
+        "positive_match_count": 2,
+        "confirmed_match_count": 1,
+        "weak_match_count": 1,
+        "missing_count": 1,
+        "positive_coverage": 0.6667,
+        "confirmed_coverage": 0.3333,
+        "weak_match_ratio": 0.5,
+    }
+
+
+def test_score_candidate_caps_review_when_hard_skill_evidence_is_incomplete() -> None:
+    criteria = {
+        "minimum_experience_years": 3,
+        "seniority": "Middle",
+        "domain": ["Computer Vision"],
+    }
+    profile = {
+        "candidate_name": "Senior CV Candidate",
+        "headline": "Senior Computer Vision Engineer",
+        "summary": (
+            "Senior Computer Vision Engineer with over 6 years of experience "
+            "in biometric authentication and mobile AI deployment."
+        ),
+        "raw_skills": ["Python"],
+        "work_experience": [],
+        "projects": [],
+    }
+    matches = [
+        {
+            "required_skill": "Python",
+            "candidate_skill": "Python",
+            "match_type": "exact_match",
+            "score": 1.0,
+            "evidence_level": 1,
+        },
+        {
+            "required_skill": "Mobile AI",
+            "candidate_skill": "Mobile AI",
+            "match_type": "exact_match",
+            "score": 1.0,
+            "evidence_level": 1,
+        },
+        {
+            "required_skill": "ONNX",
+            "candidate_skill": "Mobile AI",
+            "match_type": "related_match",
+            "score": 0.75,
+            "evidence_level": 1,
+        },
+        {
+            "required_skill": "Model Optimization",
+            "candidate_skill": None,
+            "match_type": "no_semantic_evidence",
+            "score": 0.0,
+            "evidence_level": 0,
+        },
+    ]
+
+    result = score_candidate(criteria, profile, matches, [])
+
+    assert result["base_score"] == 70
+    assert result["final_score"] == 69
+    assert result["recommendation"] == "Maybe Review"
+    assert result["hard_skill_gate"]["applied"] is True
+    assert result["hard_skill_gate"]["score_cap"] == 69
+    assert result["hard_skill_gate"]["metrics"]["confirmed_coverage"] == 0.0
+    assert [
+        reason["code"] for reason in result["hard_skill_gate"]["reasons"]
+    ] == ["weak_evidence", "low_confirmed_coverage"]
 
 
 def test_rank_candidates_sorts_by_score_evidence_then_name() -> None:

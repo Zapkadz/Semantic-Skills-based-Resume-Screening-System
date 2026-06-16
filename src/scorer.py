@@ -25,6 +25,17 @@ EVIDENCE_LEVEL_SCORES = {
     3: 1.0,
 }
 
+NO_MATCH_TYPES = {"no_match", "no_semantic_evidence"}
+REVIEW_SCORE_CAP = 69
+STRONG_REVIEW_SCORE_CAP = 84
+REVIEW_SCORE_THRESHOLD = 70
+STRONG_REVIEW_SCORE_THRESHOLD = 85
+MIN_REVIEW_SKILL_SEMANTIC_SCORE = 0.55
+MIN_REVIEW_EVIDENCE_SCORE = 0.50
+MIN_REVIEW_CONFIRMED_COVERAGE = 0.60
+MIN_STRONG_REVIEW_CONFIRMED_COVERAGE = 0.75
+MIN_REQUIREMENTS_FOR_COVERAGE_GATE = 3
+
 RECOMMENDATION_THRESHOLDS = [
     (85, "Strong Review"),
     (70, "Review"),
@@ -81,13 +92,20 @@ def score_candidate(
         ),
         "nice_to_have": calculate_nice_to_have_score(nice_to_have_matches),
     }
-    final_score = calculate_final_score(scores)
+    base_score = calculate_final_score(scores)
+    final_score, hard_skill_gate = apply_hard_skill_gate(
+        base_score,
+        scores,
+        matches,
+    )
 
     return {
         "candidate_name": resume_profile.get("candidate_name", ""),
+        "base_score": base_score,
         "final_score": final_score,
         "recommendation": get_recommendation_label(final_score),
         "scores": scores,
+        "hard_skill_gate": hard_skill_gate,
         "matched_skills": matches,
         "missing_skills": get_missing_skills(matches),
         "nice_to_have_matches": nice_to_have_matches or [],
@@ -226,6 +244,129 @@ def calculate_final_score(scores: dict[str, float]) -> int:
     return round(weighted_score * 100)
 
 
+def apply_hard_skill_gate(
+    base_score: int,
+    scores: dict[str, float],
+    matches: list[dict[str, Any]],
+) -> tuple[int, dict[str, Any]]:
+    """Cap high recommendations when must-have hard-skill evidence is weak."""
+    gate = evaluate_hard_skill_gate(base_score, scores, matches)
+    score_cap = gate.get("score_cap")
+    final_score = min(base_score, int(score_cap)) if score_cap is not None else base_score
+
+    gate["applied"] = final_score < base_score
+    gate["base_score"] = base_score
+    gate["final_score"] = final_score
+    return final_score, gate
+
+
+def evaluate_hard_skill_gate(
+    base_score: int,
+    scores: dict[str, float],
+    matches: list[dict[str, Any]],
+) -> dict[str, Any]:
+    """Evaluate minimum hard-skill evidence needed for Review labels."""
+    metrics = calculate_hard_skill_gate_metrics(matches)
+    reasons: list[dict[str, str]] = []
+    score_cap: int | None = None
+
+    if base_score >= REVIEW_SCORE_THRESHOLD:
+        if scores.get("skill_semantic", 0.0) < MIN_REVIEW_SKILL_SEMANTIC_SCORE:
+            reasons.append(
+                _gate_reason(
+                    "low_skill_coverage",
+                    "Must-have skill coverage is below the Review threshold.",
+                )
+            )
+            score_cap = REVIEW_SCORE_CAP
+
+        if scores.get("evidence", 0.0) < MIN_REVIEW_EVIDENCE_SCORE:
+            reasons.append(
+                _gate_reason(
+                    "weak_evidence",
+                    "Evidence strength is below the Review threshold.",
+                )
+            )
+            score_cap = REVIEW_SCORE_CAP
+
+        if (
+            metrics["total_must_have"] >= MIN_REQUIREMENTS_FOR_COVERAGE_GATE
+            and metrics["confirmed_coverage"] < MIN_REVIEW_CONFIRMED_COVERAGE
+        ):
+            reasons.append(
+                _gate_reason(
+                    "low_confirmed_coverage",
+                    (
+                        "Confirmed hard-skill evidence coverage is below the "
+                        "Review threshold."
+                    ),
+                )
+            )
+            score_cap = REVIEW_SCORE_CAP
+
+    if (
+        score_cap is None
+        and base_score >= STRONG_REVIEW_SCORE_THRESHOLD
+        and metrics["total_must_have"] >= MIN_REQUIREMENTS_FOR_COVERAGE_GATE
+        and metrics["confirmed_coverage"] < MIN_STRONG_REVIEW_CONFIRMED_COVERAGE
+    ):
+        reasons.append(
+            _gate_reason(
+                "strong_review_confirmed_coverage",
+                (
+                    "Confirmed hard-skill evidence coverage is below the "
+                    "Strong Review threshold."
+                ),
+            )
+        )
+        score_cap = STRONG_REVIEW_SCORE_CAP
+
+    return {
+        "passed": score_cap is None,
+        "score_cap": score_cap,
+        "reasons": reasons,
+        "metrics": metrics,
+    }
+
+
+def calculate_hard_skill_gate_metrics(
+    matches: list[dict[str, Any]],
+) -> dict[str, int | float]:
+    """Summarize must-have skill evidence quality for gating."""
+    total = len(matches)
+    positive_matches = [
+        match
+        for match in matches
+        if _is_positive_match(match)
+    ]
+    confirmed_matches = [
+        match
+        for match in positive_matches
+        if int(match.get("evidence_level", 0)) >= 2
+    ]
+    weak_matches = [
+        match
+        for match in positive_matches
+        if int(match.get("evidence_level", 0)) <= 1
+    ]
+    missing_matches = [
+        match
+        for match in matches
+        if not _is_positive_match(match)
+    ]
+
+    return {
+        "total_must_have": total,
+        "positive_match_count": len(positive_matches),
+        "confirmed_match_count": len(confirmed_matches),
+        "weak_match_count": len(weak_matches),
+        "missing_count": len(missing_matches),
+        "positive_coverage": _coverage(len(positive_matches), total),
+        "confirmed_coverage": _coverage(len(confirmed_matches), total),
+        "weak_match_ratio": _coverage(len(weak_matches), len(positive_matches)),
+    }
+
+
 def get_recommendation_label(final_score: int | float) -> str:
     """Map a final score to a recruiter-facing recommendation label."""
     for threshold, label in RECOMMENDATION_THRESHOLDS:
@@ -240,7 +381,7 @@ def get_missing_skills(matches: list[dict[str, Any]]) -> list[str]:
     return [
         match["required_skill"]
         for match in matches
-        if match.get("match_type") in {"no_match", "no_semantic_evidence"}
+        if match.get("match_type") in NO_MATCH_TYPES
     ]
 
 
@@ -478,6 +619,27 @@ def _contains_phrase(text: str, phrase: str) -> bool:
 
     pattern = rf"(?<!\w){re.escape(normalized_phrase)}(?!\w)"
     return bool(re.search(pattern, text))
+
+
+def _is_positive_match(match: dict[str, Any]) -> bool:
+    """Return True when one must-have item has any positive matching signal."""
+    return (
+        float(match.get("score", 0.0)) > 0.0
+        and match.get("match_type") not in NO_MATCH_TYPES
+    )
+
+
+def _coverage(count: int, total: int) -> float:
+    """Return a rounded coverage ratio with zero-safe division."""
+    if total <= 0:
+        return 1.0
+
+    return _round_score(count / total)
+
+
+def _gate_reason(code: str, message: str) -> dict[str, str]:
+    """Build a stable hard-skill gate reason object."""
+    return {"code": code, "message": message}
 
 
 def _round_score(value: float) -> float:

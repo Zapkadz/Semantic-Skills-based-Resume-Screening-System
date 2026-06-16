@@ -11,10 +11,10 @@ The project does not train a recruitment model from scratch. The MVP starts with
 The project is currently in:
 
 ```text
-Phase 18 - JD Requirement Classification and Weighted Scoring Refinement
+Phase 19 - Hard-skill Gate and Evidence Calibration
 ```
 
-This phase classifies JD lines into must-have technical requirements, nice-to-have technical requirements, soft skills, education, experience, certifications, domain context, and responsibilities before scoring. This prevents soft skills, education, and optional requirements from being treated as missing must-have technical skills.
+This phase adds a hard-skill evidence gate after the weighted score. The base score still uses the existing scorecard weights, but candidates cannot be promoted to `Review` or `Strong Review` when must-have technical evidence is too weak.
 
 ## Planned Processing Flow
 
@@ -27,6 +27,7 @@ CV / JD text
   -> Skill Matching
   -> Evidence Detection
   -> Scoring
+  -> Hard-skill Gate
   -> Ranking
   -> Explainable Review Card
 ```
@@ -142,6 +143,9 @@ Included:
 - Nice-to-have technical requirements are scored as optional gaps instead of hard missing skills.
 - Review cards now include requirement notes for education, soft skills, and domain context.
 - Candidate output includes `requirement_group_summary`.
+- Hard-skill gate caps high recommendations when must-have technical evidence is weak.
+- Candidate output includes `base_score` and `hard_skill_gate` metadata.
+- Review cards explain when a score was capped by the hard-skill gate.
 
 Not included yet:
 
@@ -491,7 +495,7 @@ Then run:
 streamlit run app.py
 ```
 
-In Phase 17, the app still shows a placeholder page because the functional UI is planned for a later phase.
+In Phase 19, the app still shows a placeholder page because the functional UI is planned for a later phase.
 
 ## Development Workflow
 
@@ -508,7 +512,7 @@ Work is organized by phase. Each phase should have:
 The next planned phase is:
 
 ```text
-Phase 18 - Web Integration Hardening and Candidate-facing Job Recommendation
+Phase 20 - Web Integration Hardening and Candidate-facing Job Recommendation
 ```
 
-That phase can validate the PHP web flow with Phase 17 API output and then plan the candidate-side flow: one CV to top matching JDs with skill gaps and CV improvement suggestions.
+That phase can validate the PHP web flow with Phase 19 API output and then plan the candidate-side flow: one CV to top matching JDs with skill gaps and CV improvement suggestions.

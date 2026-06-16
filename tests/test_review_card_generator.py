@@ -195,6 +195,42 @@ def test_generate_review_card_flags_experience_met_but_hard_skill_evidence_incom
     )
 
 
+def test_generate_review_card_explains_hard_skill_gate_score_cap() -> None:
+    candidate_result = _sample_candidate_result()
+    candidate_result["base_score"] = 72
+    candidate_result["final_score"] = 69
+    candidate_result["recommendation"] = "Maybe Review"
+    candidate_result["hard_skill_gate"] = {
+        "passed": False,
+        "applied": True,
+        "score_cap": 69,
+        "base_score": 72,
+        "final_score": 69,
+        "reasons": [
+            {
+                "code": "weak_evidence",
+                "message": "Evidence strength is below the Review threshold.",
+            }
+        ],
+        "metrics": {
+            "confirmed_coverage": 0.3125,
+        },
+    }
+
+    card = generate_review_card(candidate_result, {"job_title": "Computer Vision Engineer"})
+
+    assert card["summary"] == (
+        "Nguyen Van A is a Maybe Review candidate for Computer Vision Engineer "
+        "with a final score of 69/100. The hard-skill gate capped the base "
+        "score from 72/100 because must-have skill evidence is incomplete."
+    )
+    assert card["concerns"][0] == (
+        "Hard-skill gate applied: the base score was capped from 72/100 "
+        "to 69/100. Evidence strength is below the Review threshold."
+    )
+    assert card["hard_skill_gate"]["applied"] is True
+
+
 def test_demo_pipeline_generates_explainable_review_card() -> None:
     taxonomy = load_taxonomy(TAXONOMY_PATH)
     profile = parse_resume(load_text_file("data/cvs/cv_strong.txt"))

@@ -37,6 +37,7 @@ def generate_review_card(
     missing_skills = list(candidate_result.get("missing_skills", []))
     nice_to_have_matches = list(candidate_result.get("nice_to_have_matches", []))
     score_breakdown = dict(candidate_result.get("scores", {}))
+    hard_skill_gate = _get_hard_skill_gate(candidate_result)
     requirement_groups = _get_requirement_groups(job_criteria)
     requirement_group_summary = dict(
         candidate_result.get("requirement_group_summary", {})
@@ -49,6 +50,7 @@ def generate_review_card(
         missing_skills,
         nice_to_have_matches,
         matched_skills,
+        hard_skill_gate,
     )
     interview_questions = build_interview_questions(
         evidence_highlights,
@@ -63,6 +65,8 @@ def generate_review_card(
         "recommendation": candidate_result.get("recommendation", ""),
         "summary": build_summary(candidate_result, job_title),
         "score_breakdown": score_breakdown,
+        "base_score": candidate_result.get("base_score"),
+        "hard_skill_gate": hard_skill_gate,
         "seniority": candidate_result.get("seniority", ""),
         "experience_years": candidate_result.get("experience_years", 0),
         "domain": list(candidate_result.get("domain", [])),
@@ -153,11 +157,21 @@ def build_summary(candidate_result: dict[str, Any], job_title: str = "") -> str:
     candidate_name = candidate_result.get("candidate_name") or "This candidate"
     recommendation = candidate_result.get("recommendation", "Review")
     final_score = candidate_result.get("final_score", 0)
+    base_score = candidate_result.get("base_score")
+    hard_skill_gate = _get_hard_skill_gate(candidate_result)
     role_text = f" for {job_title}" if job_title else ""
+    gate_note = ""
+
+    if hard_skill_gate.get("applied") is True and base_score is not None:
+        gate_note = (
+            f" The hard-skill gate capped the base score from {base_score}/100 "
+            "because must-have skill evidence is incomplete."
+        )
 
     return (
         f"{candidate_name} is a {recommendation} candidate{role_text} "
         f"with a final score of {final_score}/100."
+        f"{gate_note}"
     )
 
 
@@ -246,12 +260,16 @@ def build_concerns(
     missing_skills: list[str],
     nice_to_have_matches: list[dict[str, Any]],
     matched_skills: list[dict[str, Any]] | None = None,
+    hard_skill_gate: dict[str, Any] | None = None,
 ) -> list[str]:
     """Build rule-based concerns from missing skills and low score components."""
     concerns: list[str] = []
     matched_skills = matched_skills or []
+    hard_skill_gate = hard_skill_gate or {}
 
-    if _meets_experience_but_has_incomplete_hard_skill_evidence(
+    if hard_skill_gate.get("applied") is True:
+        concerns.append(_format_hard_skill_gate_concern(hard_skill_gate))
+    elif _meets_experience_but_has_incomplete_hard_skill_evidence(
         score_breakdown,
         missing_skills,
         matched_skills,
@@ -310,6 +328,26 @@ def build_concerns(
         concerns.append("No major concerns detected from the available scoring signals.")
 
     return concerns
+
+
+def _format_hard_skill_gate_concern(hard_skill_gate: dict[str, Any]) -> str:
+    """Build a concise recruiter-facing concern for a score cap."""
+    base_score = hard_skill_gate.get("base_score")
+    final_score = hard_skill_gate.get("final_score")
+    reasons = [
+        str(reason.get("message", "")).strip()
+        for reason in hard_skill_gate.get("reasons", [])
+        if isinstance(reason, dict) and str(reason.get("message", "")).strip()
+    ]
+    reason_text = reasons[0] if reasons else "must-have skill evidence is incomplete"
+
+    if base_score is not None and final_score is not None:
+        return (
+            "Hard-skill gate applied: the base score was capped from "
+            f"{base_score}/100 to {final_score}/100. {reason_text}"
+        )
+
+    return f"Hard-skill gate applied: {reason_text}"
 
 
 def _meets_experience_but_has_incomplete_hard_skill_evidence(
@@ -449,6 +487,12 @@ def _get_requirement_groups(job_criteria: dict[str, Any] | None) -> dict[str, li
 
     groups = job_criteria.get("requirement_groups", {})
     return groups if isinstance(groups, dict) else {}
+
+
+def _get_hard_skill_gate(candidate_result: dict[str, Any]) -> dict[str, Any]:
+    """Return hard-skill gate metadata when available."""
+    gate = candidate_result.get("hard_skill_gate", {})
+    return gate if isinstance(gate, dict) else {}
 
 
 def _display_skill(match: dict[str, Any]) -> str:
