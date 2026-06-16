@@ -14,7 +14,7 @@ def test_health_endpoint_returns_service_status() -> None:
     result = response.json()
     assert result["status"] == "ok"
     assert result["service"] == "semantic-skills-resume-screening"
-    assert result["phase"] == "Phase 17 - Taxonomy-independent Open-set Screening Core"
+    assert result["phase"] == "Phase 19 - Hard-skill Gate and Evidence Calibration"
     assert "embedding_enabled" in result
     assert "embedding_model" in result
     assert "embedding_loaded" in result
@@ -39,6 +39,8 @@ def test_screening_endpoint_returns_ranked_candidates() -> None:
     assert candidate["candidate_name"] == "Nguyen Van A"
     assert candidate["final_score"] == 87
     assert candidate["recommendation"] == "Strong Review"
+    assert candidate["base_score"] == 87
+    assert candidate["hard_skill_gate"]["passed"] is True
     assert candidate["review_card"]["summary"] == (
         "Nguyen Van A is a Strong Review candidate for Backend Java Developer "
         "with a final score of 87/100."
