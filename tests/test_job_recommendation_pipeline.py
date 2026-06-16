@@ -32,6 +32,8 @@ def test_run_job_recommendation_payload_returns_ranked_top_jobs() -> None:
     assert top_job["retrieval_score"] > 0
     assert top_job["retrieval_reasons"]
     assert top_job["fit_score"] >= 80
+    assert top_job["fit_label"] == "Strong Fit"
+    assert "Strong Fit" in top_job["fit_summary"]
     assert top_job["matched_must_have_skills"] == [
         "Java",
         "Spring Boot",

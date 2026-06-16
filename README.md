@@ -11,10 +11,10 @@ The project does not train a recruitment model from scratch. The MVP starts with
 The project is currently in:
 
 ```text
-Phase 21 - Job Retrieval Index for Active JDs
+Phase 22 - Candidate-side Reranking with the Core Scorer
 ```
 
-This phase adds a retrieval/index layer before candidate-side reranking. The system can now build a normalized job catalog, create retrieval-friendly job documents, retrieve top-N likely matches for one CV, and only then rerank those jobs with the existing AI fit scorer.
+This phase separates candidate-side reranking into its own module while keeping the existing scorer core. Retrieved jobs are now reranked with candidate-facing fit labels such as `Strong Fit`, `Good Fit`, `Potential Fit`, `Stretch`, and `Low Fit`, plus short fit summaries.
 
 ## Planned Processing Flow
 
@@ -155,6 +155,8 @@ Included:
 - Retrieval-friendly job index documents with sparse and dense text fields.
 - Candidate query profile builder for retrieval.
 - Top-N job retrieval before reranking, with `retrieval_score` and `retrieval_reasons`.
+- Candidate-side reranker module built on the existing scorer core.
+- Candidate-facing `fit_label` and `fit_summary` output for top recommended jobs.
 
 Not included yet:
 
@@ -389,6 +391,7 @@ candidate_name: Nguyen Van A
 top_jobs[0].job_title: Backend Java Developer
 top_jobs[0].retrieval_score: ...
 top_jobs[0].fit_score: ...
+top_jobs[0].fit_label: Strong Fit
 ```
 
 ## Run Document Loader Tests
@@ -536,7 +539,7 @@ Work is organized by phase. Each phase should have:
 The next planned phase is:
 
 ```text
-Phase 22 - Candidate-side Reranking with the Core Scorer
+Phase 23 - Skill-gap Explanation and CV Improvement Suggestions
 ```
 
-That phase can deepen candidate-side reranking after retrieval, so fit scores and recommendation labels are tuned for the one-CV-to-many-JDs use case.
+That phase can deepen the candidate-facing explanation layer so each job recommendation is paired with clearer skill-gap guidance and practical CV improvement suggestions.
