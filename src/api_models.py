@@ -14,6 +14,7 @@ class JobPayload(BaseModel):
 
     job_id: int | str | None = None
     job_title: str = ""
+    title: str = ""
     requirements: list[str] = Field(default_factory=list)
     must_have_skills: list[str] = Field(default_factory=list)
     nice_to_have: list[str] = Field(default_factory=list)
@@ -21,6 +22,7 @@ class JobPayload(BaseModel):
     responsibilities: list[str] = Field(default_factory=list)
     minimum_experience_years: int | None = None
     raw_text: str = ""
+    job_description_text: str = ""
     description: str = ""
 
 
@@ -42,8 +44,17 @@ class CandidatePayload(BaseModel):
     education: list[str] = Field(default_factory=list)
     certifications: list[str] = Field(default_factory=list)
     cv_text: str = ""
+    resume_text: str = ""
     cv_file_path: str = ""
     applied_at: str = ""
+
+
+class RecommendationOptions(BaseModel):
+    """Optional controls for candidate-side job recommendation."""
+
+    model_config = ConfigDict(extra="allow")
+
+    top_k: int = Field(default=10, ge=1, le=100)
 
 
 class ScreeningRequest(BaseModel):
@@ -53,4 +64,15 @@ class ScreeningRequest(BaseModel):
 
     job: JobPayload
     candidates: list[CandidatePayload]
+    taxonomy_path: str = "data/taxonomy/skills.json"
+
+
+class JobRecommendationRequest(BaseModel):
+    """Request body for candidate-side job recommendation."""
+
+    model_config = ConfigDict(extra="allow")
+
+    candidate: CandidatePayload
+    jobs: list[JobPayload]
+    options: RecommendationOptions = Field(default_factory=RecommendationOptions)
     taxonomy_path: str = "data/taxonomy/skills.json"
