@@ -11,10 +11,10 @@ The project does not train a recruitment model from scratch. The MVP starts with
 The project is currently in:
 
 ```text
-Phase 24 - JD Quality Gate and Recommendation Eligibility
+Phase 25 - Web Payload Quality Hardening and Runtime Diagnostics
 ```
 
-This phase adds a JD quality gate before candidate-side retrieval and reranking. Jobs with placeholder or insufficient JD content are now excluded from normal recommendation results, so `Low Fit` is no longer confused with `Insufficient JD Data`.
+This phase adds payload-level diagnostics and traceability on top of the existing screening and recommendation flows. The API now returns `trace_id` and structured `diagnostics` metadata so web integration issues can be distinguished from real scoring/matching behavior.
 
 ## Planned Processing Flow
 
@@ -161,6 +161,10 @@ Included:
 - Candidate-side `skill_gaps`, `cv_improvement_suggestions`, and `next_best_actions`.
 - JD quality gate for candidate-side recommendation.
 - `job_quality`, `excluded_jobs`, `job_quality_stats`, and recommendation warnings.
+- Payload diagnostics for both `/screening` and `/recommend-jobs`.
+- Top-level `trace_id` and structured `diagnostics` response metadata.
+- Candidate payload quality summaries, flagged candidate counts, and CV text warnings.
+- Job payload quality summaries, flagged job counts, and JD text warnings.
 
 Not included yet:
 
@@ -545,7 +549,7 @@ Work is organized by phase. Each phase should have:
 The next planned phase is:
 
 ```text
-Phase 25 - Web Payload Quality Hardening and Runtime Diagnostics
+Phase 26 - Preference-aware Ranking
 ```
 
-That phase can tighten real web payload quality further by auditing cleaned JD/CV text, surfacing missing-data diagnostics, and making runtime AI behavior easier to inspect before adding user-preference ranking.
+That phase can extend candidate-side recommendation beyond pure profile fit by adding preference-aware ranking for location, work mode, salary, and desired seniority once payload quality and runtime diagnostics are stable.

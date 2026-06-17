@@ -9,8 +9,10 @@ from src.candidate_job_reranker import rerank_candidate_jobs
 from src.embedding_matcher import SemanticEmbeddingMatcher
 from src.job_catalog_loader import build_job_catalog
 from src.job_indexer import build_job_index_documents
+from src.payload_diagnostics import diagnose_candidate_payload
 from src.job_retriever import build_candidate_query_profile, retrieve_candidate_jobs
 from src.payload_pipeline import build_cv_document_from_payload
+from src.runtime_diagnostics import build_recommendation_diagnostics, build_trace_id
 from src.screening_pipeline import DEFAULT_TAXONOMY_PATH
 
 
@@ -39,7 +41,12 @@ def run_job_recommendation_payload(
     if not job_payloads:
         raise ValueError("Recommendation payload must include at least one job.")
 
+    trace_id = build_trace_id("recommend-jobs")
     candidate_document = build_cv_document_from_payload(candidate_payload)
+    candidate_payload_diagnostics = diagnose_candidate_payload(
+        candidate_payload,
+        candidate_document,
+    )
     candidate_profile = build_candidate_query_profile(
         candidate_payload,
         taxonomy_path=taxonomy_path,
@@ -86,28 +93,41 @@ def run_job_recommendation_payload(
         candidate_document,
         top_jobs,
     )
+    retrieval_stats = {
+        "jobs_received": len(job_payloads),
+        "jobs_indexed": len(indexed_jobs),
+        "jobs_retrieved": len(retrieved_jobs),
+        "jobs_reranked": len(reranked_jobs),
+        "top_k": min(top_k, len(eligible_job_catalog)),
+        "retrieval_top_n": retrieval_top_n,
+        "retrieval_applied": bool(indexed_jobs)
+        and len(retrieved_jobs) < len(indexed_jobs),
+    }
+    job_quality_stats = {
+        "jobs_received": len(job_payloads),
+        "eligible_jobs": len(eligible_job_catalog),
+        "excluded_jobs": len(excluded_jobs),
+    }
     warnings = _build_recommendation_warnings(eligible_job_catalog, excluded_jobs)
 
     return {
+        "trace_id": trace_id,
         "candidate": candidate_summary,
         "top_jobs": top_jobs,
         "excluded_jobs": excluded_jobs,
-        "retrieval_stats": {
-            "jobs_received": len(job_payloads),
-            "jobs_indexed": len(indexed_jobs),
-            "jobs_retrieved": len(retrieved_jobs),
-            "jobs_reranked": len(reranked_jobs),
-            "top_k": min(top_k, len(eligible_job_catalog)),
-            "retrieval_top_n": retrieval_top_n,
-            "retrieval_applied": bool(indexed_jobs)
-            and len(retrieved_jobs) < len(indexed_jobs),
-        },
-        "job_quality_stats": {
-            "jobs_received": len(job_payloads),
-            "eligible_jobs": len(eligible_job_catalog),
-            "excluded_jobs": len(excluded_jobs),
-        },
+        "retrieval_stats": retrieval_stats,
+        "job_quality_stats": job_quality_stats,
         "warnings": warnings,
+        "diagnostics": build_recommendation_diagnostics(
+            trace_id=trace_id,
+            candidate_payload_diagnostics=candidate_payload_diagnostics,
+            job_catalog=job_catalog,
+            retrieval_stats=retrieval_stats,
+            job_quality_stats=job_quality_stats,
+            top_jobs=top_jobs,
+            excluded_jobs=excluded_jobs,
+            embedding_enabled=embedding_matcher is not None,
+        ),
     }
 
 
@@ -137,6 +157,7 @@ def _build_excluded_job_summary(job_card: dict[str, Any]) -> dict[str, Any]:
         "job_id": job_card.get("job_id"),
         "job_title": job_card.get("job_title", ""),
         "job_quality": job_card.get("job_quality", {}),
+        "payload_diagnostics": job_card.get("payload_diagnostics", {}),
         "taxonomy_coverage": job_card.get("taxonomy_coverage", {}),
         "open_set_requirements": job_card.get("open_set_requirements", []),
         "requirement_groups": job_card.get("requirement_groups", {}),

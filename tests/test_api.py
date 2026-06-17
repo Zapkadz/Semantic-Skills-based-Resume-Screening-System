@@ -15,7 +15,7 @@ def test_health_endpoint_returns_service_status() -> None:
     assert result["status"] == "ok"
     assert result["service"] == "semantic-skills-resume-screening"
     assert result["phase"] == (
-        "Phase 24 - JD Quality Gate and Recommendation Eligibility"
+        "Phase 25 - Web Payload Quality Hardening and Runtime Diagnostics"
     )
     assert "embedding_enabled" in result
     assert "embedding_model" in result
@@ -30,6 +30,7 @@ def test_screening_endpoint_returns_ranked_candidates() -> None:
     assert response.status_code == 200
     result = response.json()
 
+    assert result["trace_id"].startswith("screening-")
     assert result["job"]["job_id"] == 10
     assert result["job"]["title"] == "Backend Java Developer"
     assert len(result["candidates"]) == 1
@@ -47,6 +48,8 @@ def test_screening_endpoint_returns_ranked_candidates() -> None:
         "Nguyen Van A is a Strong Review candidate for Backend Java Developer "
         "with a final score of 87/100."
     )
+    assert result["diagnostics"]["trace_id"] == result["trace_id"]
+    assert result["diagnostics"]["payload"]["candidates"]["received_count"] == 1
 
 
 def test_screening_endpoint_returns_422_for_invalid_schema() -> None:
@@ -84,6 +87,7 @@ def test_recommend_jobs_endpoint_returns_ranked_top_jobs() -> None:
     assert response.status_code == 200
     result = response.json()
 
+    assert result["trace_id"].startswith("recommend-jobs-")
     assert result["candidate"]["candidate_id"] == 456
     assert result["candidate"]["candidate_name"] == "Nguyen Van A"
     assert result["retrieval_stats"]["jobs_received"] == 3
@@ -99,6 +103,8 @@ def test_recommend_jobs_endpoint_returns_ranked_top_jobs() -> None:
     }
     assert result["excluded_jobs"] == []
     assert result["warnings"] == []
+    assert result["diagnostics"]["trace_id"] == result["trace_id"]
+    assert result["diagnostics"]["payload"]["jobs"]["received_count"] == 3
     assert len(result["top_jobs"]) == 2
 
     top_job = result["top_jobs"][0]

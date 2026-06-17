@@ -12,6 +12,7 @@ from src.jd_requirement_classifier import (
 )
 from src.job_quality_gate import evaluate_job_quality
 from src.open_set_matcher import build_taxonomy_coverage
+from src.payload_diagnostics import diagnose_job_payload
 from src.payload_pipeline import build_jd_text_from_payload
 from src.screening_pipeline import (
     DEFAULT_TAXONOMY_PATH,
@@ -32,6 +33,7 @@ def build_job_catalog(
     for job in jobs:
         job_payload = _to_plain_dict(job)
         jd_text = build_jd_text_from_payload(job_payload)
+        payload_diagnostics = diagnose_job_payload(job_payload, jd_text)
         job_criteria = parse_jd(jd_text)
         requirement_groups = classify_jd_requirements(job_criteria, jd_text, taxonomy)
         job_criteria = {
@@ -79,6 +81,7 @@ def build_job_catalog(
                 or job_payload.get("title", ""),
                 "raw_text": jd_text,
                 "job_payload": job_payload,
+                "payload_diagnostics": payload_diagnostics,
                 "job_criteria": job_criteria,
                 "must_have_skills": must_have_skills,
                 "nice_to_have_skills": nice_to_have_skills,
