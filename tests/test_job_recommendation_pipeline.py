@@ -6,6 +6,7 @@ from src.job_recommendation_pipeline import run_job_recommendation_payload
 def test_run_job_recommendation_payload_returns_ranked_top_jobs() -> None:
     result = run_job_recommendation_payload(_demo_recommendation_payload())
 
+    assert result["trace_id"].startswith("recommend-jobs-")
     assert result["candidate"] == {
         "candidate_id": 456,
         "candidate_name": "Nguyen Van A",
@@ -28,6 +29,11 @@ def test_run_job_recommendation_payload_returns_ranked_top_jobs() -> None:
     }
     assert result["excluded_jobs"] == []
     assert result["warnings"] == []
+    assert result["diagnostics"]["trace_id"] == result["trace_id"]
+    assert result["diagnostics"]["payload"]["candidate"]["source"]["source_mode"] == "cv_text"
+    assert result["diagnostics"]["payload"]["jobs"]["received_count"] == 3
+    assert result["diagnostics"]["runtime"]["top_job_ids"][0] == 10
+    assert len(result["diagnostics"]["runtime"]["top_job_ids"]) == 2
 
     assert len(result["top_jobs"]) == 2
 
@@ -144,12 +150,15 @@ def test_run_job_recommendation_payload_excludes_placeholder_jobs_from_top_resul
     }
     assert len(result["excluded_jobs"]) == 1
     assert result["excluded_jobs"][0]["job_id"] == 99
+    assert "payload_diagnostics" in result["excluded_jobs"][0]
     assert (
         result["excluded_jobs"][0]["job_quality"]["quality_label"]
         == "insufficient_jd_data"
     )
     assert all(job["job_id"] != 99 for job in result["top_jobs"])
     assert any("excluded" in warning.casefold() for warning in result["warnings"])
+    assert result["diagnostics"]["payload"]["jobs"]["flag_counts"]["job_title_placeholder"] == 1
+    assert result["diagnostics"]["runtime"]["excluded_job_ids"] == [99]
 
 
 def _demo_recommendation_payload() -> dict:

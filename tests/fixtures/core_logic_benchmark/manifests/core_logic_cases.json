@@ -1,0 +1,113 @@
+{
+  "version": 1,
+  "cases": [
+    {
+      "case_id": "screening_backend_strong",
+      "endpoint": "screening",
+      "jd_file": "jds/backend_java_strong.txt",
+      "cv_files": [
+        "cvs/backend_java_strong.txt"
+      ],
+      "payload_file": "payloads/screening_backend_strong.json",
+      "tags": [
+        "baseline",
+        "strong_jd",
+        "strong_cv"
+      ],
+      "failure_taxonomy_watch": [
+        "SCORING_OVERRATE",
+        "CLI_API_PARITY_MISMATCH"
+      ],
+      "expected": {
+        "min_final_score": 85,
+        "recommendation": "Strong Review",
+        "missing_skills": []
+      }
+    },
+    {
+      "case_id": "screening_backend_evidence_without_skills_section",
+      "endpoint": "screening",
+      "jd_file": "jds/backend_java_strong.txt",
+      "cv_files": [
+        "cvs/backend_evidence_only.txt"
+      ],
+      "tags": [
+        "evidence_only",
+        "no_skills_section"
+      ],
+      "failure_taxonomy_watch": [
+        "EVIDENCE_MISSED",
+        "SCORING_OVERRATE"
+      ],
+      "expected": {
+        "min_final_score": 85,
+        "recommendation": "Strong Review",
+        "missing_skills": []
+      }
+    },
+    {
+      "case_id": "screening_backend_hard_skill_deficit",
+      "endpoint": "screening",
+      "jd_file": "jds/backend_java_strong.txt",
+      "cv_files": [
+        "cvs/backend_weak.txt"
+      ],
+      "tags": [
+        "hard_skill_deficit",
+        "score_cap_watch"
+      ],
+      "failure_taxonomy_watch": [
+        "SCORING_OVERRATE"
+      ],
+      "expected": {
+        "max_final_score": 55,
+        "recommendation": "Low Priority",
+        "missing_skills_contains": [
+          "SQL",
+          "Docker"
+        ]
+      }
+    },
+    {
+      "case_id": "screening_cross_lingual_cv",
+      "endpoint": "screening",
+      "jd_file": "jds/computer_vision_en.txt",
+      "cv_files": [
+        "cvs/computer_vision_vi.txt"
+      ],
+      "tags": [
+        "cross_lingual",
+        "semantic_fallback"
+      ],
+      "failure_taxonomy_watch": [
+        "EVIDENCE_MISSED",
+        "CLI_API_PARITY_MISMATCH"
+      ],
+      "expected": {
+        "min_final_score": 80,
+        "required_skills": [
+          "Face Recognition",
+          "Anti-Spoofing",
+          "Python"
+        ]
+      }
+    },
+    {
+      "case_id": "recommendation_placeholder_jobs_excluded",
+      "endpoint": "recommend-jobs",
+      "payload_file": "payloads/recommendation_placeholder_mix.json",
+      "tags": [
+        "jd_quality_low",
+        "placeholder_jobs"
+      ],
+      "failure_taxonomy_watch": [
+        "JD_QUALITY_GATE_MISS"
+      ],
+      "expected": {
+        "excluded_jobs_min": 2,
+        "eligible_jobs": 1,
+        "top_job_id": 3
+      }
+    }
+  ]
+}

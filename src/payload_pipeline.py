@@ -10,13 +10,19 @@ from src.embedding_matcher import SemanticEmbeddingMatcher
 from src.evidence_detector import detect_all_evidence
 from src.jd_parser import parse_jd
 from src.jd_requirement_classifier import build_scoring_requirement_lines
+from src.job_quality_gate import evaluate_job_quality
 from src.open_set_matcher import (
     build_taxonomy_coverage,
     find_semantic_requirement_evidence,
 )
+from src.payload_diagnostics import (
+    diagnose_candidate_payload,
+    diagnose_job_payload,
+)
 from src.requirement_extractor import build_screening_confidence
 from src.resume_parser import parse_resume
 from src.review_card_generator import generate_review_card
+from src.runtime_diagnostics import build_screening_diagnostics, build_trace_id
 from src.scorer import rank_candidates, score_candidate
 from src.screening_pipeline import (
     DEFAULT_TAXONOMY_PATH,
@@ -132,6 +138,8 @@ def run_screening_payload(
     taxonomy = load_taxonomy(taxonomy_path)
 
     job_text = build_jd_text_from_payload(job_payload)
+    trace_id = build_trace_id("screening")
+    job_payload_diagnostics = diagnose_job_payload(job_payload, job_text)
     job_criteria = parse_jd(job_text)
     job_criteria = _with_requirement_groups(job_criteria, job_text, taxonomy)
     required_requirement_lines, nice_to_have_requirement_lines = (
@@ -172,9 +180,30 @@ def run_screening_payload(
             ),
         )
 
+    candidate_documents = [
+        build_cv_document_from_payload(candidate_payload)
+        for candidate_payload in candidate_payloads
+    ]
+    candidate_payload_diagnostics = [
+        diagnose_candidate_payload(candidate_payload, candidate_document)
+        for candidate_payload, candidate_document in zip(
+            candidate_payloads,
+            candidate_documents,
+        )
+    ]
+    job_quality = evaluate_job_quality(
+        job_payload,
+        job_criteria,
+        job_text,
+        job_criteria["requirement_groups"],
+        required_skills,
+        nice_to_have_skills,
+        unknown_requirements,
+    )
     candidate_results = [
         _process_candidate_payload(
             candidate_payload,
+            candidate_document,
             job_criteria,
             taxonomy,
             required_skills,
@@ -182,29 +211,46 @@ def run_screening_payload(
             unknown_requirements,
             embedding_matcher,
         )
-        for candidate_payload in candidate_payloads
+        for candidate_payload, candidate_document in zip(
+            candidate_payloads,
+            candidate_documents,
+        )
     ]
     ranked_candidates = rank_candidates(candidate_results)
 
     for candidate in ranked_candidates:
         candidate["review_card"] = generate_review_card(candidate, job_criteria)
 
+    job_output = _build_job_output(
+        job_payload,
+        job_criteria,
+        required_skills,
+        nice_to_have_skills,
+        taxonomy_coverage,
+        unknown_requirements,
+        embedding_matcher,
+    )
+
     return {
-        "job": _build_job_output(
-            job_payload,
-            job_criteria,
-            required_skills,
-            nice_to_have_skills,
-            taxonomy_coverage,
-            unknown_requirements,
-            embedding_matcher,
-        ),
+        "trace_id": trace_id,
+        "job": job_output,
         "candidates": ranked_candidates,
+        "diagnostics": build_screening_diagnostics(
+            trace_id=trace_id,
+            job_payload_diagnostics=job_payload_diagnostics,
+            candidate_payload_diagnostics=candidate_payload_diagnostics,
+            candidate_payloads=candidate_payloads,
+            job_quality=job_quality,
+            job_output=job_output,
+            ranked_candidates=ranked_candidates,
+            embedding_enabled=embedding_matcher is not None,
+        ),
     }
 
 
 def _process_candidate_payload(
     candidate_payload: dict[str, Any],
+    document: dict[str, Any],
     job_criteria: dict[str, Any],
     taxonomy: dict[str, dict[str, Any]],
     required_skills: list[str],
@@ -213,7 +259,6 @@ def _process_candidate_payload(
     embedding_matcher: SemanticEmbeddingMatcher | None = None,
 ) -> dict[str, Any]:
     """Process one candidate payload into a scored candidate result."""
-    document = build_cv_document_from_payload(candidate_payload)
     resume_profile = parse_resume(document["text"])
     _enrich_resume_skills(resume_profile, document["text"], taxonomy)
 

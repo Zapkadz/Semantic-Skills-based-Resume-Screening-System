@@ -221,6 +221,7 @@ def test_build_cv_document_from_payload_can_build_structured_cv_text() -> None:
 def test_run_screening_payload_returns_ranked_candidates_with_web_ids() -> None:
     result = run_screening_payload(_demo_screening_payload())
 
+    assert result["trace_id"].startswith("screening-")
     assert result["job"]["job_id"] == 10
     assert result["job"]["title"] == "Backend Java Developer"
     assert result["job"]["must_have_skills"] == [
@@ -258,6 +259,10 @@ def test_run_screening_payload_returns_ranked_candidates_with_web_ids() -> None:
     assert candidate["review_card"]["concerns"] == [
         "Optional nice-to-have gaps: AWS and Kafka."
     ]
+    assert result["diagnostics"]["trace_id"] == result["trace_id"]
+    assert result["diagnostics"]["payload"]["job"]["flags"] == []
+    assert result["diagnostics"]["payload"]["candidates"]["flagged_count"] == 0
+    assert result["diagnostics"]["runtime"]["job_quality"]["recommendation_eligible"] is True
 
 
 def test_run_screening_payload_rejects_missing_job_text() -> None:

@@ -3325,3 +3325,160 @@ Co the noi:
 ```text
 Tren du lieu thuc te, khong phai tin tuyen dung nao cung duoc nhap day du va chat luong. Vi vay, truoc khi goi y cong viec cho ung vien, he thong bo sung mot lop JD quality gate de phat hien cac tin placeholder, qua ngan, hoac khong co du yeu cau ky thuat. Cac job khong du du lieu se khong duoc cham fit score binh thuong, ma duoc danh dau la khong du du lieu de AI danh gia. Cach thiet ke nay giup ket qua recommendation thuc te va dang tin hon.
 ```
+
+---
+
+## Phase 25 - Web Payload Quality Hardening and Runtime Diagnostics
+
+### 1. Muc tieu
+
+Phase 25 giai quyet van de integration thuc te:
+
+```text
+Khong phai luc nao ket qua "la" cung do AI scorer.
+Rat nhieu truong hop van de nam o payload web gui sang:
+- JD/CV qua ngan
+- con HTML
+- thieu requirement source
+- profile qua sparse
+```
+
+Muc tieu moi:
+
+```text
+Bo sung diagnostics co cau truc va trace_id
+de phan biet input issue, parsing issue, va matching issue.
+```
+
+### 2. Cach xu ly
+
+Them:
+
+- `src/payload_diagnostics.py`
+- `src/runtime_diagnostics.py`
+- `tests/test_payload_diagnostics.py`
+- `tests/test_runtime_diagnostics.py`
+- `docs/refactoring/phase-25-refactoring-plan.md`
+
+Cap nhat:
+
+- `src/payload_pipeline.py`
+- `src/job_catalog_loader.py`
+- `src/job_recommendation_pipeline.py`
+- `api.py`
+- `tests/test_payload_pipeline.py`
+- `tests/test_job_catalog_loader.py`
+- `tests/test_job_recommendation_pipeline.py`
+- `tests/test_api.py`
+- `README.md`
+
+### 3. Logic moi
+
+#### 3.1 Payload diagnostics
+
+Employer-side va candidate-side deu duoc them lop payload diagnostics:
+
+- JD placeholder / qua ngan
+- JD thieu requirements / responsibilities
+- CV qua ngan
+- CV qua sparse
+- HTML cleaning co nguy co lam mat nhieu signal
+
+Moi diagnostics object gom:
+
+- `flags`
+- `warnings`
+- `quality_label`
+- `source`
+- `metrics`
+
+#### 3.2 Runtime diagnostics
+
+Moi request API deu co:
+
+- `trace_id`
+- `diagnostics.endpoint`
+- `diagnostics.payload`
+- `diagnostics.runtime`
+
+Screening co them:
+
+- `diagnostics.runtime.job_quality`
+
+Recommendation co them:
+
+- `diagnostics.runtime.top_job_ids`
+- `diagnostics.runtime.excluded_job_ids`
+- tong hop job payload warnings
+
+### 4. Output moi
+
+Ca hai endpoint deu co them:
+
+```json
+{
+  "trace_id": "screening-abc123",
+  "diagnostics": {
+    "endpoint": "screening",
+    "trace_id": "screening-abc123",
+    "payload": {},
+    "runtime": {}
+  }
+}
+```
+
+Candidate-side `excluded_jobs` cung co them:
+
+```json
+{
+  "payload_diagnostics": {}
+}
+```
+
+de web/admin co the debug vi sao mot job bi canh bao hoac bi loai.
+
+### 5. Y nghia thiet ke
+
+Phase 25 rat quan trong cho tich hop web va bao cao do an vi no cho phep tra loi:
+
+```text
+AI cham tren du lieu nao?
+Payload co du manh khong?
+Doan nao cua luong xu ly dang co van de?
+```
+
+No giup tach ro:
+
+1. loi input tu web
+2. gioi han parser do du lieu qua yeu
+3. mismatch that giua CV va JD
+
+Tu do, qua trinh debug nhanh hon va ket qua de bao ve hon.
+
+### 6. Cach test
+
+Targeted:
+
+```bash
+python -m pytest tests/test_payload_diagnostics.py tests/test_runtime_diagnostics.py tests/test_payload_pipeline.py tests/test_job_catalog_loader.py tests/test_job_recommendation_pipeline.py tests/test_api.py
+```
+
+Full regression:
+
+```bash
+pytest
+```
+
+Ket qua phase nay:
+
+```text
+188 passed
+```
+
+### 7. Ghi chu cho bao cao
+
+Co the noi:
+
+```text
+Sau khi mo rong he thong sang API va tich hop voi web, mot van de thuc te xuat hien la ket qua AI co the bi anh huong boi chat luong payload dau vao, khong chi boi mo hinh doi sanh. Vi vay, he thong bo sung mot lop payload diagnostics va runtime diagnostics. Lop nay danh gia do day du cua CV/JD, phat hien cac truong hop qua ngan, placeholder, hoac thieu section quan trong, dong thoi sinh trace_id va metadata giai thich cho moi request. Nhờ do, he thong co the tach ro van de du lieu dau vao voi van de matching that, giup tich hop web on dinh hon va giup qua trinh kiem thu, debug, va bao ve do an ro rang hon.
+```
