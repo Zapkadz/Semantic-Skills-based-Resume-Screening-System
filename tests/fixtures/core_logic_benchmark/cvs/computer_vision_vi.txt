@@ -1,0 +1,10 @@
+Le Van AI
+AI Engineer
+
+Ky nang
+Python
+
+Du an
+Ten du an: eKYC Face System
+Mo ta:
+- Xay dung he thong nhan dien khuon mat va chong gia mao.

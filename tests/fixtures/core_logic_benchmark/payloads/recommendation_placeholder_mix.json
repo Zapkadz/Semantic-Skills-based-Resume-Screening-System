@@ -1,0 +1,32 @@
+{
+  "candidate": {
+    "candidate_name": "Backend Candidate",
+    "cv_text": "Backend Candidate\nBackend Developer\n\nSkills:\n- Java\n- Spring Boot\n- SQL\n- Docker\n\nProjects:\nE-commerce API\n- Built REST APIs."
+  },
+  "jobs": [
+    {
+      "job_id": 1,
+      "job_title": "Test",
+      "description": "test"
+    },
+    {
+      "job_id": 2,
+      "job_title": "Customer Support Staff",
+      "description": "mo ta test"
+    },
+    {
+      "job_id": 3,
+      "job_title": "Backend Java Developer",
+      "requirements": [
+        "Java",
+        "Spring Boot",
+        "REST API",
+        "SQL"
+      ],
+      "responsibilities": [
+        "Build APIs",
+        "Work with databases"
+      ]
+    }
+  ]
+}

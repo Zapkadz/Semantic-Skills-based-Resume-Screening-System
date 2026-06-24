@@ -1,0 +1,17 @@
+Backend Java Developer
+
+Requirements:
+- Java
+- Spring Boot
+- REST API
+- SQL
+- Basic Docker
+- 1+ year backend experience
+
+Nice to have:
+- AWS
+
+Responsibilities:
+- Develop backend services.
+- Build RESTful APIs.
+- Work with relational databases.

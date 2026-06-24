@@ -1,0 +1,10 @@
+Weak Backend Candidate
+Software Engineer
+
+Skills:
+- Java
+
+Work Experience:
+Software Engineer - XYZ
+01/2024 - Present
+- Maintained internal systems and fixed bugs.

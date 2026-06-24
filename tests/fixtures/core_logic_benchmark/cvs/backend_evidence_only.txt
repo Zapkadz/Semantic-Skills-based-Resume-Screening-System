@@ -1,0 +1,13 @@
+Evidence Only Candidate
+Backend Developer
+
+Work Experience:
+Backend Developer - ABC Tech
+06/2024 - 12/2024
+- Built Java Spring Boot REST APIs for order processing.
+- Designed SQL schemas and used Docker for local deployment.
+
+Projects:
+E-commerce API
+- Created RESTful services with Java and Spring Boot.
+Technologies: Java, Spring Boot, SQL, Docker
