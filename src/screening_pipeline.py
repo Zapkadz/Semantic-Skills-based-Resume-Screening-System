@@ -13,6 +13,7 @@ from src.evidence_detector import detect_all_evidence
 from src.jd_parser import parse_jd
 from src.jd_requirement_classifier import (
     build_scoring_requirement_lines,
+    build_typed_requirements,
     classify_jd_requirements,
 )
 from src.open_set_matcher import (
@@ -340,6 +341,7 @@ def _build_job_output(
             embedding_matcher,
         ),
         "requirement_groups": job_criteria.get("requirement_groups", {}),
+        "typed_requirements": job_criteria.get("typed_requirements", []),
     }
 
 
@@ -351,6 +353,11 @@ def _with_requirement_groups(
     """Attach requirement classification groups to parsed JD criteria."""
     return {
         **job_criteria,
+        "typed_requirements": build_typed_requirements(
+            job_criteria,
+            jd_text,
+            taxonomy,
+        ),
         "requirement_groups": classify_jd_requirements(
             job_criteria,
             jd_text,

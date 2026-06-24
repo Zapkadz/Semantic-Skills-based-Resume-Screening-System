@@ -13,11 +13,11 @@ from src.job_recommendation_pipeline import run_job_recommendation_payload
 from src.payload_pipeline import run_screening_payload
 
 
-API_PHASE = "Phase 26 - Core Logic Benchmark and Failure Taxonomy"
+API_PHASE = "Phase 27 - Typed Requirement Schema and Section-aware JD Parsing"
 
 app = FastAPI(
     title="Semantic Skills Resume Screening API",
-    version="0.26.0",
+    version="0.27.0",
 )
 
 _API_EMBEDDING_MATCHER: SemanticEmbeddingMatcher | None = None

@@ -39,6 +39,7 @@ def test_build_job_catalog_returns_normalized_job_cards() -> None:
     assert job_card["payload_diagnostics"]["flags"] == [
         "jd_missing_responsibilities_input"
     ]
+    assert job_card["typed_requirements"][0]["type"] == "TECH_SKILL"
     assert job_card["job_quality"]["recommendation_eligible"] is True
     assert job_card["job_quality"]["quality_label"] in {
         "eligible",

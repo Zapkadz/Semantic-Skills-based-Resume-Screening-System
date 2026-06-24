@@ -6,6 +6,12 @@ import re
 from typing import Any
 
 from src.skill_extractor import extract_taxonomy_skills_from_text, merge_skill_lists
+from src.requirement_types import (
+    CERTIFICATION_REQUIREMENT,
+    TECH_SKILL,
+    TOOL_PLATFORM,
+    UNKNOWN_REQUIREMENT,
+)
 from src.skill_normalizer import normalize_skills
 from src.skill_taxonomy import make_lookup_key
 from src.text_normalization import normalize_search_text, repair_mojibake, strip_list_marker
@@ -144,6 +150,25 @@ def extract_unknown_requirement_texts(
     taxonomy: dict[str, dict[str, Any]],
 ) -> list[str]:
     """Return only unknown requirement text values for open-set matching."""
+    typed_requirements = list(job_criteria.get("typed_requirements", []))
+    if typed_requirements:
+        relevant_lines = [
+            str(requirement.get("text", "")).strip()
+            for requirement in typed_requirements
+            if requirement.get("priority") == "must_have"
+            and requirement.get("type")
+            in {
+                TECH_SKILL,
+                TOOL_PLATFORM,
+                CERTIFICATION_REQUIREMENT,
+                UNKNOWN_REQUIREMENT,
+            }
+            and str(requirement.get("ignored", "false")).casefold() != "true"
+            and str(requirement.get("text", "")).strip()
+        ]
+        if relevant_lines:
+            job_criteria = {**job_criteria, "must_have_skills": relevant_lines}
+
     units = extract_requirement_units(job_criteria, jd_text, taxonomy)
     return merge_skill_lists([unit["text"] for unit in units])
 

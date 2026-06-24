@@ -77,6 +77,38 @@ def test_extract_unknown_requirement_texts_skips_plain_experience_field() -> Non
     assert extract_unknown_requirement_texts(job_criteria, "", {}) == ["Linux"]
 
 
+def test_extract_unknown_requirement_texts_uses_typed_requirements_to_skip_language_and_soft() -> None:
+    job_criteria = {
+        "must_have_skills": [
+            "Qualys",
+            "Written English for cross-team coordination.",
+            "Strong communication and teamwork.",
+        ],
+        "typed_requirements": [
+            {
+                "text": "Qualys",
+                "type": "TOOL_PLATFORM",
+                "priority": "must_have",
+                "ignored": "false",
+            },
+            {
+                "text": "Written English for cross-team coordination.",
+                "type": "LANGUAGE_REQUIREMENT",
+                "priority": "must_have",
+                "ignored": "false",
+            },
+            {
+                "text": "Strong communication and teamwork.",
+                "type": "SOFT_SKILL",
+                "priority": "must_have",
+                "ignored": "false",
+            },
+        ],
+    }
+
+    assert extract_unknown_requirement_texts(job_criteria, "", {}) == ["Qualys"]
+
+
 def test_extract_unknown_requirement_texts_strips_vietnamese_technical_leadins() -> None:
     job_criteria = {
         "must_have_skills": [
