@@ -340,6 +340,7 @@ def _build_job_output(
             embedding_matcher,
         ),
         "requirement_groups": job_criteria.get("requirement_groups", {}),
+        "typed_requirements": job_criteria.get("typed_requirements", []),
     }
 
 

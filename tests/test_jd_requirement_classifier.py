@@ -1,7 +1,18 @@
 from src.jd_parser import parse_jd
 from src.jd_requirement_classifier import (
     build_scoring_requirement_lines,
+    build_typed_requirements,
     classify_jd_requirements,
+)
+from src.requirement_types import (
+    DOMAIN_CONTEXT,
+    EDUCATION_REQUIREMENT,
+    EXPERIENCE_REQUIREMENT,
+    LANGUAGE_REQUIREMENT,
+    RESPONSIBILITY_CONTEXT,
+    SOFT_SKILL,
+    TECH_SKILL,
+    TOOL_PLATFORM,
 )
 
 
@@ -22,6 +33,7 @@ def test_classify_jd_requirements_splits_required_preferred_and_soft_groups() ->
         "- Toi thieu 02 nam kinh nghiem phat trien ung dung.\n"
         "- Kha nang lam viec theo nhom, giao tiep, trinh bay.\n"
         "- Nhiet tinh, dam me hoc hoi, chiu duoc ap luc.\n"
+        "- Written English for cross-team coordination.\n"
         "\n"
         "Dieu kien uu tien:\n"
         "- Thanh thao Java, Spring Boot, Angular, Strust, Jsp, Ajax, Jquery, HTML, CSS.\n"
@@ -64,10 +76,36 @@ def test_classify_jd_requirements_splits_required_preferred_and_soft_groups() ->
         "Kha nang lam viec theo nhom, giao tiep, trinh bay.",
         "Nhiet tinh, dam me hoc hoi, chiu duoc ap luc.",
     ]
+    assert groups["language"] == ["Written English for cross-team coordination."]
     assert groups["domain_context"] == [
         "Co kinh nghiem lam viec trong linh vuc tai chinh ngan hang."
     ]
     assert groups["ignored"] == []
+
+    typed_requirements = build_typed_requirements(criteria, jd_text, taxonomy={})
+    typed_by_text = {
+        requirement["text"]: requirement["type"] for requirement in typed_requirements
+    }
+    assert typed_by_text["Tot nghiep Dai hoc nganh CNTT, Toan tin hoac tuong duong."] == (
+        EDUCATION_REQUIREMENT
+    )
+    assert typed_by_text["Toi thieu 02 nam kinh nghiem phat trien ung dung."] == (
+        EXPERIENCE_REQUIREMENT
+    )
+    assert typed_by_text["Kha nang lam viec theo nhom, giao tiep, trinh bay."] == (
+        SOFT_SKILL
+    )
+    assert typed_by_text["Written English for cross-team coordination."] == (
+        LANGUAGE_REQUIREMENT
+    )
+    assert typed_by_text["Co kinh nghiem lam viec trong linh vuc tai chinh ngan hang."] == (
+        DOMAIN_CONTEXT
+    )
+    assert typed_by_text["Thanh thao co so du lieu Oracle."] == TOOL_PLATFORM
+    assert typed_by_text["Thanh thao Java, Spring Boot, Angular, Javascript."] in {
+        TECH_SKILL,
+        TOOL_PLATFORM,
+    }
 
 
 def test_classify_jd_requirements_keeps_required_certifications_scored() -> None:
@@ -88,3 +126,27 @@ def test_classify_jd_requirements_keeps_required_certifications_scored() -> None
     assert nice_to_have == [
         "Relevant certifications: CEH or ISO 27001 are an advantage."
     ]
+
+
+def test_build_typed_requirements_marks_description_and_responsibilities_as_context() -> None:
+    jd_text = (
+        "Senior AI Computer Vision Engineer\n"
+        "\n"
+        "Job Description\n"
+        "- Design and deploy computer vision models.\n"
+        "\n"
+        "Responsibilities\n"
+        "- Collaborate with backend teams.\n"
+        "\n"
+        "Requirements\n"
+        "- Python\n"
+    )
+    criteria = parse_jd(jd_text)
+
+    typed_requirements = build_typed_requirements(criteria, jd_text, taxonomy={})
+    typed_by_text = {
+        requirement["text"]: requirement["type"] for requirement in typed_requirements
+    }
+
+    assert typed_by_text["Design and deploy computer vision models."] == RESPONSIBILITY_CONTEXT
+    assert typed_by_text["Collaborate with backend teams."] == RESPONSIBILITY_CONTEXT

@@ -159,6 +159,7 @@ def _build_excluded_job_summary(job_card: dict[str, Any]) -> dict[str, Any]:
         "job_quality": job_card.get("job_quality", {}),
         "payload_diagnostics": job_card.get("payload_diagnostics", {}),
         "taxonomy_coverage": job_card.get("taxonomy_coverage", {}),
+        "typed_requirements": job_card.get("typed_requirements", []),
         "open_set_requirements": job_card.get("open_set_requirements", []),
         "requirement_groups": job_card.get("requirement_groups", {}),
     }

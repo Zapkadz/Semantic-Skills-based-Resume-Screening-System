@@ -461,6 +461,14 @@ def build_requirement_notes(requirement_groups: dict[str, list[str]]) -> list[st
             f"{_join_readable_list(soft_skills)}."
         )
 
+    language = requirement_groups.get("language", [])
+    if language:
+        language = [_strip_sentence_end(item) for item in language]
+        notes.append(
+            "Language requirements should be reviewed separately: "
+            f"{_join_readable_list(language)}."
+        )
+
     domain_context = requirement_groups.get("domain_context", [])
     if domain_context:
         domain_context = [_strip_sentence_end(item) for item in domain_context]

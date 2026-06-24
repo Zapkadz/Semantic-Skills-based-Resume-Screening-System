@@ -8,6 +8,7 @@ from src.api_models import JobPayload
 from src.jd_parser import parse_jd
 from src.jd_requirement_classifier import (
     build_scoring_requirement_lines,
+    build_typed_requirements,
     classify_jd_requirements,
 )
 from src.job_quality_gate import evaluate_job_quality
@@ -35,9 +36,11 @@ def build_job_catalog(
         jd_text = build_jd_text_from_payload(job_payload)
         payload_diagnostics = diagnose_job_payload(job_payload, jd_text)
         job_criteria = parse_jd(jd_text)
+        typed_requirements = build_typed_requirements(job_criteria, jd_text, taxonomy)
         requirement_groups = classify_jd_requirements(job_criteria, jd_text, taxonomy)
         job_criteria = {
             **job_criteria,
+            "typed_requirements": typed_requirements,
             "requirement_groups": requirement_groups,
         }
         required_requirement_lines, nice_to_have_requirement_lines = (
@@ -96,6 +99,7 @@ def build_job_catalog(
                     must_have_skills,
                     open_set_requirements,
                 ),
+                "typed_requirements": typed_requirements,
                 "requirement_groups": requirement_groups,
                 "job_quality": job_quality,
             }

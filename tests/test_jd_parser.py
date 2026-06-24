@@ -19,6 +19,15 @@ def test_parse_jd_extracts_demo_job_criteria() -> None:
     assert criteria["minimum_experience_years"] == 1
     assert criteria["seniority"] == "Junior"
     assert criteria["domain"] == ["Backend", "Web Application"]
+    assert criteria["sections"]["requirements"] == [
+        "Java",
+        "Spring Boot",
+        "REST API",
+        "SQL",
+        "Basic Docker",
+        "1+ year backend experience",
+    ]
+    assert criteria["sections"]["nice_to_have"] == ["AWS", "Kafka", "Kubernetes"]
 
 
 def test_parse_jd_extracts_demo_responsibilities() -> None:
@@ -37,15 +46,16 @@ def test_parse_jd_extracts_demo_responsibilities() -> None:
 def test_parse_jd_handles_missing_sections() -> None:
     criteria = parse_jd("Frontend Developer")
 
-    assert criteria == {
-        "job_title": "Frontend Developer",
-        "must_have_skills": [],
-        "nice_to_have_skills": [],
-        "responsibilities": [],
-        "minimum_experience_years": 0,
-        "seniority": "Not specified",
-        "domain": [],
-    }
+    assert criteria["job_title"] == "Frontend Developer"
+    assert criteria["must_have_skills"] == []
+    assert criteria["nice_to_have_skills"] == []
+    assert criteria["responsibilities"] == []
+    assert criteria["minimum_experience_years"] == 0
+    assert criteria["seniority"] == "Not specified"
+    assert criteria["domain"] == []
+    assert criteria["sections"]["title"] == "Frontend Developer"
+    assert criteria["sections"]["description"] == []
+    assert criteria["description_lines"] == []
 
 
 def test_parse_jd_detects_seniority_from_title_before_years() -> None:
@@ -88,6 +98,9 @@ def test_parse_jd_supports_bare_english_headings_and_stops_at_benefits() -> None
     assert criteria["responsibilities"] == [
         "Build computer vision models for eKYC."
     ]
+    assert criteria["description_lines"] == [
+        "Build computer vision models for eKYC."
+    ]
     assert criteria["minimum_experience_years"] == 3
     assert criteria["seniority"] == "Middle"
     assert criteria["domain"] == [
@@ -101,27 +114,32 @@ def test_parse_jd_supports_vietnamese_headings_and_experience() -> None:
     criteria = parse_jd(
         "Backend Developer\n"
         "\n"
-        "Yêu cầu\n"
+        "Yeu cau\n"
         "- Java\n"
-        "- Tối thiểu 2 năm kinh nghiệm\n"
+        "- Toi thieu 2 nam kinh nghiem\n"
         "\n"
-        "Mô tả công việc\n"
-        "- Xây dựng REST API."
+        "Mo ta cong viec\n"
+        "- Xay dung REST API."
     )
 
     assert criteria["must_have_skills"] == ["Java"]
-    assert criteria["responsibilities"] == ["Xây dựng REST API."]
+    assert criteria["responsibilities"] == ["Xay dung REST API."]
     assert criteria["minimum_experience_years"] == 2
     assert criteria["seniority"] == "Middle"
+    assert criteria["sections"]["requirements"] == [
+        "Java",
+        "Toi thieu 2 nam kinh nghiem",
+    ]
+    assert criteria["sections"]["description"] == ["Xay dung REST API."]
 
 
 def test_parse_jd_infers_title_from_first_responsibility_heading() -> None:
     criteria = parse_jd(
-        "Mô tả Công việc\n"
+        "Mo ta Cong Viec\n"
         "1. IT Security Operations\n"
         "- Monitor security logs.\n"
         "\n"
-        "Yêu Cầu Công Việc\n"
+        "Yeu Cau Cong Viec\n"
         "- At least 3 yeear of experience in IT Security Operations, Governance, Compliance.\n"
         "- Knowledge of vulnerability management tools."
     )

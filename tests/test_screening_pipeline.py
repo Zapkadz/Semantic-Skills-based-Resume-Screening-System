@@ -15,51 +15,72 @@ def test_run_screening_pipeline_returns_ranked_demo_result(tmp_path: Path) -> No
         cv_dir=_demo_cv_dir(tmp_path),
     )
 
-    assert result["job"] == {
-        "title": "Backend Java Developer",
-        "must_have_skills": ["Java", "Spring Boot", "REST API", "SQL", "Docker"],
-        "nice_to_have_skills": ["AWS", "Kafka", "Kubernetes"],
-        "open_set_requirements": [],
-        "minimum_experience_years": 1,
-        "seniority": "Junior",
-        "domain": ["Backend", "Web Application"],
-        "taxonomy_coverage": {
-            "known_count": 5,
-            "unknown_count": 0,
-            "coverage_ratio": 1.0,
-            "known_requirements": ["Java", "Spring Boot", "REST API", "SQL", "Docker"],
-            "unknown_requirements": [],
-        },
-        "screening_confidence": {
-            "level": "high",
-            "known_requirement_count": 5,
-            "open_set_requirement_count": 0,
-            "embedding_enabled": False,
-            "warnings": [],
-        },
-        "requirement_groups": {
-            "must_have_technical": [
-                "Java",
-                "Spring Boot",
-                "REST API",
-                "SQL",
-                "Basic Docker",
-            ],
-            "nice_to_have_technical": ["AWS", "Kafka", "Kubernetes"],
-            "soft_skills": [],
-            "education": [],
-            "experience": ["1+ year backend experience"],
-            "certifications": [],
-            "domain_context": [],
-            "responsibilities": [
-                "Develop backend services.",
-                "Build RESTful APIs.",
-                "Work with relational databases.",
-                "Collaborate with frontend developers.",
-            ],
-            "ignored": [],
-        },
+    job = result["job"]
+    assert job["title"] == "Backend Java Developer"
+    assert job["must_have_skills"] == [
+        "Java",
+        "Spring Boot",
+        "REST API",
+        "SQL",
+        "Docker",
+    ]
+    assert job["nice_to_have_skills"] == ["AWS", "Kafka", "Kubernetes"]
+    assert job["open_set_requirements"] == []
+    assert job["minimum_experience_years"] == 1
+    assert job["seniority"] == "Junior"
+    assert job["domain"] == ["Backend", "Web Application"]
+    assert job["taxonomy_coverage"] == {
+        "known_count": 5,
+        "unknown_count": 0,
+        "coverage_ratio": 1.0,
+        "known_requirements": ["Java", "Spring Boot", "REST API", "SQL", "Docker"],
+        "unknown_requirements": [],
     }
+    assert job["screening_confidence"] == {
+        "level": "high",
+        "known_requirement_count": 5,
+        "open_set_requirement_count": 0,
+        "embedding_enabled": False,
+        "warnings": [],
+    }
+    assert job["requirement_groups"] == {
+        "must_have_technical": [
+            "Java",
+            "Spring Boot",
+            "REST API",
+            "SQL",
+            "Basic Docker",
+        ],
+        "nice_to_have_technical": ["AWS", "Kafka", "Kubernetes"],
+        "soft_skills": [],
+        "education": [],
+        "experience": ["1+ year backend experience"],
+        "certifications": [],
+        "language": [],
+        "domain_context": [],
+        "responsibilities": [
+            "Develop backend services.",
+            "Build RESTful APIs.",
+            "Work with relational databases.",
+            "Collaborate with frontend developers.",
+        ],
+        "ignored": [],
+    }
+    assert [item["type"] for item in job["typed_requirements"]] == [
+        "TECH_SKILL",
+        "TOOL_PLATFORM",
+        "TECH_SKILL",
+        "TOOL_PLATFORM",
+        "TOOL_PLATFORM",
+        "EXPERIENCE_REQUIREMENT",
+        "TOOL_PLATFORM",
+        "TOOL_PLATFORM",
+        "TOOL_PLATFORM",
+        "RESPONSIBILITY_CONTEXT",
+        "RESPONSIBILITY_CONTEXT",
+        "RESPONSIBILITY_CONTEXT",
+        "RESPONSIBILITY_CONTEXT",
+    ]
     assert len(result["candidates"]) == 1
 
     candidate = result["candidates"][0]

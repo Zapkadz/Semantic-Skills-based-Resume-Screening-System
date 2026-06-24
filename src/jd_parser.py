@@ -1,74 +1,18 @@
-"""Rule-based job description parser for Phase 03."""
+"""Rule-based job description parser for Phase 03 and later section-aware phases."""
 
 from __future__ import annotations
 
 import re
 from typing import Any
 
-from src.section_parser import (
-    build_section_aliases,
-    parse_section_heading as parse_known_section_heading,
-    split_sections,
-)
-from src.text_normalization import normalize_search_text, repair_mojibake, strip_list_marker
+from src.jd_section_parser import parse_jd_sections
+from src.text_normalization import normalize_search_text, repair_mojibake
 
-
-RAW_SECTION_ALIASES = {
-    "requirements": "requirements",
-    "required skills": "requirements",
-    "must have": "requirements",
-    "must-have": "requirements",
-    "qualifications": "requirements",
-    "job requirements": "requirements",
-    "required qualifications": "requirements",
-    "condition bat buoc": "requirements",
-    "dieu kien bat buoc": "requirements",
-    "yêu cầu": "requirements",
-    "yeu cau": "requirements",
-    "yêu cầu công việc": "requirements",
-    "yeu cau cong viec": "requirements",
-    "kỹ năng bắt buộc": "requirements",
-    "ky nang bat buoc": "requirements",
-    "yêu cầu ứng viên": "requirements",
-    "yeu cau ung vien": "requirements",
-    "nice to have": "nice_to_have",
-    "nice-to-have": "nice_to_have",
-    "preferred": "nice_to_have",
-    "preferred skills": "nice_to_have",
-    "plus": "nice_to_have",
-    "bonus": "nice_to_have",
-    "ưu tiên": "nice_to_have",
-    "uu tien": "nice_to_have",
-    "dieu kien uu tien": "nice_to_have",
-    "điểm cộng": "nice_to_have",
-    "diem cong": "nice_to_have",
-    "lợi thế": "nice_to_have",
-    "loi the": "nice_to_have",
-    "responsibilities": "responsibilities",
-    "job responsibilities": "responsibilities",
-    "job description": "responsibilities",
-    "description": "responsibilities",
-    "mô tả công việc": "responsibilities",
-    "mo ta cong viec": "responsibilities",
-    "trách nhiệm": "responsibilities",
-    "trach nhiem": "responsibilities",
-    "nhiệm vụ": "responsibilities",
-    "nhiem vu": "responsibilities",
-    "benefits": "benefits",
-    "benefit": "benefits",
-    "quyền lợi": "benefits",
-    "quyen loi": "benefits",
-    "phúc lợi": "benefits",
-    "phuc loi": "benefits",
-}
-
-SECTION_ALIASES = build_section_aliases(RAW_SECTION_ALIASES)
 
 EXPERIENCE_PATTERN = re.compile(
-    r"(\d+)\+?\s*(?:year|years|yeear|yr|yrs|năm|nam)",
+    r"(\d+)\+?\s*(?:year|years|yeear|yr|yrs|nÄƒm|nam)",
     re.IGNORECASE,
 )
-
 
 EXPERIENCE_ONLY_PATTERN = re.compile(
     r"^\s*\d+\+?\s*(?:year|years|yeear|yr|yrs|nam)\s*$",
@@ -79,18 +23,20 @@ EXPERIENCE_ONLY_PATTERN = re.compile(
 def parse_jd(text: str) -> dict[str, Any]:
     """Parse job description raw text into job criteria."""
     text = repair_mojibake(text)
-    lines = [line.rstrip() for line in text.splitlines()]
-    intro_lines, sections = _split_sections(lines)
-    non_empty_intro = [line.strip() for line in intro_lines if line.strip()]
-
-    requirements = _parse_simple_list(sections.get("requirements", []))
+    sections = parse_jd_sections(text)
+    requirements = _parse_simple_list(
+        [*sections.get("requirements", []), *sections.get("qualifications", [])]
+    )
     nice_to_have = _parse_simple_list(sections.get("nice_to_have", []))
-    responsibilities = _parse_simple_list(sections.get("responsibilities", []))
-    job_title = _infer_job_title(non_empty_intro, responsibilities)
+    description_lines = _parse_simple_list(sections.get("description", []))
+    responsibility_lines = _parse_simple_list(sections.get("responsibilities", []))
+    responsibilities = _merge_unique_lines(description_lines, responsibility_lines)
+    job_title = _infer_job_title(sections, responsibilities)
     minimum_years = _extract_minimum_experience_years(requirements)
 
     return {
         "job_title": job_title,
+        "description_lines": description_lines,
         "must_have_skills": [
             item for item in requirements if not _is_experience_requirement(item)
         ],
@@ -99,29 +45,28 @@ def parse_jd(text: str) -> dict[str, Any]:
         "minimum_experience_years": minimum_years,
         "seniority": _detect_seniority(job_title, minimum_years),
         "domain": _detect_domain(job_title, requirements, responsibilities),
+        "sections": {
+            **sections,
+            "title": job_title,
+        },
     }
-
-
-def _split_sections(lines: list[str]) -> tuple[list[str], dict[str, list[str]]]:
-    """Split raw JD lines into intro lines and known JD sections."""
-    return split_sections(lines, SECTION_ALIASES)
-
-
-def _parse_section_heading(line: str) -> tuple[str | None, str]:
-    """Return normalized section name and optional inline content."""
-    return parse_known_section_heading(line, SECTION_ALIASES)
 
 
 def _parse_simple_list(lines: list[str]) -> list[str]:
     """Parse bullet or line-based section content into a clean list."""
-    return [_strip_bullet(line) for line in lines if _strip_bullet(line)]
+    return [line.strip() for line in lines if line.strip()]
 
 
 def _infer_job_title(
-    intro_lines: list[str],
+    sections: dict[str, Any],
     responsibilities: list[str],
 ) -> str:
     """Infer a JD title from intro text or the first responsibility heading."""
+    title = str(sections.get("title", "")).strip()
+    if title:
+        return title
+
+    intro_lines = list(sections.get("intro", []))
     if intro_lines:
         return intro_lines[0]
 
@@ -313,6 +258,17 @@ def _contains_phrase(text: str, phrase: str) -> bool:
     return bool(re.search(pattern, text))
 
 
-def _strip_bullet(line: str) -> str:
-    """Remove common bullet markers and surrounding whitespace."""
-    return strip_list_marker(line)
+def _merge_unique_lines(*collections: list[str]) -> list[str]:
+    """Merge lists of lines while preserving first appearance."""
+    merged: list[str] = []
+    seen: set[str] = set()
+    for collection in collections:
+        for item in collection:
+            key = normalize_search_text(item)
+            if not key or key in seen:
+                continue
+
+            seen.add(key)
+            merged.append(item)
+
+    return merged
