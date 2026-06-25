@@ -763,6 +763,51 @@ def test_run_screening_payload_recovers_context_split_evidence_from_cv() -> None
     assert candidate["final_score"] >= 80
 
 
+def test_run_screening_payload_exposes_responsibility_signal_metadata_without_changing_scoring_input() -> None:
+    payload = {
+        "job": {
+            "job_id": 22,
+            "job_title": "IT Staff / IT Support / IT Helpdesk",
+            "requirements": [
+                "At least 3 years experience working in IT.",
+                "Good at writing and speaking English.",
+            ],
+            "responsibilities": [
+                "Manage Active Directory and troubleshoot DNS/DHCP issues.",
+                "Support firewall, router, switch, VPN, and Google Workspace incidents.",
+            ],
+        },
+        "candidates": [
+            {
+                "application_id": 1,
+                "candidate_name": "Infra Candidate",
+                "cv_text": "Infra Candidate\nIT Support Engineer\n\nSkills:\n- Active Directory",
+            }
+        ],
+    }
+
+    result = run_screening_payload(payload)
+    job = result["job"]
+
+    assert job["must_have_skills"] == []
+    assert job["open_set_requirements"] == []
+    assert job["technical_responsibility_candidates"] == [
+        "Active Directory",
+        "DNS",
+        "DHCP",
+        "Firewall",
+        "Google Workspace",
+        "Router",
+        "Switch",
+        "VPN",
+    ]
+    assert len(job["responsibility_signals"]) == 2
+    assert all(
+        signal["signal_type"] == "TECHNICAL_TASK"
+        for signal in job["responsibility_signals"]
+    )
+
+
 def _demo_screening_payload() -> dict:
     return {
         "job": {

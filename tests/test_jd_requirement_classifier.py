@@ -3,6 +3,7 @@ from src.jd_requirement_classifier import (
     build_scoring_requirement_lines,
     build_typed_requirements,
     classify_jd_requirements,
+    enrich_job_criteria_with_requirement_metadata,
 )
 from src.requirement_types import (
     DOMAIN_CONTEXT,
@@ -150,3 +151,26 @@ def test_build_typed_requirements_marks_description_and_responsibilities_as_cont
 
     assert typed_by_text["Design and deploy computer vision models."] == RESPONSIBILITY_CONTEXT
     assert typed_by_text["Collaborate with backend teams."] == RESPONSIBILITY_CONTEXT
+
+
+def test_enrich_job_criteria_adds_responsibility_signal_metadata() -> None:
+    jd_text = (
+        "IT Support Engineer\n"
+        "\n"
+        "Responsibilities\n"
+        "- Manage Active Directory and troubleshoot DNS/DHCP issues.\n"
+        "- Collaborate with internal teams.\n"
+    )
+    criteria = parse_jd(jd_text)
+
+    enriched = enrich_job_criteria_with_requirement_metadata(criteria, jd_text, taxonomy={})
+
+    assert enriched["technical_responsibility_candidates"] == [
+        "Active Directory",
+        "DNS",
+        "DHCP",
+    ]
+    assert [signal["signal_type"] for signal in enriched["responsibility_signals"]] == [
+        "TECHNICAL_TASK",
+        "OPERATIONAL_TASK",
+    ]

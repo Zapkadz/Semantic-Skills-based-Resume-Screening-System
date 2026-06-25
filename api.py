@@ -13,7 +13,7 @@ from src.job_recommendation_pipeline import run_job_recommendation_payload
 from src.payload_pipeline import run_screening_payload
 
 
-API_PHASE = "Phase 30 - Role-aware Scoring Calibration and Explanation Hardening"
+API_PHASE = "Phase 33 - Responsibility Signal Extraction Foundation"
 
 app = FastAPI(
     title="Semantic Skills Resume Screening API",

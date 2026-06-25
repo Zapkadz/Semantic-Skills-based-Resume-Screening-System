@@ -13,8 +13,7 @@ from src.evidence_detector import detect_all_evidence
 from src.jd_parser import parse_jd
 from src.jd_requirement_classifier import (
     build_scoring_requirement_lines,
-    build_typed_requirements,
-    classify_jd_requirements,
+    enrich_job_criteria_with_requirement_metadata,
 )
 from src.open_set_matcher import (
     build_taxonomy_coverage,
@@ -411,6 +410,11 @@ def _build_job_output(
             open_set_requirements,
             embedding_matcher,
         ),
+        "responsibility_signals": job_criteria.get("responsibility_signals", []),
+        "technical_responsibility_candidates": job_criteria.get(
+            "technical_responsibility_candidates",
+            [],
+        ),
         "requirement_groups": job_criteria.get("requirement_groups", {}),
         "typed_requirements": job_criteria.get("typed_requirements", []),
     }
@@ -422,19 +426,11 @@ def _with_requirement_groups(
     taxonomy: dict[str, dict[str, Any]],
 ) -> dict[str, Any]:
     """Attach requirement classification groups to parsed JD criteria."""
-    return {
-        **job_criteria,
-        "typed_requirements": build_typed_requirements(
-            job_criteria,
-            jd_text,
-            taxonomy,
-        ),
-        "requirement_groups": classify_jd_requirements(
-            job_criteria,
-            jd_text,
-            taxonomy,
-        ),
-    }
+    return enrich_job_criteria_with_requirement_metadata(
+        job_criteria,
+        jd_text,
+        taxonomy,
+    )
 
 
 def _build_requirement_group_summary(

@@ -386,6 +386,11 @@ def _build_job_output(
             open_set_requirements,
             embedding_matcher,
         ),
+        "responsibility_signals": job_criteria.get("responsibility_signals", []),
+        "technical_responsibility_candidates": job_criteria.get(
+            "technical_responsibility_candidates",
+            [],
+        ),
         "requirement_groups": job_criteria.get("requirement_groups", {}),
         "typed_requirements": job_criteria.get("typed_requirements", []),
     }
