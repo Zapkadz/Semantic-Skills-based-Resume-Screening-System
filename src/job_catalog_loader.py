@@ -15,12 +15,14 @@ from src.job_quality_gate import evaluate_job_quality
 from src.open_set_matcher import build_taxonomy_coverage
 from src.payload_diagnostics import diagnose_job_payload
 from src.payload_pipeline import build_jd_text_from_payload
+from src.role_family import infer_job_role_profile
 from src.screening_pipeline import (
     DEFAULT_TAXONOMY_PATH,
     _build_job_skill_list,
     _build_open_set_requirement_data,
 )
 from src.skill_taxonomy import load_taxonomy
+from src.technical_intent import build_requirement_intent_summary
 
 
 def build_job_catalog(
@@ -60,6 +62,21 @@ def build_job_catalog(
             taxonomy,
         )
         open_set_requirements = open_set_data["open_set_requirements"]
+        job_role_profile = infer_job_role_profile(
+            job_title=job_criteria.get("job_title", "")
+            or job_payload.get("job_title")
+            or job_payload.get("title", ""),
+            required_skills=must_have_skills,
+            open_set_requirements=open_set_requirements,
+            responsibilities=requirement_groups.get("responsibilities", []),
+            typed_requirements=typed_requirements,
+        )
+        requirement_intent_summary = build_requirement_intent_summary(
+            job_role_profile,
+            must_have_skills,
+            open_set_requirements,
+            typed_requirements=typed_requirements,
+        )
         nice_to_have_skills = _build_job_skill_list(
             nice_to_have_requirement_lines,
             "\n".join(nice_to_have_requirement_lines),
@@ -101,6 +118,8 @@ def build_job_catalog(
                 ),
                 "seniority": job_criteria.get("seniority", "Not specified"),
                 "domain": job_criteria.get("domain", []),
+                "job_role_profile": job_role_profile,
+                "requirement_intent_summary": requirement_intent_summary,
                 "taxonomy_coverage": build_taxonomy_coverage(
                     must_have_skills,
                     open_set_requirements,

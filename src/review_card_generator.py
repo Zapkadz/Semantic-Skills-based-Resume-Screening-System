@@ -38,19 +38,25 @@ def generate_review_card(
     nice_to_have_matches = list(candidate_result.get("nice_to_have_matches", []))
     score_breakdown = dict(candidate_result.get("scores", {}))
     hard_skill_gate = _get_hard_skill_gate(candidate_result)
+    role_family_alignment = _get_role_family_alignment(candidate_result)
     requirement_groups = _get_requirement_groups(job_criteria)
     requirement_group_summary = dict(
         candidate_result.get("requirement_group_summary", {})
     )
 
     evidence_highlights = build_evidence_highlights(matched_skills)
-    strengths = build_strengths(score_breakdown, evidence_highlights)
+    strengths = build_strengths(
+        score_breakdown,
+        evidence_highlights,
+        role_family_alignment,
+    )
     concerns = build_concerns(
         score_breakdown,
         missing_skills,
         nice_to_have_matches,
         matched_skills,
         hard_skill_gate,
+        role_family_alignment,
     )
     interview_questions = build_interview_questions(
         evidence_highlights,
@@ -67,6 +73,8 @@ def generate_review_card(
         "score_breakdown": score_breakdown,
         "base_score": candidate_result.get("base_score"),
         "hard_skill_gate": hard_skill_gate,
+        "candidate_role_profile": dict(candidate_result.get("candidate_role_profile", {})),
+        "role_family_alignment": role_family_alignment,
         "seniority": candidate_result.get("seniority", ""),
         "experience_years": candidate_result.get("experience_years", 0),
         "domain": list(candidate_result.get("domain", [])),
@@ -75,7 +83,10 @@ def generate_review_card(
         "nice_to_have_matches": nice_to_have_matches,
         "requirement_groups": requirement_groups,
         "requirement_group_summary": requirement_group_summary,
-        "requirement_notes": build_requirement_notes(requirement_groups),
+        "requirement_notes": build_requirement_notes(
+            requirement_groups,
+            role_family_alignment,
+        ),
         "evidence_highlights": evidence_highlights,
         "strengths": strengths,
         "concerns": concerns,
@@ -220,9 +231,11 @@ def build_evidence_highlights(
 def build_strengths(
     score_breakdown: dict[str, float],
     evidence_highlights: list[dict[str, Any]],
+    role_family_alignment: dict[str, Any] | None = None,
 ) -> list[str]:
     """Build rule-based strengths from score components and evidence."""
     strengths: list[str] = []
+    role_family_alignment = role_family_alignment or {}
 
     if score_breakdown.get("skill_semantic", 0.0) >= 0.85:
         strengths.append("Strong must-have skill coverage.")
@@ -243,6 +256,11 @@ def build_strengths(
     if score_breakdown.get("experience", 0.0) >= 0.75:
         strengths.append("Experience level appears close to the requirement.")
 
+    if role_family_alignment.get("status") == "strong_alignment":
+        strengths.append("Role-family alignment appears strong for this position.")
+    elif role_family_alignment.get("status") == "partial_alignment":
+        strengths.append("The profile shows adjacent role-family overlap with this position.")
+
     highlight_skills = [highlight["skill"] for highlight in evidence_highlights]
     if highlight_skills:
         strengths.append(
@@ -261,11 +279,13 @@ def build_concerns(
     nice_to_have_matches: list[dict[str, Any]],
     matched_skills: list[dict[str, Any]] | None = None,
     hard_skill_gate: dict[str, Any] | None = None,
+    role_family_alignment: dict[str, Any] | None = None,
 ) -> list[str]:
     """Build rule-based concerns from missing skills and low score components."""
     concerns: list[str] = []
     matched_skills = matched_skills or []
     hard_skill_gate = hard_skill_gate or {}
+    role_family_alignment = role_family_alignment or {}
 
     if hard_skill_gate.get("applied") is True:
         concerns.append(_format_hard_skill_gate_concern(hard_skill_gate))
@@ -322,6 +342,17 @@ def build_concerns(
                 "Some requirements were evaluated with semantic-only evidence "
                 f"outside the taxonomy: {_join_readable_list(semantic_only_requirements)}."
             )
+        )
+
+    if role_family_alignment.get("status") == "misaligned":
+        concerns.append(
+            str(role_family_alignment.get("note", "")).strip()
+            or "The candidate's strongest technical profile appears misaligned with the JD role family."
+        )
+    elif role_family_alignment.get("status") == "partial_alignment":
+        concerns.append(
+            str(role_family_alignment.get("note", "")).strip()
+            or "The candidate only partially overlaps with the JD role family."
         )
 
     if not concerns:
@@ -441,9 +472,13 @@ def build_interview_questions(
     return questions[:limit]
 
 
-def build_requirement_notes(requirement_groups: dict[str, list[str]]) -> list[str]:
+def build_requirement_notes(
+    requirement_groups: dict[str, list[str]],
+    role_family_alignment: dict[str, Any] | None = None,
+) -> list[str]:
     """Build recruiter notes for non-technical JD requirement groups."""
     notes: list[str] = []
+    role_family_alignment = role_family_alignment or {}
 
     education = requirement_groups.get("education", [])
     if education:
@@ -477,6 +512,11 @@ def build_requirement_notes(requirement_groups: dict[str, list[str]]) -> list[st
             f"{_join_readable_list(domain_context)}."
         )
 
+    if role_family_alignment.get("status") in {"partial_alignment", "misaligned"}:
+        role_note = str(role_family_alignment.get("note", "")).strip()
+        if role_note:
+            notes.append(f"Role-family note: {role_note}")
+
     return notes
 
 
@@ -501,6 +541,12 @@ def _get_hard_skill_gate(candidate_result: dict[str, Any]) -> dict[str, Any]:
     """Return hard-skill gate metadata when available."""
     gate = candidate_result.get("hard_skill_gate", {})
     return gate if isinstance(gate, dict) else {}
+
+
+def _get_role_family_alignment(candidate_result: dict[str, Any]) -> dict[str, Any]:
+    """Return role-family alignment metadata when available."""
+    alignment = candidate_result.get("role_family_alignment", {})
+    return alignment if isinstance(alignment, dict) else {}
 
 
 def _display_skill(match: dict[str, Any]) -> str:

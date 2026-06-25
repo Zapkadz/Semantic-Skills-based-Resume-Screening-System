@@ -51,6 +51,7 @@ def test_build_screening_diagnostics_returns_payload_and_runtime_summary() -> No
             "taxonomy_coverage": {"coverage_ratio": 0.0},
             "open_set_requirements": [],
             "open_set_filter_summary": {"candidate_count": 0},
+            "job_role_profile": {"primary_role_family": "GENERIC_TECH"},
         },
         ranked_candidates=[{"candidate_id": 2}],
         embedding_enabled=False,
@@ -61,6 +62,7 @@ def test_build_screening_diagnostics_returns_payload_and_runtime_summary() -> No
     assert result["runtime"]["job_quality"]["quality_label"] == "insufficient_jd_data"
     assert result["runtime"]["candidate_count"] == 1
     assert result["runtime"]["open_set_filter_summary"] == {"candidate_count": 0}
+    assert result["runtime"]["job_role_profile"]["primary_role_family"] == "GENERIC_TECH"
 
 
 def test_build_recommendation_diagnostics_returns_flagged_jobs_summary() -> None:

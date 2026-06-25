@@ -254,6 +254,11 @@ def test_run_screening_payload_returns_ranked_candidates_with_web_ids() -> None:
         "embedding_enabled": False,
         "warnings": [],
     }
+    assert result["job"]["job_role_profile"]["primary_role_family"] == "BACKEND_ENGINEERING"
+    assert any(
+        item["text"] == "Java" and item["intent_type"] == "CORE_STACK"
+        for item in result["job"]["requirement_intent_summary"]
+    )
 
     candidate = result["candidates"][0]
     assert candidate["rank"] == 1
@@ -263,6 +268,8 @@ def test_run_screening_payload_returns_ranked_candidates_with_web_ids() -> None:
     assert candidate["source_file"] == "application-123__candidate-456.txt"
     assert candidate["final_score"] == 87
     assert candidate["recommendation"] == "Strong Review"
+    assert candidate["candidate_role_profile"]["primary_role_family"] == "BACKEND_ENGINEERING"
+    assert candidate["role_family_alignment"]["status"] == "strong_alignment"
     assert candidate["review_card"]["job_title"] == "Backend Java Developer"
     assert candidate["review_card"]["concerns"] == [
         "Optional nice-to-have gaps: AWS and Kafka."
@@ -329,6 +336,7 @@ def test_run_screening_payload_matches_english_jd_with_vietnamese_cv() -> None:
         "Anti-Spoofing",
         "Python",
     ]
+    assert result["job"]["job_role_profile"]["primary_role_family"] == "COMPUTER_VISION_EKYC"
     candidate = result["candidates"][0]
     assert candidate["candidate_name"] == "Le Van AI"
     assert candidate["final_score"] >= 70
@@ -341,6 +349,61 @@ def test_run_screening_payload_matches_english_jd_with_vietnamese_cv() -> None:
         ("Anti-Spoofing", 3),
         ("Python", 1),
     ]
+
+
+def test_run_screening_payload_applies_role_family_penalty_for_semantic_only_mismatch(
+    tmp_path,
+) -> None:
+    taxonomy_path = tmp_path / "empty_taxonomy.json"
+    taxonomy_path.write_text("{}", encoding="utf-8")
+    embedding_matcher = SemanticEmbeddingMatcher(
+        model=FakeMultilingualEmbeddingModel(),
+        threshold=0.70,
+    )
+    payload = {
+        "job": {
+            "job_id": 60,
+            "job_title": "AI Computer Vision Engineer - eKYC",
+            "requirements": [
+                "identity verification",
+            ],
+            "responsibilities": [
+                "Design face recognition and liveness detection pipelines.",
+            ],
+        },
+        "candidates": [
+            {
+                "candidate_name": "Generic ML Candidate",
+                "cv_text": (
+                    "Generic ML Candidate\n"
+                    "Machine Learning Engineer\n"
+                    "\n"
+                    "Summary:\n"
+                    "Built machine learning retrieval pipelines and recommendation models.\n"
+                    "\n"
+                    "Skills:\n"
+                    "- Python\n"
+                    "- Machine Learning\n"
+                    "- digital identity verification"
+                ),
+            }
+        ],
+    }
+
+    result = run_screening_payload(
+        payload,
+        taxonomy_path=str(taxonomy_path),
+        embedding_matcher=embedding_matcher,
+    )
+
+    candidate = result["candidates"][0]
+    assert result["job"]["job_role_profile"]["primary_role_family"] == "COMPUTER_VISION_EKYC"
+    assert candidate["candidate_role_profile"]["primary_role_family"] == "DATA_AI_ENGINEERING"
+    assert candidate["role_family_alignment"]["status"] in {
+        "partial_alignment",
+        "misaligned",
+    }
+    assert candidate["base_score"] <= candidate["raw_base_score"]
 
 
 def test_run_screening_payload_can_use_injected_multilingual_embedding_matcher() -> None:
@@ -542,6 +605,7 @@ def test_run_screening_payload_separates_soft_education_and_nice_to_have() -> No
     assert candidate["review_card"]["requirement_notes"] == [
         "Education requirements should be reviewed separately: Tot nghiep Dai hoc nganh CNTT.",
         "Soft skills should be verified during interview: Kha nang lam viec theo nhom, giao tiep, trinh bay.",
+        "Role-family note: The candidate shows adjacent role-family overlap, but not as the primary profile.",
     ]
 
 
