@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from difflib import SequenceMatcher
 import json
 from collections import Counter
 from json import JSONDecodeError
@@ -9,17 +10,19 @@ from pathlib import Path
 from typing import Any
 
 from src.embedding_matcher import SemanticEmbeddingMatcher
+from src.role_family import GENERIC_TECH
 from src.skill_taxonomy import make_lookup_key
 from src.text_normalization import normalize_search_text, repair_mojibake
 
 
-SUGGESTION_QUEUE_VERSION = 1
+SUGGESTION_QUEUE_VERSION = 2
 DEFAULT_MIN_FREQUENCY = 2
 DEFAULT_GROUP_SIMILARITY_THRESHOLD = 0.86
 DEFAULT_CATEGORY_SIMILARITY_THRESHOLD = 0.75
 DEFAULT_TOP_NEAREST_SKILLS = 3
 DEFAULT_MAX_ALIASES = 10
 DEFAULT_MAX_EXAMPLES = 5
+ALIAS_CANDIDATE_SIMILARITY_THRESHOLD = 0.90
 PENDING_REVIEW_STATUS = "pending_review"
 PENDING_CLASSIFICATION_CATEGORY = "Pending Classification"
 
@@ -33,6 +36,16 @@ def collect_unknown_requirement_observations(
     job_title = job.get("title") or job.get("job_title") or ""
     coverage = job.get("taxonomy_coverage", {})
     unknown_requirements = _string_list(coverage.get("unknown_requirements"))
+    role_profile = job.get("job_role_profile", {})
+    requirement_intent_lookup = _build_requirement_intent_lookup(
+        job.get("requirement_intent_summary", [])
+    )
+    open_set_candidate_lookup = _build_open_set_candidate_lookup(
+        [
+            *job.get("open_set_candidates", []),
+            *job.get("discarded_open_set_candidates", []),
+        ]
+    )
 
     observations_by_key: dict[str, dict[str, Any]] = {}
     for requirement in unknown_requirements:
@@ -42,6 +55,12 @@ def collect_unknown_requirement_observations(
             job_title=job_title,
             source="job.taxonomy_coverage.unknown_requirements",
             context=requirement,
+            **_resolve_observation_metadata(
+                requirement,
+                role_profile,
+                requirement_intent_lookup,
+                open_set_candidate_lookup,
+            ),
         )
         observations_by_key[_observation_key(observation)] = observation
 
@@ -60,6 +79,12 @@ def collect_unknown_requirement_observations(
                     job_title=job_title,
                     source="candidate.open_set_requirement_matches",
                     context=phrase,
+                    **_resolve_observation_metadata(
+                        phrase,
+                        role_profile,
+                        requirement_intent_lookup,
+                        open_set_candidate_lookup,
+                    ),
                 )
                 observations_by_key[key] = observation
 
@@ -100,6 +125,7 @@ def build_taxonomy_suggestions(
     return sorted(
         suggestions,
         key=lambda suggestion: (
+            -float(suggestion.get("governance_priority_score", 0.0)),
             -int(suggestion.get("frequency", 0)),
             suggestion.get("suggested_canonical_name", ""),
         ),
@@ -155,6 +181,13 @@ def _build_observation(
     job_title: str = "",
     source: str = "",
     context: str = "",
+    job_role_family: str = "",
+    job_role_family_confidence: float | None = None,
+    intent_type: str = "",
+    intent_strength: str = "",
+    technical_candidate_status: str = "unknown",
+    technical_confidence: float | None = None,
+    keep_for_suggestion: bool = True,
 ) -> dict[str, Any]:
     """Build one normalized observation object."""
     clean_phrase = repair_mojibake(str(phrase)).strip()
@@ -166,6 +199,13 @@ def _build_observation(
         "context": str(context or clean_phrase).strip(),
         "matched_evidence_text": "",
         "similarity": None,
+        "job_role_family": str(job_role_family or "").strip(),
+        "job_role_family_confidence": _round_float(job_role_family_confidence),
+        "intent_type": str(intent_type or "").strip(),
+        "intent_strength": str(intent_strength or "").strip(),
+        "technical_candidate_status": str(technical_candidate_status or "unknown").strip(),
+        "technical_confidence": _round_float(technical_confidence),
+        "keep_for_suggestion": bool(keep_for_suggestion),
     }
 
 
@@ -209,6 +249,9 @@ def _group_observations(
     groups: list[list[dict[str, Any]]] = []
 
     for observation in observations:
+        if observation.get("keep_for_suggestion") is False:
+            continue
+
         phrase = str(observation.get("phrase", "")).strip()
         if not phrase:
             continue
@@ -280,6 +323,54 @@ def _build_suggestion(
             if str(observation.get("matched_evidence_text", "")).strip()
         ]
     )[:DEFAULT_MAX_EXAMPLES]
+    role_family_distribution = _distribution(
+        [
+            str(observation.get("job_role_family", "")).strip()
+            for observation in group
+            if str(observation.get("job_role_family", "")).strip()
+        ]
+    )
+    dominant_role_family, dominant_role_family_ratio = _dominant_distribution_value(
+        role_family_distribution,
+        len(group),
+    )
+    intent_distribution = _distribution(
+        [
+            str(observation.get("intent_strength", "")).strip() or "unknown"
+            for observation in group
+        ]
+    )
+    dominant_intent_strength, _ = _dominant_distribution_value(
+        intent_distribution,
+        len(group),
+    )
+    evidence_support_count = sum(
+        1
+        for observation in group
+        if str(observation.get("matched_evidence_text", "")).strip()
+    )
+    alias_candidate = _build_alias_candidate(
+        suggested_canonical_name,
+        nearest_existing_skills,
+    )
+    governance_priority_score = _calculate_governance_priority_score(
+        group,
+        dominant_role_family=dominant_role_family,
+        dominant_role_family_ratio=dominant_role_family_ratio,
+        dominant_intent_strength=dominant_intent_strength,
+        evidence_support_count=evidence_support_count,
+        alias_candidate=alias_candidate,
+    )
+    governance_priority = _priority_label(governance_priority_score)
+    confidence = _calculate_confidence(
+        frequency=len(group),
+        dominant_role_family=dominant_role_family,
+        dominant_role_family_ratio=dominant_role_family_ratio,
+        dominant_intent_strength=dominant_intent_strength,
+        evidence_support_count=evidence_support_count,
+        has_nearest_skill=bool(nearest_existing_skills),
+        alias_candidate=alias_candidate,
+    )
 
     return {
         "suggestion_id": f"tax-sug-{_slugify(suggested_canonical_name)}",
@@ -287,14 +378,27 @@ def _build_suggestion(
         "suggested_category": _suggest_category(taxonomy, nearest_existing_skills),
         "suggested_aliases": phrases[:DEFAULT_MAX_ALIASES],
         "frequency": len(group),
-        "confidence": _calculate_confidence(
-            frequency=len(group),
-            has_evidence=bool(example_evidence),
-            has_nearest_skill=bool(nearest_existing_skills),
-        ),
+        "confidence": confidence,
         "nearest_existing_skills": nearest_existing_skills,
         "example_contexts": example_contexts,
         "example_evidence": example_evidence,
+        "role_family_distribution": role_family_distribution,
+        "dominant_role_family": dominant_role_family,
+        "dominant_role_family_ratio": dominant_role_family_ratio,
+        "intent_distribution": intent_distribution,
+        "dominant_intent_strength": dominant_intent_strength,
+        "evidence_support_count": evidence_support_count,
+        "alias_candidate": alias_candidate,
+        "governance_priority": governance_priority,
+        "governance_priority_score": governance_priority_score,
+        "review_reason": _build_review_reason(
+            frequency=len(group),
+            dominant_role_family=dominant_role_family,
+            dominant_role_family_ratio=dominant_role_family_ratio,
+            dominant_intent_strength=dominant_intent_strength,
+            evidence_support_count=evidence_support_count,
+            alias_candidate=alias_candidate,
+        ),
         "status": PENDING_REVIEW_STATUS,
     }
 
@@ -379,17 +483,294 @@ def _suggest_category(
 
 def _calculate_confidence(
     frequency: int,
-    has_evidence: bool,
+    dominant_role_family: str,
+    dominant_role_family_ratio: float,
+    dominant_intent_strength: str,
+    evidence_support_count: int,
     has_nearest_skill: bool,
+    alias_candidate: dict[str, Any] | None,
 ) -> float:
     """Calculate a bounded heuristic confidence for a suggestion."""
-    confidence = 0.50 + min(0.30, frequency * 0.05)
-    if has_evidence:
+    confidence = 0.45 + min(0.20, frequency * 0.05)
+    if evidence_support_count > 0:
         confidence += 0.10
+    if dominant_intent_strength == "core":
+        confidence += 0.12
+    elif dominant_intent_strength == "supporting":
+        confidence += 0.07
+    elif dominant_intent_strength == "contextual":
+        confidence -= 0.05
+    if dominant_role_family and dominant_role_family != GENERIC_TECH:
+        confidence += 0.10 * dominant_role_family_ratio
     if has_nearest_skill:
         confidence += 0.05
+    if alias_candidate:
+        confidence += 0.05
 
-    return round(min(confidence, 0.95), 4)
+    return round(max(0.10, min(confidence, 0.95)), 4)
+
+
+def _build_requirement_intent_lookup(
+    requirement_intent_summary: list[dict[str, Any]],
+) -> dict[str, dict[str, Any]]:
+    """Build a lookup from requirement phrase to role-aware intent metadata."""
+    return {
+        make_lookup_key(str(item.get("text", ""))): item
+        for item in requirement_intent_summary
+        if isinstance(item, dict) and make_lookup_key(str(item.get("text", "")))
+    }
+
+
+def _build_open_set_candidate_lookup(
+    candidates: list[dict[str, Any]],
+) -> dict[str, dict[str, Any]]:
+    """Build a lookup from open-set candidate text variants to filter metadata."""
+    lookup: dict[str, dict[str, Any]] = {}
+    for candidate in candidates:
+        if not isinstance(candidate, dict):
+            continue
+
+        for key in _candidate_lookup_keys(candidate):
+            existing = lookup.get(key)
+            if existing is None or _candidate_has_more_signal(candidate, existing):
+                lookup[key] = candidate
+
+    return lookup
+
+
+def _candidate_lookup_keys(candidate: dict[str, Any]) -> set[str]:
+    """Return stable lookup keys for one open-set candidate payload."""
+    keys: set[str] = set()
+    for value in (
+        candidate.get("canonical_text"),
+        candidate.get("text"),
+        candidate.get("normalized_text"),
+    ):
+        key = make_lookup_key(str(value or ""))
+        if key:
+            keys.add(key)
+
+    return keys
+
+
+def _candidate_has_more_signal(
+    candidate: dict[str, Any],
+    existing: dict[str, Any],
+) -> bool:
+    """Prefer candidates that are kept for suggestion or have higher confidence."""
+    candidate_keep = candidate.get("keep_for_suggestion") is True
+    existing_keep = existing.get("keep_for_suggestion") is True
+    if candidate_keep != existing_keep:
+        return candidate_keep
+
+    return float(candidate.get("technical_confidence", 0.0) or 0.0) > float(
+        existing.get("technical_confidence", 0.0) or 0.0
+    )
+
+
+def _resolve_observation_metadata(
+    phrase: str,
+    role_profile: dict[str, Any],
+    requirement_intent_lookup: dict[str, dict[str, Any]],
+    open_set_candidate_lookup: dict[str, dict[str, Any]],
+) -> dict[str, Any]:
+    """Resolve role-aware and governance metadata for one observation phrase."""
+    key = make_lookup_key(phrase)
+    intent_metadata = requirement_intent_lookup.get(key, {})
+    candidate_metadata = open_set_candidate_lookup.get(key, {})
+
+    return {
+        "job_role_family": str(
+            intent_metadata.get("role_family")
+            or role_profile.get("primary_role_family")
+            or ""
+        ).strip(),
+        "job_role_family_confidence": _coerce_float(role_profile.get("confidence")),
+        "intent_type": str(intent_metadata.get("intent_type", "")).strip(),
+        "intent_strength": str(intent_metadata.get("intent_strength", "")).strip(),
+        "technical_candidate_status": str(
+            candidate_metadata.get("status")
+            or (
+                "kept"
+                if candidate_metadata.get("keep_for_matching") is True
+                else "unknown"
+            )
+        ).strip(),
+        "technical_confidence": _coerce_float(
+            candidate_metadata.get("technical_confidence")
+        ),
+        "keep_for_suggestion": (
+            bool(candidate_metadata.get("keep_for_suggestion"))
+            if candidate_metadata
+            else True
+        ),
+    }
+
+
+def _distribution(values: list[str]) -> dict[str, int]:
+    """Build a deterministic count distribution from a list of labels."""
+    counts: Counter[str] = Counter(value for value in values if value)
+    return {key: counts[key] for key in sorted(counts)}
+
+
+def _dominant_distribution_value(
+    distribution: dict[str, int],
+    total_count: int,
+) -> tuple[str, float]:
+    """Return the most frequent label and its ratio over the group."""
+    if not distribution or total_count <= 0:
+        return "", 0.0
+
+    best_label, best_count = max(
+        distribution.items(),
+        key=lambda item: (item[1], item[0]),
+    )
+    return best_label, round(best_count / total_count, 4)
+
+
+def _build_alias_candidate(
+    suggested_canonical_name: str,
+    nearest_existing_skills: list[dict[str, Any]],
+) -> dict[str, Any] | None:
+    """Return likely-alias metadata when a phrase is very close to an existing skill."""
+    if not nearest_existing_skills:
+        return None
+
+    nearest_skill = nearest_existing_skills[0]
+    similarity = float(nearest_skill.get("similarity", 0.0) or 0.0)
+    target_skill = str(nearest_skill.get("skill", "")).strip()
+    if not target_skill or similarity < ALIAS_CANDIDATE_SIMILARITY_THRESHOLD:
+        return None
+    if not _looks_like_alias_variant(suggested_canonical_name, target_skill):
+        return None
+
+    return {
+        "status": "likely_alias",
+        "target_skill": target_skill,
+        "similarity": round(similarity, 4),
+    }
+
+
+def _looks_like_alias_variant(left: str, right: str) -> bool:
+    """Return True when two labels are lexically close enough to be alias variants."""
+    left_normalized = normalize_search_text(left)
+    right_normalized = normalize_search_text(right)
+    left_compact = "".join(left_normalized.split())
+    right_compact = "".join(right_normalized.split())
+    if not left_compact or not right_compact:
+        return False
+    if left_compact == right_compact:
+        return True
+    if left_compact in right_compact or right_compact in left_compact:
+        return min(len(left_compact), len(right_compact)) >= 5
+
+    left_tokens = set(left_normalized.split())
+    right_tokens = set(right_normalized.split())
+    token_overlap = (
+        len(left_tokens & right_tokens) / len(left_tokens | right_tokens)
+        if left_tokens or right_tokens
+        else 0.0
+    )
+    similarity_ratio = SequenceMatcher(None, left_compact, right_compact).ratio()
+    return similarity_ratio >= 0.88 or (
+        similarity_ratio >= 0.72 and token_overlap >= 0.50
+    )
+
+
+def _calculate_governance_priority_score(
+    group: list[dict[str, Any]],
+    *,
+    dominant_role_family: str,
+    dominant_role_family_ratio: float,
+    dominant_intent_strength: str,
+    evidence_support_count: int,
+    alias_candidate: dict[str, Any] | None,
+) -> float:
+    """Calculate a role-aware priority score for admin review ordering."""
+    frequency = len(group)
+    frequency_bonus = min(0.24, max(0, frequency - 1) * 0.08)
+    evidence_bonus = min(0.15, evidence_support_count * 0.05)
+    confidence_values = [
+        float(observation.get("technical_confidence", 0.0) or 0.0)
+        for observation in group
+        if isinstance(observation.get("technical_confidence"), (int, float))
+    ]
+    technical_confidence_bonus = (
+        min(0.10, (sum(confidence_values) / len(confidence_values)) * 0.10)
+        if confidence_values
+        else 0.0
+    )
+
+    score = 0.30 + frequency_bonus + evidence_bonus + technical_confidence_bonus
+
+    if dominant_role_family and dominant_role_family != GENERIC_TECH:
+        score += 0.20 * dominant_role_family_ratio
+    elif dominant_role_family_ratio:
+        score += 0.08 * dominant_role_family_ratio
+
+    if dominant_intent_strength == "core":
+        score += 0.20
+    elif dominant_intent_strength == "supporting":
+        score += 0.12
+    elif dominant_intent_strength == "contextual":
+        score -= 0.05
+
+    if alias_candidate:
+        score += 0.05
+
+    return round(max(0.0, min(score, 0.99)), 4)
+
+
+def _priority_label(score: float) -> str:
+    """Map a governance score to a stable review bucket."""
+    if score >= 0.75:
+        return "high"
+    if score >= 0.55:
+        return "medium"
+    return "low"
+
+
+def _build_review_reason(
+    *,
+    frequency: int,
+    dominant_role_family: str,
+    dominant_role_family_ratio: float,
+    dominant_intent_strength: str,
+    evidence_support_count: int,
+    alias_candidate: dict[str, Any] | None,
+) -> str:
+    """Build one concise admin-facing reason for queue prioritization."""
+    reasons: list[str] = [f"Observed {frequency} time(s)"]
+    if dominant_role_family:
+        reasons.append(
+            f"{round(dominant_role_family_ratio * 100)}% from {dominant_role_family}"
+        )
+    if dominant_intent_strength:
+        reasons.append(f"{dominant_intent_strength} technical intent")
+    if evidence_support_count > 0:
+        reasons.append(f"{evidence_support_count} evidence-backed observation(s)")
+    if alias_candidate:
+        reasons.append(
+            f"likely alias of {alias_candidate.get('target_skill', 'existing skill')}"
+        )
+
+    return ". ".join(reasons) + "."
+
+
+def _coerce_float(value: Any) -> float | None:
+    """Convert numeric-like values to floats without raising."""
+    if value is None or value == "":
+        return None
+    if not isinstance(value, (int, float)):
+        return None
+    return float(value)
+
+
+def _round_float(value: float | None) -> float | None:
+    """Round optional float values for stable JSON snapshots."""
+    if value is None:
+        return None
+    return round(float(value), 4)
 
 
 def _load_json(path: str | Path) -> Any:
