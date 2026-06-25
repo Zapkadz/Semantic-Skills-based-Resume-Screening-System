@@ -15,6 +15,14 @@ class FakeOpenSetEmbeddingModel:
             "drone mission planning": [0.0, 1.0, 0.0],
             "Built REST APIs using Java.": [1.0, 0.0, 0.0],
             "Python": [0.0, 0.0, 1.0],
+            "mobile ai deployment": [0.0, 0.8, 0.6],
+            "Optimized liveness models for mobile devices.": [0.0, 1.0, 0.0],
+            "ONNX Runtime Mobile": [0.0, 1.0, 0.0],
+            "Optimized liveness models for mobile devices. Technologies: ONNX Runtime Mobile, PyTorch": [
+                0.0,
+                0.82,
+                0.58,
+            ],
         }
         return [vectors.get(text, [0.0, 0.0, 1.0]) for text in texts]
 
@@ -149,6 +157,49 @@ def test_find_semantic_requirement_evidence_skips_when_embedding_disabled() -> N
         )
         == []
     )
+
+
+def test_find_semantic_requirement_evidence_uses_synthesized_project_context() -> None:
+    matcher = SemanticEmbeddingMatcher(
+        model=FakeOpenSetEmbeddingModel(),
+        threshold=0.70,
+    )
+    resume_profile = {
+        "summary": "",
+        "headline": "",
+        "raw_skills": [],
+        "work_experience": [],
+        "projects": [
+            {
+                "name": "Mobile Face SDK",
+                "description": ["Optimized liveness models for mobile devices."],
+                "technologies": ["ONNX Runtime Mobile", "PyTorch"],
+            }
+        ],
+    }
+
+    matches = find_semantic_requirement_evidence(
+        ["mobile ai deployment"],
+        resume_profile,
+        matcher,
+        threshold=0.70,
+    )
+
+    assert matches == [
+        {
+            "required_skill": "mobile ai deployment",
+            "candidate_skill": None,
+            "match_type": "semantic_only_match",
+            "taxonomy_status": "unknown",
+            "score": OPEN_SET_MATCH_SCORE,
+            "similarity": 0.9996,
+            "evidence_level": 3,
+            "evidence_text": (
+                "Optimized liveness models for mobile devices. Technologies: ONNX Runtime Mobile, PyTorch"
+            ),
+            "evidence_source": "projects",
+        }
+    ]
 
 
 def _taxonomy() -> dict:

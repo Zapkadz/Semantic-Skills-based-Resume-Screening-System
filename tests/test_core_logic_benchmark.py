@@ -206,6 +206,50 @@ def test_core_logic_benchmark_open_set_technical_requirement_is_preserved() -> N
     assert match["evidence_text"] == "digital identity verification"
 
 
+def test_core_logic_benchmark_context_split_evidence_is_recovered() -> None:
+    payload = {
+        "job": {
+            "job_title": "Computer Vision Engineer",
+            "requirements": ["Computer Vision", "PyTorch"],
+        },
+        "candidates": [
+            {
+                "candidate_name": "Context Candidate",
+                "cv_text": (
+                    "Context Candidate\n"
+                    "AI Engineer\n"
+                    "\n"
+                    "Work Experience\n"
+                    "Computer Vision Engineer - Vision Labs\n"
+                    "01/2022 - Present\n"
+                    "- Built eKYC onboarding and liveness workflows for mobile apps.\n"
+                    "\n"
+                    "Projects\n"
+                    "Project name: Mobile Face SDK\n"
+                    "Description:\n"
+                    "Optimized face verification pipelines for production deployment.\n"
+                    "Technologies:\n"
+                    "PyTorch\n"
+                    "ONNX\n"
+                ),
+            }
+        ],
+    }
+
+    result = run_screening_payload(payload)
+    candidate = result["candidates"][0]
+
+    assert candidate["missing_skills"] == []
+    assert [
+        (match["required_skill"], match["evidence_level"], match["evidence_source"])
+        for match in candidate["matched_skills"]
+    ] == [
+        ("Computer Vision", 3, "work_experience"),
+        ("PyTorch", 3, "projects"),
+    ]
+    assert candidate["scores"]["evidence"] == 1.0
+
+
 def _case(case_id: str) -> dict:
     manifest = _load_manifest()
     for case in manifest["cases"]:

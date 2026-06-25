@@ -152,6 +152,94 @@ def test_detect_evidence_returns_level_0_when_skill_is_missing() -> None:
     }
 
 
+def test_detect_evidence_recovers_skill_from_work_title_plus_action_context() -> None:
+    taxonomy = load_taxonomy(TAXONOMY_PATH)
+    profile = {
+        "summary": "",
+        "headline": "",
+        "raw_skills": [],
+        "work_experience": [
+            {
+                "title": "Computer Vision Engineer",
+                "company": "Vision Labs",
+                "duration": "",
+                "description": [
+                    "Built eKYC onboarding and liveness workflows for mobile apps.",
+                ],
+            }
+        ],
+        "projects": [],
+    }
+
+    evidence = detect_evidence("Computer Vision", profile, taxonomy)
+
+    assert evidence == {
+        "skill": "Computer Vision",
+        "evidence_level": 3,
+        "evidence_text": (
+            "Computer Vision Engineer. Built eKYC onboarding and liveness workflows for mobile apps."
+        ),
+        "evidence_source": "work_experience",
+    }
+
+
+def test_detect_evidence_recovers_project_technology_plus_action_context() -> None:
+    taxonomy = load_taxonomy(TAXONOMY_PATH)
+    profile = {
+        "summary": "",
+        "headline": "",
+        "raw_skills": [],
+        "work_experience": [],
+        "projects": [
+            {
+                "name": "Face Platform",
+                "description": [
+                    "Built production fraud checks for biometric onboarding.",
+                ],
+                "technologies": ["PyTorch", "ONNX"],
+            }
+        ],
+    }
+
+    evidence = detect_evidence("PyTorch", profile, taxonomy)
+
+    assert evidence == {
+        "skill": "PyTorch",
+        "evidence_level": 3,
+        "evidence_text": (
+            "Built production fraud checks for biometric onboarding. Technologies: PyTorch, ONNX"
+        ),
+        "evidence_source": "projects",
+    }
+
+
+def test_detect_evidence_prefers_direct_bullet_over_synthesized_context() -> None:
+    profile = {
+        "summary": "",
+        "headline": "",
+        "raw_skills": [],
+        "work_experience": [],
+        "projects": [
+            {
+                "name": "Backend Core",
+                "description": [
+                    "Built REST APIs using Java and Spring Boot.",
+                ],
+                "technologies": ["Spring Boot", "MySQL"],
+            }
+        ],
+    }
+
+    evidence = detect_evidence("Spring Boot", profile)
+
+    assert evidence == {
+        "skill": "Spring Boot",
+        "evidence_level": 3,
+        "evidence_text": "Built REST APIs using Java and Spring Boot.",
+        "evidence_source": "projects",
+    }
+
+
 def test_detect_all_evidence_enriches_matches_and_uses_candidate_skill() -> None:
     profile = parse_resume(load_text_file("data/cvs/cv_strong.txt"))
     matches = [
