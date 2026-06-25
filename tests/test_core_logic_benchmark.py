@@ -274,6 +274,12 @@ def test_core_logic_benchmark_responsibility_signal_foundation_is_exposed() -> N
     result = run_screening_payload(payload)
 
     assert result["job"]["must_have_skills"] == []
+    assert result["job"]["open_set_requirements"] == [
+        "Active Directory",
+        "DNS",
+        "DHCP",
+        "Firewall",
+    ]
     assert result["job"]["technical_responsibility_candidates"] == [
         "Active Directory",
         "DNS",

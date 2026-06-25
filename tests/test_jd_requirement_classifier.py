@@ -170,6 +170,11 @@ def test_enrich_job_criteria_adds_responsibility_signal_metadata() -> None:
         "DNS",
         "DHCP",
     ]
+    assert [item["text"] for item in enriched["promoted_requirements"]] == [
+        "Active Directory",
+        "DNS",
+        "DHCP",
+    ]
     assert [signal["signal_type"] for signal in enriched["responsibility_signals"]] == [
         "TECHNICAL_TASK",
         "OPERATIONAL_TASK",

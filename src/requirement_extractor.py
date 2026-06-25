@@ -9,6 +9,7 @@ from src.open_set_requirement_filter import (
     build_open_set_filter_summary,
     filter_open_set_requirement_candidates,
 )
+from src.requirement_promotion import PROMOTED_RESPONSIBILITY_SOURCE
 from src.skill_extractor import extract_taxonomy_skills_from_text, merge_skill_lists
 from src.requirement_types import (
     CERTIFICATION_REQUIREMENT,
@@ -178,6 +179,38 @@ def extract_unknown_requirement_candidates(
     known_requirement_labels: list[str] | None = None,
 ) -> list[dict[str, Any]]:
     """Return scored open-set requirement candidates before final text flattening."""
+    scoring_requirement_entries = list(job_criteria.get("scoring_requirement_entries", []))
+    direct_units: list[dict[str, str]] = []
+    seen_direct_unit_keys: set[str] = set()
+    for entry in scoring_requirement_entries:
+        if str(entry.get("priority", "")).strip() != "must_have":
+            continue
+        if str(entry.get("source_kind", "")).strip() != PROMOTED_RESPONSIBILITY_SOURCE:
+            continue
+
+        text = str(entry.get("text", "")).strip()
+        lookup_key = make_lookup_key(text)
+        taxonomy_status = _taxonomy_status(text, taxonomy)
+        if (
+            not text
+            or not lookup_key
+            or lookup_key in seen_direct_unit_keys
+            or taxonomy_status == KNOWN_TAXONOMY_STATUS
+        ):
+            continue
+
+        seen_direct_unit_keys.add(lookup_key)
+        direct_units.append(
+            {
+                "text": text,
+                "source": str(entry.get("source_kind", DEFAULT_REQUIREMENT_SOURCE)),
+                "taxonomy_status": taxonomy_status,
+                "extraction_method": str(
+                    entry.get("source_kind", "scoring_requirement_entry")
+                ),
+            }
+        )
+
     typed_requirements = list(job_criteria.get("typed_requirements", []))
     if typed_requirements:
         relevant_lines = [
@@ -197,7 +230,7 @@ def extract_unknown_requirement_candidates(
         if relevant_lines:
             job_criteria = {**job_criteria, "must_have_skills": relevant_lines}
 
-    units = extract_requirement_units(job_criteria, jd_text, taxonomy)
+    units = [*direct_units, *extract_requirement_units(job_criteria, jd_text, taxonomy)]
     return filter_open_set_requirement_candidates(
         units,
         known_requirement_labels=known_requirement_labels,
