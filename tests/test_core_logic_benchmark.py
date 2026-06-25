@@ -250,6 +250,46 @@ def test_core_logic_benchmark_context_split_evidence_is_recovered() -> None:
     assert candidate["scores"]["evidence"] == 1.0
 
 
+def test_core_logic_benchmark_responsibility_signal_foundation_is_exposed() -> None:
+    payload = {
+        "job": {
+            "job_title": "IT Staff / IT Support / IT Helpdesk",
+            "requirements": [
+                "At least 3 years experience working in IT.",
+                "Good at writing and speaking English.",
+            ],
+            "responsibilities": [
+                "Manage Active Directory and troubleshoot DNS/DHCP issues.",
+                "Support firewall, router, switch, VPN, and Google Workspace incidents.",
+            ],
+        },
+        "candidates": [
+            {
+                "candidate_name": "Infra Candidate",
+                "cv_text": "Infra Candidate\nIT Support Engineer\n\nSkills:\n- Active Directory",
+            }
+        ],
+    }
+
+    result = run_screening_payload(payload)
+
+    assert result["job"]["must_have_skills"] == []
+    assert result["job"]["technical_responsibility_candidates"] == [
+        "Active Directory",
+        "DNS",
+        "DHCP",
+        "Firewall",
+        "Google Workspace",
+        "Router",
+        "Switch",
+        "VPN",
+    ]
+    assert all(
+        signal["signal_type"] == "TECHNICAL_TASK"
+        for signal in result["job"]["responsibility_signals"]
+    )
+
+
 def _case(case_id: str) -> dict:
     manifest = _load_manifest()
     for case in manifest["cases"]:

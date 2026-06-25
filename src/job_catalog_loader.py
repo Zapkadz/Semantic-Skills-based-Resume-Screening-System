@@ -8,8 +8,7 @@ from src.api_models import JobPayload
 from src.jd_parser import parse_jd
 from src.jd_requirement_classifier import (
     build_scoring_requirement_lines,
-    build_typed_requirements,
-    classify_jd_requirements,
+    enrich_job_criteria_with_requirement_metadata,
 )
 from src.job_quality_gate import evaluate_job_quality
 from src.open_set_matcher import build_taxonomy_coverage
@@ -38,13 +37,13 @@ def build_job_catalog(
         jd_text = build_jd_text_from_payload(job_payload)
         payload_diagnostics = diagnose_job_payload(job_payload, jd_text)
         job_criteria = parse_jd(jd_text)
-        typed_requirements = build_typed_requirements(job_criteria, jd_text, taxonomy)
-        requirement_groups = classify_jd_requirements(job_criteria, jd_text, taxonomy)
-        job_criteria = {
-            **job_criteria,
-            "typed_requirements": typed_requirements,
-            "requirement_groups": requirement_groups,
-        }
+        job_criteria = enrich_job_criteria_with_requirement_metadata(
+            job_criteria,
+            jd_text,
+            taxonomy,
+        )
+        typed_requirements = job_criteria["typed_requirements"]
+        requirement_groups = job_criteria["requirement_groups"]
         required_requirement_lines, nice_to_have_requirement_lines = (
             build_scoring_requirement_lines(requirement_groups)
         )
@@ -123,6 +122,11 @@ def build_job_catalog(
                 "taxonomy_coverage": build_taxonomy_coverage(
                     must_have_skills,
                     open_set_requirements,
+                ),
+                "responsibility_signals": job_criteria.get("responsibility_signals", []),
+                "technical_responsibility_candidates": job_criteria.get(
+                    "technical_responsibility_candidates",
+                    [],
                 ),
                 "typed_requirements": typed_requirements,
                 "requirement_groups": requirement_groups,

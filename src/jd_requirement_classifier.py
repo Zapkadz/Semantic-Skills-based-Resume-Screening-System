@@ -21,6 +21,7 @@ from src.requirement_types import (
     TOOL_PLATFORM,
     UNKNOWN_REQUIREMENT,
 )
+from src.responsibility_signal_extractor import build_responsibility_signal_metadata
 from src.skill_extractor import merge_skill_lists
 from src.text_normalization import normalize_search_text, repair_mojibake, strip_list_marker
 
@@ -259,6 +260,26 @@ def build_scoring_requirement_lines(
         requirement_groups.get("nice_to_have_technical", []),
     )
     return must_have, nice_to_have
+
+
+def enrich_job_criteria_with_requirement_metadata(
+    job_criteria: dict[str, Any],
+    jd_text: str,
+    taxonomy: dict[str, dict[str, Any]],
+) -> dict[str, Any]:
+    """Attach typed requirements, groups, and responsibility signal metadata."""
+    typed_requirements = build_typed_requirements(job_criteria, jd_text, taxonomy)
+    requirement_groups = classify_jd_requirements(job_criteria, jd_text, taxonomy)
+    responsibility_signal_metadata = build_responsibility_signal_metadata(
+        typed_requirements,
+        taxonomy,
+    )
+    return {
+        **job_criteria,
+        "typed_requirements": typed_requirements,
+        "requirement_groups": requirement_groups,
+        **responsibility_signal_metadata,
+    }
 
 
 def _empty_groups() -> dict[str, list[str]]:
