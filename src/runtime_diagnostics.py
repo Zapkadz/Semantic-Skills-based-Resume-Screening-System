@@ -83,6 +83,10 @@ def build_recommendation_diagnostics(
             **job_quality_stats,
             "top_job_ids": [job.get("job_id") for job in top_jobs],
             "excluded_job_ids": [job.get("job_id") for job in excluded_jobs],
+            "top_job_role_score_adjustments": {
+                job.get("job_id"): int(job.get("role_score_adjustment", 0) or 0)
+                for job in top_jobs
+            },
             "top_job_open_set_requirement_counts": {
                 job.get("job_id"): len(job.get("open_set_requirements", []))
                 for job in top_jobs

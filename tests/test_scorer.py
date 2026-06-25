@@ -8,6 +8,7 @@ from src.scorer import (
     calculate_final_score,
     calculate_hard_skill_gate_metrics,
     calculate_nice_to_have_score,
+    calculate_requirement_fit_summary,
     calculate_skill_semantic_score,
     detect_candidate_domains,
     detect_candidate_seniority,
@@ -76,6 +77,66 @@ def test_calculate_final_score_applies_phase_weights() -> None:
     }
 
     assert calculate_final_score(scores) == 87
+
+
+def test_calculate_requirement_fit_summary_tracks_core_and_semantic_only_coverage() -> None:
+    matches = [
+        {
+            "required_skill": "Java",
+            "match_type": "exact_match",
+            "score": 1.0,
+            "evidence_level": 3,
+            "intent_strength": "core",
+        },
+        {
+            "required_skill": "Spring Boot",
+            "match_type": "semantic_only_match",
+            "score": 0.82,
+            "evidence_level": 1,
+            "intent_strength": "core",
+        },
+        {
+            "required_skill": "Docker",
+            "match_type": "exact_match",
+            "score": 1.0,
+            "evidence_level": 1,
+            "intent_strength": "supporting",
+        },
+        {
+            "required_skill": "Banking",
+            "match_type": "no_match",
+            "score": 0.0,
+            "evidence_level": 0,
+            "intent_strength": "contextual",
+        },
+    ]
+
+    summary = calculate_requirement_fit_summary(matches)
+
+    assert summary["overall"] == {
+        "total": 4,
+        "positive_match_count": 3,
+        "confirmed_match_count": 1,
+        "weak_match_count": 2,
+        "missing_count": 1,
+        "semantic_only_match_count": 1,
+        "positive_coverage": 0.75,
+        "confirmed_coverage": 0.25,
+        "weak_match_ratio": 0.6667,
+        "semantic_only_ratio": 0.3333,
+    }
+    assert summary["core"] == {
+        "total": 2,
+        "positive_match_count": 2,
+        "confirmed_match_count": 1,
+        "weak_match_count": 1,
+        "missing_count": 0,
+        "semantic_only_match_count": 1,
+        "positive_coverage": 1.0,
+        "confirmed_coverage": 0.5,
+        "weak_match_ratio": 0.5,
+        "semantic_only_ratio": 0.5,
+    }
 
 
 def test_get_recommendation_label_uses_thresholds() -> None:
@@ -159,15 +220,24 @@ def test_score_candidate_returns_explainable_demo_result() -> None:
         candidate_skills,
         taxonomy,
     )
+    criteria["job_role_profile"] = {
+        "primary_role_family": "BACKEND_ENGINEERING",
+        "confidence": 0.85,
+    }
 
     result = score_candidate(criteria, profile, matches, nice_to_have_matches)
 
     assert result["candidate_name"] == "Nguyen Van A"
     assert result["final_score"] == 87
     assert result["recommendation"] == "Strong Review"
+    assert result["raw_base_score"] == 87
+    assert result["role_calibrated_score"] == 87
     assert result["base_score"] == 87
+    assert result["role_score_adjustment"] == 0
     assert result["hard_skill_gate"]["passed"] is True
     assert result["hard_skill_gate"]["applied"] is False
+    assert result["role_alignment_impact"]["reason_code"] == "strong_same_role_alignment"
+    assert result["core_requirement_fit_summary"]["overall"]["confirmed_match_count"] == 5
     assert result["scores"] == {
         "skill_semantic": 0.95,
         "evidence": 1.0,
@@ -310,6 +380,64 @@ def test_score_candidate_caps_review_when_hard_skill_evidence_is_incomplete() ->
     assert [
         reason["code"] for reason in result["hard_skill_gate"]["reasons"]
     ] == ["weak_evidence", "low_confirmed_coverage"]
+
+
+def test_score_candidate_penalizes_misaligned_semantic_core_overlap() -> None:
+    criteria = {
+        "minimum_experience_years": 3,
+        "seniority": "Middle",
+        "domain": ["Computer Vision"],
+        "job_role_profile": {
+            "primary_role_family": "COMPUTER_VISION_EKYC",
+            "confidence": 0.9,
+        },
+    }
+    profile = {
+        "candidate_name": "Generic ML Candidate",
+        "headline": "Machine Learning Engineer",
+        "summary": (
+            "Built machine learning retrieval pipelines and recommendation models "
+            "for AI products."
+        ),
+        "raw_skills": [
+            "Python",
+            "Machine Learning",
+            "digital identity verification",
+        ],
+        "work_experience": [],
+        "projects": [],
+    }
+    matches = [
+        {
+            "required_skill": "face recognition",
+            "candidate_skill": None,
+            "match_type": "semantic_only_match",
+            "score": 0.82,
+            "evidence_level": 1,
+            "intent_strength": "core",
+            "evidence_text": "digital identity verification",
+        },
+        {
+            "required_skill": "liveness detection",
+            "candidate_skill": None,
+            "match_type": "semantic_only_match",
+            "score": 0.80,
+            "evidence_level": 1,
+            "intent_strength": "core",
+            "evidence_text": "digital identity verification",
+        },
+    ]
+
+    result = score_candidate(criteria, profile, matches, [])
+
+    assert result["candidate_role_profile"]["primary_role_family"] == "DATA_AI_ENGINEERING"
+    assert result["role_family_alignment"]["status"] == "partial_alignment"
+    assert result["role_score_adjustment"] == -4
+    assert result["role_calibrated_score"] < result["raw_base_score"]
+    assert result["role_alignment_impact"]["reason_code"] == (
+        "adjacent_role_semantic_core_overlap"
+    )
+    assert result["core_requirement_fit_summary"]["core"]["semantic_only_ratio"] == 1.0
 
 
 def test_rank_candidates_sorts_by_score_evidence_then_name() -> None:

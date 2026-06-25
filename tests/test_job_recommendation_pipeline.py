@@ -47,9 +47,13 @@ def test_run_job_recommendation_payload_returns_ranked_top_jobs() -> None:
     assert top_job["fit_score"] >= 80
     assert top_job["fit_label"] == "Strong Fit"
     assert "Strong Fit" in top_job["fit_summary"]
+    assert top_job["raw_base_score"] == top_job["role_calibrated_score"]
+    assert top_job["role_score_adjustment"] == 0
     assert top_job["job_role_profile"]["primary_role_family"] == "BACKEND_ENGINEERING"
     assert top_job["candidate_role_profile"]["primary_role_family"] == "BACKEND_ENGINEERING"
     assert top_job["role_family_alignment"]["status"] == "strong_alignment"
+    assert top_job["role_alignment_impact"]["reason_code"] == "strong_same_role_alignment"
+    assert top_job["core_requirement_fit_summary"]["core"]["total"] == 4
     assert top_job["matched_must_have_skills"] == [
         "Java",
         "Spring Boot",

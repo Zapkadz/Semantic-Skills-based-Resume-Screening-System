@@ -71,6 +71,11 @@ def score_retrieved_job_match(
         why_fit,
         what_to_improve,
         candidate_result.get("hard_skill_gate", {}),
+        role_alignment_impact=candidate_result.get("role_alignment_impact", {}),
+        core_requirement_fit_summary=candidate_result.get(
+            "core_requirement_fit_summary",
+            {},
+        ),
     )
 
     return {
@@ -83,12 +88,20 @@ def score_retrieved_job_match(
         "fit_score": fit_score,
         "fit_label": fit_label,
         "fit_summary": fit_summary,
+        "raw_base_score": candidate_result.get("raw_base_score", 0),
+        "role_calibrated_score": candidate_result.get("role_calibrated_score", 0),
+        "role_score_adjustment": candidate_result.get("role_score_adjustment", 0),
         "base_score": candidate_result.get("base_score", 0),
         "recommendation": candidate_result.get("recommendation", ""),
         "scores": candidate_result.get("scores", {}),
         "hard_skill_gate": candidate_result.get("hard_skill_gate", {}),
+        "core_requirement_fit_summary": candidate_result.get(
+            "core_requirement_fit_summary",
+            {},
+        ),
         "candidate_role_profile": candidate_result.get("candidate_role_profile", {}),
         "role_family_alignment": candidate_result.get("role_family_alignment", {}),
+        "role_alignment_impact": candidate_result.get("role_alignment_impact", {}),
         "matched_must_have_skills": _matched_required_skill_labels(
             candidate_result.get("matched_skills", [])
         ),
@@ -163,19 +176,39 @@ def build_fit_summary(
     why_fit: list[str],
     what_to_improve: list[str],
     hard_skill_gate: dict[str, Any] | None = None,
+    role_alignment_impact: dict[str, Any] | None = None,
+    core_requirement_fit_summary: dict[str, Any] | None = None,
 ) -> str:
     """Build one concise candidate-facing fit summary sentence."""
     hard_skill_gate = hard_skill_gate or {}
+    role_alignment_impact = role_alignment_impact or {}
+    core_requirement_fit_summary = core_requirement_fit_summary or {}
+    core_bucket = _requirement_fit_bucket(core_requirement_fit_summary, "core")
     first_reason = _strip_sentence_end(why_fit[0]) if why_fit else ""
     first_improvement = (
         _strip_sentence_end(what_to_improve[0]) if what_to_improve else ""
     )
+    role_reason = _strip_sentence_end(str(role_alignment_impact.get("reason", "")).strip())
 
     if hard_skill_gate.get("applied") is True:
         summary = (
             f"This role is currently a {fit_label} because must-have technical "
             "evidence is incomplete."
         )
+        if first_improvement:
+            summary += f" To improve your fit, {_to_clause(first_improvement)}."
+        return summary
+
+    if role_alignment_impact.get("applied") is True and fit_label in {
+        "Potential Fit",
+        "Stretch",
+        "Low Fit",
+    }:
+        summary = f"This role is currently a {fit_label}"
+        if role_reason:
+            summary += f" because {_to_clause(role_reason)}."
+        else:
+            summary += "."
         if first_improvement:
             summary += f" To improve your fit, {_to_clause(first_improvement)}."
         return summary
@@ -190,10 +223,18 @@ def build_fit_summary(
         return summary
 
     if fit_label == "Stretch":
-        summary = (
-            "This role is currently a Stretch because your profile only partially "
-            "matches the must-have requirements."
-        )
+        if int(core_bucket.get("total", 0)) >= 2 and float(
+            core_bucket.get("confirmed_coverage", 0.0)
+        ) < 0.5:
+            summary = (
+                "This role is currently a Stretch because core technical "
+                "requirements are still only partially evidenced."
+            )
+        else:
+            summary = (
+                "This role is currently a Stretch because your profile only partially "
+                "matches the must-have requirements."
+            )
         if first_improvement:
             summary += f" To improve your fit, {_to_clause(first_improvement)}."
         return summary
@@ -291,3 +332,9 @@ def _to_clause(value: str) -> str:
         return value
 
     return value[:1].casefold() + value[1:]
+
+
+def _requirement_fit_bucket(summary: dict[str, Any], bucket_name: str) -> dict[str, Any]:
+    """Return one nested requirement-fit bucket with safe defaults."""
+    bucket = summary.get(bucket_name, {})
+    return bucket if isinstance(bucket, dict) else {}

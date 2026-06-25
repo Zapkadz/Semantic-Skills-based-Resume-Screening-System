@@ -231,6 +231,49 @@ def test_generate_review_card_explains_hard_skill_gate_score_cap() -> None:
     assert card["hard_skill_gate"]["applied"] is True
 
 
+def test_generate_review_card_explains_role_aware_calibration() -> None:
+    candidate_result = _sample_candidate_result()
+    candidate_result["raw_base_score"] = 76
+    candidate_result["role_calibrated_score"] = 70
+    candidate_result["base_score"] = 70
+    candidate_result["final_score"] = 70
+    candidate_result["recommendation"] = "Review"
+    candidate_result["role_score_adjustment"] = -6
+    candidate_result["role_family_alignment"] = {
+        "status": "partial_alignment",
+        "note": "The candidate shows adjacent role-family overlap, but not as the primary profile.",
+    }
+    candidate_result["role_alignment_impact"] = {
+        "applied": True,
+        "adjustment": -6,
+        "reason": (
+            "The profile overlaps with an adjacent role family, but most core "
+            "requirements are still semantic-only or weakly confirmed."
+        ),
+    }
+    candidate_result["core_requirement_fit_summary"] = {
+        "core": {
+            "total": 3,
+            "confirmed_coverage": 0.3333,
+        }
+    }
+
+    card = generate_review_card(candidate_result, {"job_title": "AI Computer Vision Engineer"})
+
+    assert card["summary"] == (
+        "Nguyen Van A is a Review candidate for AI Computer Vision Engineer "
+        "with a final score of 70/100. Role-aware calibration adjusted the "
+        "weighted score from 76/100 to 70/100 because the profile overlaps "
+        "with an adjacent role family, but most core requirements are still "
+        "semantic-only or weakly confirmed."
+    )
+    assert "Core technical requirements are still missing or weakly evidenced." in card["concerns"]
+    assert (
+        "Role-aware calibration reduced the score: The profile overlaps with an adjacent role family, but most core requirements are still semantic-only or weakly confirmed."
+        in card["concerns"]
+    )
+
+
 def test_demo_pipeline_generates_explainable_review_card() -> None:
     taxonomy = load_taxonomy(TAXONOMY_PATH)
     profile = parse_resume(load_text_file("data/cvs/cv_strong.txt"))

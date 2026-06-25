@@ -39,6 +39,8 @@ def generate_review_card(
     score_breakdown = dict(candidate_result.get("scores", {}))
     hard_skill_gate = _get_hard_skill_gate(candidate_result)
     role_family_alignment = _get_role_family_alignment(candidate_result)
+    role_alignment_impact = _get_role_alignment_impact(candidate_result)
+    core_requirement_fit_summary = _get_core_requirement_fit_summary(candidate_result)
     requirement_groups = _get_requirement_groups(job_criteria)
     requirement_group_summary = dict(
         candidate_result.get("requirement_group_summary", {})
@@ -49,6 +51,7 @@ def generate_review_card(
         score_breakdown,
         evidence_highlights,
         role_family_alignment,
+        core_requirement_fit_summary,
     )
     concerns = build_concerns(
         score_breakdown,
@@ -57,6 +60,8 @@ def generate_review_card(
         matched_skills,
         hard_skill_gate,
         role_family_alignment,
+        role_alignment_impact,
+        core_requirement_fit_summary,
     )
     interview_questions = build_interview_questions(
         evidence_highlights,
@@ -71,10 +76,15 @@ def generate_review_card(
         "recommendation": candidate_result.get("recommendation", ""),
         "summary": build_summary(candidate_result, job_title),
         "score_breakdown": score_breakdown,
+        "raw_base_score": candidate_result.get("raw_base_score"),
+        "role_calibrated_score": candidate_result.get("role_calibrated_score"),
+        "role_score_adjustment": candidate_result.get("role_score_adjustment", 0),
         "base_score": candidate_result.get("base_score"),
         "hard_skill_gate": hard_skill_gate,
         "candidate_role_profile": dict(candidate_result.get("candidate_role_profile", {})),
         "role_family_alignment": role_family_alignment,
+        "role_alignment_impact": role_alignment_impact,
+        "core_requirement_fit_summary": core_requirement_fit_summary,
         "seniority": candidate_result.get("seniority", ""),
         "experience_years": candidate_result.get("experience_years", 0),
         "domain": list(candidate_result.get("domain", [])),
@@ -169,21 +179,43 @@ def build_summary(candidate_result: dict[str, Any], job_title: str = "") -> str:
     recommendation = candidate_result.get("recommendation", "Review")
     final_score = candidate_result.get("final_score", 0)
     base_score = candidate_result.get("base_score")
+    raw_base_score = candidate_result.get("raw_base_score")
+    role_calibrated_score = candidate_result.get("role_calibrated_score", base_score)
+    role_score_adjustment = int(candidate_result.get("role_score_adjustment", 0) or 0)
+    role_alignment_impact = _get_role_alignment_impact(candidate_result)
     hard_skill_gate = _get_hard_skill_gate(candidate_result)
     role_text = f" for {job_title}" if job_title else ""
-    gate_note = ""
+    notes: list[str] = []
+
+    if (
+        role_score_adjustment != 0
+        and raw_base_score is not None
+        and role_calibrated_score is not None
+    ):
+        role_reason = _strip_sentence_end(str(role_alignment_impact.get("reason", "")).strip())
+        role_note = (
+            "Role-aware calibration adjusted the weighted score from "
+            f"{raw_base_score}/100 to {role_calibrated_score}/100"
+        )
+        if role_reason:
+            role_note += f" because {role_reason[:1].casefold() + role_reason[1:]}"
+        role_note += "."
+        notes.append(role_note)
 
     if hard_skill_gate.get("applied") is True and base_score is not None:
-        gate_note = (
-            f" The hard-skill gate capped the base score from {base_score}/100 "
+        notes.append(
+            f"The hard-skill gate capped the base score from {base_score}/100 "
             "because must-have skill evidence is incomplete."
         )
 
-    return (
+    summary = (
         f"{candidate_name} is a {recommendation} candidate{role_text} "
         f"with a final score of {final_score}/100."
-        f"{gate_note}"
     )
+    if notes:
+        summary += " " + " ".join(note.strip() for note in notes if note.strip())
+
+    return summary
 
 
 def build_evidence_highlights(
@@ -232,10 +264,13 @@ def build_strengths(
     score_breakdown: dict[str, float],
     evidence_highlights: list[dict[str, Any]],
     role_family_alignment: dict[str, Any] | None = None,
+    core_requirement_fit_summary: dict[str, Any] | None = None,
 ) -> list[str]:
     """Build rule-based strengths from score components and evidence."""
     strengths: list[str] = []
     role_family_alignment = role_family_alignment or {}
+    core_requirement_fit_summary = core_requirement_fit_summary or {}
+    core_bucket = _requirement_fit_bucket(core_requirement_fit_summary, "core")
 
     if score_breakdown.get("skill_semantic", 0.0) >= 0.85:
         strengths.append("Strong must-have skill coverage.")
@@ -261,6 +296,12 @@ def build_strengths(
     elif role_family_alignment.get("status") == "partial_alignment":
         strengths.append("The profile shows adjacent role-family overlap with this position.")
 
+    if (
+        int(core_bucket.get("total", 0)) >= 2
+        and float(core_bucket.get("confirmed_coverage", 0.0)) >= 0.67
+    ):
+        strengths.append("Most core technical requirements have confirmed evidence.")
+
     highlight_skills = [highlight["skill"] for highlight in evidence_highlights]
     if highlight_skills:
         strengths.append(
@@ -280,12 +321,17 @@ def build_concerns(
     matched_skills: list[dict[str, Any]] | None = None,
     hard_skill_gate: dict[str, Any] | None = None,
     role_family_alignment: dict[str, Any] | None = None,
+    role_alignment_impact: dict[str, Any] | None = None,
+    core_requirement_fit_summary: dict[str, Any] | None = None,
 ) -> list[str]:
     """Build rule-based concerns from missing skills and low score components."""
     concerns: list[str] = []
     matched_skills = matched_skills or []
     hard_skill_gate = hard_skill_gate or {}
     role_family_alignment = role_family_alignment or {}
+    role_alignment_impact = role_alignment_impact or {}
+    core_requirement_fit_summary = core_requirement_fit_summary or {}
+    core_bucket = _requirement_fit_bucket(core_requirement_fit_summary, "core")
 
     if hard_skill_gate.get("applied") is True:
         concerns.append(_format_hard_skill_gate_concern(hard_skill_gate))
@@ -300,6 +346,14 @@ def build_concerns(
                 "but hard-skill evidence is incomplete; review missing and "
                 "weakly evidenced must-have skills before shortlisting."
             )
+        )
+
+    if (
+        int(core_bucket.get("total", 0)) >= 2
+        and float(core_bucket.get("confirmed_coverage", 0.0)) < 0.5
+    ):
+        concerns.append(
+            "Core technical requirements are still missing or weakly evidenced."
         )
 
     if missing_skills:
@@ -344,12 +398,25 @@ def build_concerns(
             )
         )
 
-    if role_family_alignment.get("status") == "misaligned":
+    if role_alignment_impact.get("applied") is True:
+        impact_reason = str(role_alignment_impact.get("reason", "")).strip()
+        if impact_reason:
+            concerns.append(
+                f"Role-aware calibration reduced the score: {impact_reason}"
+            )
+
+    if (
+        role_alignment_impact.get("applied") is not True
+        and role_family_alignment.get("status") == "misaligned"
+    ):
         concerns.append(
             str(role_family_alignment.get("note", "")).strip()
             or "The candidate's strongest technical profile appears misaligned with the JD role family."
         )
-    elif role_family_alignment.get("status") == "partial_alignment":
+    elif (
+        role_alignment_impact.get("applied") is not True
+        and role_family_alignment.get("status") == "partial_alignment"
+    ):
         concerns.append(
             str(role_family_alignment.get("note", "")).strip()
             or "The candidate only partially overlaps with the JD role family."
@@ -547,6 +614,24 @@ def _get_role_family_alignment(candidate_result: dict[str, Any]) -> dict[str, An
     """Return role-family alignment metadata when available."""
     alignment = candidate_result.get("role_family_alignment", {})
     return alignment if isinstance(alignment, dict) else {}
+
+
+def _get_role_alignment_impact(candidate_result: dict[str, Any]) -> dict[str, Any]:
+    """Return role-aware score impact metadata when available."""
+    impact = candidate_result.get("role_alignment_impact", {})
+    return impact if isinstance(impact, dict) else {}
+
+
+def _get_core_requirement_fit_summary(candidate_result: dict[str, Any]) -> dict[str, Any]:
+    """Return requirement-fit summary metadata when available."""
+    summary = candidate_result.get("core_requirement_fit_summary", {})
+    return summary if isinstance(summary, dict) else {}
+
+
+def _requirement_fit_bucket(summary: dict[str, Any], bucket_name: str) -> dict[str, Any]:
+    """Return one nested requirement-fit bucket with safe defaults."""
+    bucket = summary.get(bucket_name, {})
+    return bucket if isinstance(bucket, dict) else {}
 
 
 def _display_skill(match: dict[str, Any]) -> str:

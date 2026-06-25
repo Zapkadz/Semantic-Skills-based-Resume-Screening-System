@@ -113,7 +113,7 @@ def test_build_recommendation_diagnostics_returns_flagged_jobs_summary() -> None
             "eligible_jobs": 1,
             "excluded_jobs": 1,
         },
-        top_jobs=[{"job_id": 10}],
+        top_jobs=[{"job_id": 10, "role_score_adjustment": -4}],
         excluded_jobs=[{"job_id": 4}],
         embedding_enabled=False,
     )
@@ -122,4 +122,5 @@ def test_build_recommendation_diagnostics_returns_flagged_jobs_summary() -> None
     assert result["payload"]["jobs"]["flagged_count"] == 1
     assert result["payload"]["jobs"]["excluded_job_ids"] == [4]
     assert result["runtime"]["top_job_ids"] == [10]
+    assert result["runtime"]["top_job_role_score_adjustments"] == {10: -4}
     assert result["runtime"]["top_job_open_set_requirement_counts"] == {10: 0}
