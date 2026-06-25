@@ -714,6 +714,55 @@ def test_run_screening_payload_handles_html_jd_from_php_editor(
     assert candidate["recommendation"] in {"Maybe Review", "Review", "Strong Review"}
 
 
+def test_run_screening_payload_recovers_context_split_evidence_from_cv() -> None:
+    payload = {
+        "job": {
+            "job_id": 77,
+            "job_title": "Computer Vision Engineer",
+            "requirements": [
+                "Computer Vision",
+                "PyTorch",
+            ],
+        },
+        "candidates": [
+            {
+                "candidate_name": "Tran Van A",
+                "cv_text": (
+                    "Tran Van A\n"
+                    "AI Engineer\n"
+                    "\n"
+                    "Work Experience\n"
+                    "Computer Vision Engineer - Vision Labs\n"
+                    "01/2022 - Present\n"
+                    "- Built eKYC onboarding and liveness workflows for mobile apps.\n"
+                    "\n"
+                    "Projects\n"
+                    "Project name: Mobile Face SDK\n"
+                    "Description:\n"
+                    "Optimized face verification pipelines for production deployment.\n"
+                    "Technologies:\n"
+                    "PyTorch\n"
+                    "ONNX\n"
+                ),
+            }
+        ],
+    }
+
+    result = run_screening_payload(payload)
+    candidate = result["candidates"][0]
+
+    assert candidate["missing_skills"] == []
+    assert [
+        (match["required_skill"], match["evidence_level"], match["evidence_source"])
+        for match in candidate["matched_skills"]
+    ] == [
+        ("Computer Vision", 3, "work_experience"),
+        ("PyTorch", 3, "projects"),
+    ]
+    assert candidate["scores"]["evidence"] == 1.0
+    assert candidate["final_score"] >= 80
+
+
 def _demo_screening_payload() -> dict:
     return {
         "job": {
