@@ -15,6 +15,8 @@ DISCARDED_STATUS = "discarded"
 DEFAULT_TECHNICAL_CONFIDENCE_THRESHOLD = 0.55
 
 TECHNICAL_PRODUCT_TOKENS = {
+    "dhcp",
+    "dns",
     "angular",
     "api",
     "apis",
@@ -31,6 +33,7 @@ TECHNICAL_PRODUCT_TOKENS = {
     "eks",
     "etl",
     "gcp",
+    "firewall",
     "git",
     "gitlab",
     "gpu",
@@ -62,13 +65,16 @@ TECHNICAL_PRODUCT_TOKENS = {
     "rabbitmq",
     "react",
     "redis",
+    "router",
     "sdk",
     "spark",
+    "switch",
     "spring",
     "sql",
     "tensorflow",
     "terraform",
     "typescript",
+    "vpn",
     "vmware",
     "windows",
 }
@@ -116,12 +122,14 @@ TECHNICAL_CAPABILITY_TOKENS = {
 }
 
 TECHNICAL_SIGNAL_PHRASES = {
+    "active directory",
     "access control",
     "computer vision",
     "data pipeline",
     "data pipelines",
     "face matching",
     "face recognition",
+    "google workspace",
     "identity verification",
     "image normalization",
     "landmark detection",

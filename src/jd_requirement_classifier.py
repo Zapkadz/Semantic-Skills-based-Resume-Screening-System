@@ -21,6 +21,10 @@ from src.requirement_types import (
     TOOL_PLATFORM,
     UNKNOWN_REQUIREMENT,
 )
+from src.requirement_promotion import (
+    build_promoted_requirements,
+    build_scoring_requirement_entries,
+)
 from src.responsibility_signal_extractor import build_responsibility_signal_metadata
 from src.skill_extractor import merge_skill_lists
 from src.text_normalization import normalize_search_text, repair_mojibake, strip_list_marker
@@ -274,11 +278,18 @@ def enrich_job_criteria_with_requirement_metadata(
         typed_requirements,
         taxonomy,
     )
-    return {
+    enriched_job_criteria = {
         **job_criteria,
         "typed_requirements": typed_requirements,
         "requirement_groups": requirement_groups,
         **responsibility_signal_metadata,
+    }
+    scoring_requirement_entries = build_scoring_requirement_entries(enriched_job_criteria)
+    promoted_requirements = build_promoted_requirements(enriched_job_criteria)
+    return {
+        **enriched_job_criteria,
+        "promoted_requirements": promoted_requirements,
+        "scoring_requirement_entries": scoring_requirement_entries,
     }
 
 

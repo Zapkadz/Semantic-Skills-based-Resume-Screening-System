@@ -12,13 +12,13 @@ from src.embedding_matcher import SemanticEmbeddingMatcher
 from src.evidence_detector import detect_all_evidence
 from src.jd_parser import parse_jd
 from src.jd_requirement_classifier import (
-    build_scoring_requirement_lines,
     enrich_job_criteria_with_requirement_metadata,
 )
 from src.open_set_matcher import (
     build_taxonomy_coverage,
     find_semantic_requirement_evidence,
 )
+from src.requirement_promotion import build_scoring_requirement_lines_from_entries
 from src.requirement_extractor import (
     build_screening_confidence,
     extract_unknown_requirement_debug,
@@ -57,7 +57,9 @@ def run_screening_pipeline(
     cv_documents = load_text_files_from_directory(cv_dir)
 
     required_requirement_lines, nice_to_have_requirement_lines = (
-        build_scoring_requirement_lines(job_criteria["requirement_groups"])
+        build_scoring_requirement_lines_from_entries(
+            job_criteria.get("scoring_requirement_entries", [])
+        )
     )
     required_skills = _build_job_skill_list(
         required_requirement_lines,
@@ -409,6 +411,11 @@ def _build_job_output(
             required_skills,
             open_set_requirements,
             embedding_matcher,
+        ),
+        "promoted_requirements": job_criteria.get("promoted_requirements", []),
+        "scoring_requirement_entries": job_criteria.get(
+            "scoring_requirement_entries",
+            [],
         ),
         "responsibility_signals": job_criteria.get("responsibility_signals", []),
         "technical_responsibility_candidates": job_criteria.get(

@@ -790,7 +790,12 @@ def test_run_screening_payload_exposes_responsibility_signal_metadata_without_ch
     job = result["job"]
 
     assert job["must_have_skills"] == []
-    assert job["open_set_requirements"] == []
+    assert job["open_set_requirements"] == [
+        "Active Directory",
+        "DNS",
+        "DHCP",
+        "Firewall",
+    ]
     assert job["technical_responsibility_candidates"] == [
         "Active Directory",
         "DNS",
@@ -802,6 +807,12 @@ def test_run_screening_payload_exposes_responsibility_signal_metadata_without_ch
         "VPN",
     ]
     assert len(job["responsibility_signals"]) == 2
+    assert [item["text"] for item in job["promoted_requirements"]] == [
+        "Active Directory",
+        "DNS",
+        "DHCP",
+        "Firewall",
+    ]
     assert all(
         signal["signal_type"] == "TECHNICAL_TASK"
         for signal in job["responsibility_signals"]

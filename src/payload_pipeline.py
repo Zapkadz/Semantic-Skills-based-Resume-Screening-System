@@ -9,7 +9,6 @@ from src.api_models import CandidatePayload, JobPayload, ScreeningRequest
 from src.embedding_matcher import SemanticEmbeddingMatcher
 from src.evidence_detector import detect_all_evidence
 from src.jd_parser import parse_jd
-from src.jd_requirement_classifier import build_scoring_requirement_lines
 from src.job_quality_gate import evaluate_job_quality
 from src.open_set_matcher import (
     build_taxonomy_coverage,
@@ -19,6 +18,7 @@ from src.payload_diagnostics import (
     diagnose_candidate_payload,
     diagnose_job_payload,
 )
+from src.requirement_promotion import build_scoring_requirement_lines_from_entries
 from src.requirement_extractor import build_screening_confidence
 from src.role_family import infer_job_role_profile
 from src.resume_parser import parse_resume
@@ -148,7 +148,9 @@ def run_screening_payload(
     job_criteria = parse_jd(job_text)
     job_criteria = _with_requirement_groups(job_criteria, job_text, taxonomy)
     required_requirement_lines, nice_to_have_requirement_lines = (
-        build_scoring_requirement_lines(job_criteria["requirement_groups"])
+        build_scoring_requirement_lines_from_entries(
+            job_criteria.get("scoring_requirement_entries", [])
+        )
     )
     required_skills = _build_job_skill_list(
         required_requirement_lines,
@@ -385,6 +387,11 @@ def _build_job_output(
             required_skills,
             open_set_requirements,
             embedding_matcher,
+        ),
+        "promoted_requirements": job_criteria.get("promoted_requirements", []),
+        "scoring_requirement_entries": job_criteria.get(
+            "scoring_requirement_entries",
+            [],
         ),
         "responsibility_signals": job_criteria.get("responsibility_signals", []),
         "technical_responsibility_candidates": job_criteria.get(

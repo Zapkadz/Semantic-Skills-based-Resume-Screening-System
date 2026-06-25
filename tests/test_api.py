@@ -15,7 +15,7 @@ def test_health_endpoint_returns_service_status() -> None:
     assert result["status"] == "ok"
     assert result["service"] == "semantic-skills-resume-screening"
     assert result["phase"] == (
-        "Phase 33 - Responsibility Signal Extraction Foundation"
+        "Phase 34 - Controlled Responsibility-to-Requirement Promotion"
     )
     assert "embedding_enabled" in result
     assert "embedding_model" in result
