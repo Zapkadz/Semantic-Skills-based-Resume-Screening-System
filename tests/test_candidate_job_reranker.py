@@ -89,7 +89,10 @@ def test_score_retrieved_job_match_includes_skill_gap_fields(
             "candidates": [
                 {
                     "final_score": 72,
+                    "raw_base_score": 74,
+                    "role_calibrated_score": 72,
                     "base_score": 72,
+                    "role_score_adjustment": -2,
                     "recommendation": "Review",
                     "scores": {
                         "evidence": 0.75,
@@ -106,6 +109,16 @@ def test_score_retrieved_job_match_includes_skill_gap_fields(
                     ],
                     "missing_skills": ["AWS"],
                     "nice_to_have_matches": [],
+                    "core_requirement_fit_summary": {
+                        "core": {
+                            "total": 2,
+                            "confirmed_coverage": 0.5,
+                        }
+                    },
+                    "role_alignment_impact": {
+                        "applied": True,
+                        "reason": "The profile is adjacent to the JD role family, but core requirements still need stronger direct evidence.",
+                    },
                     "requirement_group_summary": {},
                     "review_card": {
                         "strengths": ["Strong Java background."],
@@ -173,6 +186,9 @@ def test_score_retrieved_job_match_includes_skill_gap_fields(
     )
 
     assert result["fit_label"] == "Good Fit"
+    assert result["raw_base_score"] == 74
+    assert result["role_calibrated_score"] == 72
+    assert result["role_score_adjustment"] == -2
     assert result["skill_gap_summary"]["missing_must_have_count"] == 1
     assert result["skill_gaps"]["missing_must_have"] == [
         {

@@ -19,6 +19,10 @@ def explain_skill_gaps(
     nice_to_have_matches = list(candidate_result.get("nice_to_have_matches", []))
     score_breakdown = dict(candidate_result.get("scores", {}))
     hard_skill_gate = dict(candidate_result.get("hard_skill_gate", {}))
+    role_alignment_impact = dict(candidate_result.get("role_alignment_impact", {}))
+    core_requirement_fit_summary = dict(
+        candidate_result.get("core_requirement_fit_summary", {})
+    )
     job_output = job_output or {}
 
     skill_gaps = {
@@ -30,6 +34,8 @@ def explain_skill_gaps(
             hard_skill_gate,
             matched_skills,
             job_output,
+            role_alignment_impact,
+            core_requirement_fit_summary,
         ),
     }
     skill_gap_summary = build_skill_gap_summary(skill_gaps)
@@ -117,10 +123,15 @@ def build_presentation_gaps(
     hard_skill_gate: dict[str, Any],
     matched_skills: list[dict[str, Any]],
     job_output: dict[str, Any] | None = None,
+    role_alignment_impact: dict[str, Any] | None = None,
+    core_requirement_fit_summary: dict[str, Any] | None = None,
 ) -> list[dict[str, Any]]:
     """Build CV presentation gaps when skills may exist but evidence is under-surfaced."""
     presentation_gaps: list[dict[str, Any]] = []
     job_output = job_output or {}
+    role_alignment_impact = role_alignment_impact or {}
+    core_requirement_fit_summary = core_requirement_fit_summary or {}
+    core_bucket = _requirement_fit_bucket(core_requirement_fit_summary, "core")
 
     if float(score_breakdown.get("evidence", 0.0)) < 0.50:
         presentation_gaps.append(
@@ -149,6 +160,29 @@ def build_presentation_gaps(
                 "gap_type": "presentation",
                 "message": (
                     "Several matched skills are still keyword-level; rewrite them as concrete experience or project bullets."
+                ),
+            }
+        )
+
+    if (
+        int(core_bucket.get("total", 0)) >= 2
+        and float(core_bucket.get("confirmed_coverage", 0.0)) < 0.5
+    ):
+        presentation_gaps.append(
+            {
+                "gap_type": "presentation",
+                "message": (
+                    "Prioritize concrete bullets for the job's core technical requirements before adding extra optional skills."
+                ),
+            }
+        )
+
+    if role_alignment_impact.get("applied") is True:
+        presentation_gaps.append(
+            {
+                "gap_type": "presentation",
+                "message": (
+                    "Show more direct evidence for the target role family so the match is not driven mainly by adjacent-role or semantic overlap."
                 ),
             }
         )
@@ -268,3 +302,9 @@ def _dedupe_gap_messages(gaps: list[dict[str, Any]]) -> list[dict[str, Any]]:
         deduped.append(gap)
 
     return deduped
+
+
+def _requirement_fit_bucket(summary: dict[str, Any], bucket_name: str) -> dict[str, Any]:
+    """Return one nested requirement-fit bucket with safe defaults."""
+    bucket = summary.get(bucket_name, {})
+    return bucket if isinstance(bucket, dict) else {}

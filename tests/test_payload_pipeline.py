@@ -268,8 +268,13 @@ def test_run_screening_payload_returns_ranked_candidates_with_web_ids() -> None:
     assert candidate["source_file"] == "application-123__candidate-456.txt"
     assert candidate["final_score"] == 87
     assert candidate["recommendation"] == "Strong Review"
+    assert candidate["raw_base_score"] == 87
+    assert candidate["role_calibrated_score"] == 87
+    assert candidate["role_score_adjustment"] == 0
     assert candidate["candidate_role_profile"]["primary_role_family"] == "BACKEND_ENGINEERING"
     assert candidate["role_family_alignment"]["status"] == "strong_alignment"
+    assert candidate["role_alignment_impact"]["reason_code"] == "strong_same_role_alignment"
+    assert candidate["core_requirement_fit_summary"]["core"]["total"] == 4
     assert candidate["review_card"]["job_title"] == "Backend Java Developer"
     assert candidate["review_card"]["concerns"] == [
         "Optional nice-to-have gaps: AWS and Kafka."
@@ -404,6 +409,7 @@ def test_run_screening_payload_applies_role_family_penalty_for_semantic_only_mis
         "misaligned",
     }
     assert candidate["base_score"] <= candidate["raw_base_score"]
+    assert candidate["role_score_adjustment"] < 0
 
 
 def test_run_screening_payload_can_use_injected_multilingual_embedding_matcher() -> None:

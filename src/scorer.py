@@ -11,6 +11,7 @@ from src.role_family import (
     calculate_role_family_alignment,
     infer_candidate_role_profile,
 )
+from src.technical_intent import CONTEXTUAL_INTENT, CORE_INTENT, SUPPORTING_INTENT
 from src.text_normalization import normalize_search_text, repair_mojibake, strip_accents
 
 
@@ -67,6 +68,11 @@ EXPLICIT_EXPERIENCE_PATTERN = re.compile(
     r"(?P<years>\d+)\+?\s*(?:year|years|yr|yrs|nam)\s+"
     r"(?:of\s+)?(?:experience|kinh nghiem)"
 )
+INTENT_STRENGTHS = (
+    CORE_INTENT,
+    SUPPORTING_INTENT,
+    CONTEXTUAL_INTENT,
+)
 
 
 def score_candidate(
@@ -98,6 +104,7 @@ def score_candidate(
         "nice_to_have": calculate_nice_to_have_score(nice_to_have_matches),
     }
     raw_base_score = calculate_final_score(scores)
+    core_requirement_fit_summary = calculate_requirement_fit_summary(matches)
     candidate_role_profile = infer_candidate_role_profile(
         resume_profile,
         matches=matches,
@@ -106,13 +113,15 @@ def score_candidate(
         job_criteria.get("job_role_profile", {}),
         candidate_role_profile,
     )
-    role_alignment_adjustment = calculate_role_alignment_adjustment(
+    role_alignment_impact = build_role_alignment_impact(
         role_family_alignment,
         matches,
+        core_requirement_fit_summary,
     )
-    base_score = max(0, min(100, raw_base_score + role_alignment_adjustment))
+    role_score_adjustment = int(role_alignment_impact.get("adjustment", 0) or 0)
+    role_calibrated_score = max(0, min(100, raw_base_score + role_score_adjustment))
     final_score, hard_skill_gate = apply_hard_skill_gate(
-        base_score,
+        role_calibrated_score,
         scores,
         matches,
     )
@@ -120,7 +129,9 @@ def score_candidate(
     return {
         "candidate_name": resume_profile.get("candidate_name", ""),
         "raw_base_score": raw_base_score,
-        "base_score": base_score,
+        "role_calibrated_score": role_calibrated_score,
+        "base_score": role_calibrated_score,
+        "role_score_adjustment": role_score_adjustment,
         "final_score": final_score,
         "recommendation": get_recommendation_label(final_score),
         "scores": scores,
@@ -131,11 +142,13 @@ def score_candidate(
         "seniority": candidate_seniority,
         "experience_years": round(candidate_years, 2),
         "domain": candidate_domains,
+        "core_requirement_fit_summary": core_requirement_fit_summary,
         "candidate_role_profile": candidate_role_profile,
         "role_family_alignment": {
             **role_family_alignment,
-            "applied_adjustment": role_alignment_adjustment,
+            "applied_adjustment": role_score_adjustment,
         },
+        "role_alignment_impact": role_alignment_impact,
     }
 
 
@@ -268,30 +281,172 @@ def calculate_final_score(scores: dict[str, float]) -> int:
     return round(weighted_score * 100)
 
 
-def calculate_role_alignment_adjustment(
+def calculate_requirement_fit_summary(
+    matches: list[dict[str, Any]],
+) -> dict[str, dict[str, int | float]]:
+    """Summarize overall/core/supporting/contextual requirement coverage."""
+    buckets = {
+        strength: _new_requirement_fit_bucket()
+        for strength in (*INTENT_STRENGTHS, "overall")
+    }
+
+    for match in matches:
+        strength = _normalize_intent_strength(match.get("intent_strength"))
+        bucket_names = ["overall", strength]
+        positive_match = _is_positive_match(match)
+        evidence_level = int(match.get("evidence_level", 0))
+        semantic_only_match = match.get("match_type") == "semantic_only_match"
+
+        for bucket_name in bucket_names:
+            bucket = buckets[bucket_name]
+            bucket["total"] += 1
+            if positive_match:
+                bucket["positive_match_count"] += 1
+                if evidence_level >= 2:
+                    bucket["confirmed_match_count"] += 1
+                else:
+                    bucket["weak_match_count"] += 1
+                if semantic_only_match:
+                    bucket["semantic_only_match_count"] += 1
+            else:
+                bucket["missing_count"] += 1
+
+    for bucket in buckets.values():
+        total = int(bucket["total"])
+        positive = int(bucket["positive_match_count"])
+        bucket["positive_coverage"] = _ratio_or_zero(positive, total)
+        bucket["confirmed_coverage"] = _ratio_or_zero(
+            int(bucket["confirmed_match_count"]),
+            total,
+        )
+        bucket["weak_match_ratio"] = _ratio_or_zero(
+            int(bucket["weak_match_count"]),
+            positive,
+        )
+        bucket["semantic_only_ratio"] = _ratio_or_zero(
+            int(bucket["semantic_only_match_count"]),
+            positive,
+        )
+
+    return buckets
+
+
+def build_role_alignment_impact(
     role_family_alignment: dict[str, Any],
     matches: list[dict[str, Any]],
-) -> int:
-    """Apply a conservative penalty only for clear role-family mismatch cases."""
+    core_requirement_fit_summary: dict[str, dict[str, int | float]] | None = None,
+) -> dict[str, Any]:
+    """Build one explainable role-aware scoring adjustment payload."""
+    fit_summary = core_requirement_fit_summary or calculate_requirement_fit_summary(matches)
     status = str(role_family_alignment.get("status", ""))
     adjustment_hint = int(role_family_alignment.get("adjustment_hint", 0) or 0)
-    if adjustment_hint >= 0:
-        return 0
+    overall_bucket = fit_summary.get("overall", _new_requirement_fit_bucket())
+    core_bucket = fit_summary.get(CORE_INTENT, _new_requirement_fit_bucket())
+    semantic_only_ratio = float(overall_bucket.get("semantic_only_ratio", 0.0))
+    core_total = int(core_bucket.get("total", 0))
+    core_positive_coverage = float(core_bucket.get("positive_coverage", 0.0))
+    core_confirmed_coverage = float(core_bucket.get("confirmed_coverage", 0.0))
+    core_semantic_only_ratio = float(core_bucket.get("semantic_only_ratio", 0.0))
 
-    if status not in {"partial_alignment", "misaligned"}:
-        return 0
+    adjustment = 0
+    applied = False
+    reason_code = "no_adjustment"
+    reason = str(role_family_alignment.get("note", "")).strip()
 
-    semantic_only_ratio = _semantic_only_ratio(matches)
-    if status == "misaligned":
-        if semantic_only_ratio >= 0.5:
-            return adjustment_hint
-        if semantic_only_ratio > 0.0:
-            return max(adjustment_hint, -4)
+    if status == "strong_alignment":
+        reason_code = "strong_same_role_alignment"
+        if core_total >= 2 and core_confirmed_coverage >= 0.67:
+            reason = (
+                "The candidate's strongest technical profile matches the JD role "
+                "family and most core requirements have confirmed evidence."
+            )
+        else:
+            reason = reason or (
+                "The candidate's strongest technical profile aligns with the JD role family."
+            )
+    elif status == "generic_alignment":
+        reason_code = "generic_candidate_role_signal"
+        reason = reason or (
+            "The candidate profile is still too generic for a strong role-aware adjustment."
+        )
+    elif status == "unknown_alignment":
+        reason_code = "generic_job_role_signal"
+        reason = reason or (
+            "The JD role-family signal is too generic for role-aware calibration."
+        )
+    elif status == "partial_alignment":
+        if core_total >= 1 and core_semantic_only_ratio >= 0.5 and core_confirmed_coverage < 0.5:
+            adjustment = min(adjustment_hint, -4)
+            applied = True
+            reason_code = "adjacent_role_semantic_core_overlap"
+            reason = (
+                "The profile overlaps with an adjacent role family, but most core "
+                "requirements are still semantic-only or weakly confirmed."
+            )
+        elif core_total >= 1 and core_positive_coverage >= 0.5 and core_confirmed_coverage < 0.5:
+            adjustment = min(adjustment_hint, -3)
+            applied = True
+            reason_code = "adjacent_role_weak_core_overlap"
+            reason = (
+                "The profile is adjacent to the JD role family, but core "
+                "requirements still need stronger direct evidence."
+            )
+        elif semantic_only_ratio >= 0.5 and adjustment_hint < 0:
+            adjustment = adjustment_hint
+            applied = True
+            reason_code = "adjacent_role_semantic_overlap"
+            reason = (
+                "The profile overlaps with an adjacent role family, but several "
+                "matches rely on semantic-only evidence."
+            )
+        else:
+            reason_code = "adjacent_role_with_confirmed_overlap"
+            reason = reason or (
+                "The profile shows adjacent role-family overlap, but confirmed evidence keeps the calibration light."
+            )
+    elif status == "misaligned":
+        if core_total >= 2 and core_semantic_only_ratio >= 0.5 and core_confirmed_coverage < 0.5:
+            adjustment = min(adjustment_hint, -10)
+            applied = True
+            reason_code = "misaligned_semantic_core_overlap"
+            reason = (
+                "The JD is concentrated in one role family, but the candidate's "
+                "core overlap is mostly semantic-only or weakly confirmed."
+            )
+        elif core_total >= 1 and core_positive_coverage >= 0.5 and core_confirmed_coverage == 0.0:
+            adjustment = min(adjustment_hint, -8)
+            applied = True
+            reason_code = "misaligned_unconfirmed_core_overlap"
+            reason = (
+                "Some core overlap exists, but it is not backed by confirmed "
+                "evidence inside the JD's primary role family."
+            )
+        elif semantic_only_ratio > 0.0 and adjustment_hint < 0:
+            adjustment = max(adjustment_hint, -4)
+            applied = True
+            reason_code = "misaligned_partial_overlap"
+            reason = (
+                "Some technical overlap exists, but the candidate's strongest "
+                "profile still points to a different primary role family."
+            )
+        else:
+            reason_code = "misaligned_without_reliable_core_overlap"
+            reason = reason or (
+                "The candidate's strongest technical profile points to a different role family than the JD."
+            )
 
-    if status == "partial_alignment" and semantic_only_ratio >= 0.5:
-        return adjustment_hint
-
-    return 0
+    return {
+        "status": status,
+        "applied": applied,
+        "adjustment": adjustment,
+        "reason_code": reason_code,
+        "reason": reason,
+        "semantic_only_ratio": semantic_only_ratio,
+        "core_total": core_total,
+        "core_positive_coverage": core_positive_coverage,
+        "core_confirmed_coverage": core_confirmed_coverage,
+        "core_semantic_only_ratio": core_semantic_only_ratio,
+    }
 
 
 def apply_hard_skill_gate(
@@ -579,6 +734,33 @@ def _semantic_only_ratio(matches: list[dict[str, Any]]) -> float:
     return _coverage(len(semantic_only_matches), len(positive_matches))
 
 
+def _new_requirement_fit_bucket() -> dict[str, int | float]:
+    """Create one zeroed requirement-fit bucket."""
+    return {
+        "total": 0,
+        "positive_match_count": 0,
+        "confirmed_match_count": 0,
+        "weak_match_count": 0,
+        "missing_count": 0,
+        "semantic_only_match_count": 0,
+        "positive_coverage": 0.0,
+        "confirmed_coverage": 0.0,
+        "weak_match_ratio": 0.0,
+        "semantic_only_ratio": 0.0,
+    }
+
+
+def _normalize_intent_strength(value: Any) -> str:
+    """Map arbitrary intent-strength values to stable known buckets."""
+    normalized_value = str(value or "").strip().casefold()
+    if normalized_value == CORE_INTENT:
+        return CORE_INTENT
+    if normalized_value == SUPPORTING_INTENT:
+        return SUPPORTING_INTENT
+
+    return CONTEXTUAL_INTENT
+
+
 def _duration_to_months(duration: str) -> int:
     """Convert a simple duration string to inclusive months."""
     normalized_duration = _normalize_duration_text(duration)
@@ -704,6 +886,14 @@ def _coverage(count: int, total: int) -> float:
 def _gate_reason(code: str, message: str) -> dict[str, str]:
     """Build a stable hard-skill gate reason object."""
     return {"code": code, "message": message}
+
+
+def _ratio_or_zero(count: int, total: int) -> float:
+    """Return a rounded ratio, but keep empty buckets at 0.0 instead of 1.0."""
+    if total <= 0:
+        return 0.0
+
+    return _round_score(count / total)
 
 
 def _round_score(value: float) -> float:
