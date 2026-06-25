@@ -2,6 +2,9 @@ from src.role_family import (
     BACKEND_ENGINEERING,
     COMPUTER_VISION_EKYC,
     DATA_AI_ENGINEERING,
+    DEVOPS_CLOUD,
+    IT_SUPPORT_INFRA,
+    SECURITY_GRC,
     STRONG_ALIGNMENT,
     PARTIAL_ALIGNMENT,
     infer_candidate_role_profile,
@@ -91,3 +94,48 @@ def test_calculate_role_family_alignment_handles_strong_and_partial_alignment() 
     assert strong["adjustment_hint"] == 0
     assert partial["status"] == PARTIAL_ALIGNMENT
     assert partial["adjustment_hint"] == -2
+
+
+def test_infer_job_role_profile_detects_it_support_infrastructure_role_family() -> None:
+    profile = infer_job_role_profile(
+        job_title="IT Staff / IT Support / IT Helpdesk",
+        required_skills=[],
+        open_set_requirements=["Active Directory", "DNS", "DHCP", "Firewall"],
+        responsibilities=[
+            "Manage Active Directory and troubleshoot DNS/DHCP issues.",
+            "Support firewall, router, switch, VPN, and Google Workspace incidents.",
+        ],
+        typed_requirements=[],
+    )
+
+    assert profile["primary_role_family"] == IT_SUPPORT_INFRA
+    assert profile["confidence"] >= 0.7
+
+
+def test_infer_job_role_profile_keeps_devops_cloud_separate_from_it_support_infra() -> None:
+    profile = infer_job_role_profile(
+        job_title="Cloud DevOps Engineer",
+        required_skills=["AWS", "Docker", "Kubernetes", "Terraform"],
+        open_set_requirements=[],
+        responsibilities=[
+            "Build CI/CD pipelines and manage cloud infrastructure.",
+            "Monitor Kubernetes workloads with Prometheus and Grafana.",
+        ],
+        typed_requirements=[],
+    )
+
+    assert profile["primary_role_family"] == DEVOPS_CLOUD
+
+
+def test_infer_job_role_profile_keeps_security_grc_separate_from_it_support_infra() -> None:
+    profile = infer_job_role_profile(
+        job_title="IT Security & Governance Officer",
+        required_skills=[],
+        open_set_requirements=["Qualys", "vulnerability management", "ISO 27001"],
+        responsibilities=[
+            "Review governance controls and support security audits.",
+        ],
+        typed_requirements=[],
+    )
+
+    assert profile["primary_role_family"] == SECURITY_GRC

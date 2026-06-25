@@ -1,7 +1,14 @@
-from src.role_family import BACKEND_ENGINEERING, COMPUTER_VISION_EKYC, SECURITY_GRC
+from src.role_family import (
+    BACKEND_ENGINEERING,
+    COMPUTER_VISION_EKYC,
+    IT_SUPPORT_INFRA,
+    SECURITY_GRC,
+)
 from src.technical_intent import (
     CORE_INTENT,
     CORE_STACK,
+    INFRA_IDENTITY_ADMIN,
+    NETWORK_OPERATIONS,
     MODEL_TECHNIQUE,
     SECURITY_CONTROL,
     build_requirement_intent_summary,
@@ -63,3 +70,29 @@ def test_build_requirement_intent_summary_marks_security_control_open_set() -> N
             "intent_reason": "security_control_signal",
         },
     ]
+
+
+def test_infer_requirement_technical_intent_detects_it_support_infra_identity_admin() -> None:
+    intent = infer_requirement_technical_intent(
+        "Active Directory",
+        role_family=IT_SUPPORT_INFRA,
+    )
+
+    assert intent == {
+        "intent_type": INFRA_IDENTITY_ADMIN,
+        "intent_strength": CORE_INTENT,
+        "intent_reason": "infra_identity_admin_signal",
+    }
+
+
+def test_infer_requirement_technical_intent_detects_it_support_network_operations() -> None:
+    intent = infer_requirement_technical_intent(
+        "DNS",
+        role_family=IT_SUPPORT_INFRA,
+    )
+
+    assert intent == {
+        "intent_type": NETWORK_OPERATIONS,
+        "intent_strength": CORE_INTENT,
+        "intent_reason": "infra_network_operations_signal",
+    }
