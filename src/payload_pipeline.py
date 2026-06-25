@@ -26,7 +26,7 @@ from src.runtime_diagnostics import build_screening_diagnostics, build_trace_id
 from src.scorer import rank_candidates, score_candidate
 from src.screening_pipeline import (
     DEFAULT_TAXONOMY_PATH,
-    _build_open_set_requirements,
+    _build_open_set_requirement_data,
     _build_job_skill_list,
     _build_requirement_group_summary,
     _enrich_resume_skills,
@@ -152,12 +152,13 @@ def run_screening_payload(
         use_full_text_fallback=True,
         include_unknown_skills=False,
     )
-    unknown_requirements = _build_open_set_requirements(
+    open_set_data = _build_open_set_requirement_data(
         {**job_criteria, "must_have_skills": required_requirement_lines},
         "\n".join(required_requirement_lines),
         required_skills,
         taxonomy,
     )
+    unknown_requirements = open_set_data["open_set_requirements"]
     taxonomy_coverage = build_taxonomy_coverage(
         required_skills,
         unknown_requirements,
@@ -170,14 +171,15 @@ def run_screening_payload(
         include_unknown_skills=embedding_matcher is not None,
     )
     if embedding_matcher is not None:
+        nice_to_have_open_set_data = _build_open_set_requirement_data(
+            {**job_criteria, "must_have_skills": nice_to_have_requirement_lines},
+            "\n".join(nice_to_have_requirement_lines),
+            nice_to_have_skills,
+            taxonomy,
+        )
         nice_to_have_skills = merge_skill_lists(
             nice_to_have_skills,
-            _build_open_set_requirements(
-                {**job_criteria, "must_have_skills": nice_to_have_requirement_lines},
-                "\n".join(nice_to_have_requirement_lines),
-                nice_to_have_skills,
-                taxonomy,
-            ),
+            nice_to_have_open_set_data["open_set_requirements"],
         )
 
     candidate_documents = [
@@ -227,7 +229,7 @@ def run_screening_payload(
         required_skills,
         nice_to_have_skills,
         taxonomy_coverage,
-        unknown_requirements,
+        open_set_data,
         embedding_matcher,
     )
 
@@ -316,17 +318,25 @@ def _build_job_output(
     required_skills: list[str],
     nice_to_have_skills: list[str],
     taxonomy_coverage: dict[str, Any] | None = None,
-    open_set_requirements: list[str] | None = None,
+    open_set_data: dict[str, Any] | None = None,
     embedding_matcher: SemanticEmbeddingMatcher | None = None,
 ) -> dict[str, Any]:
     """Build a stable API job response object."""
-    open_set_requirements = open_set_requirements or []
+    open_set_data = open_set_data or {}
+    open_set_requirements = list(open_set_data.get("open_set_requirements", []))
     return {
         "job_id": job_payload.get("job_id"),
         "title": job_criteria.get("job_title", "") or job_payload.get("job_title", ""),
         "must_have_skills": required_skills,
         "nice_to_have_skills": nice_to_have_skills,
         "open_set_requirements": open_set_requirements,
+        "open_set_candidates": list(open_set_data.get("open_set_candidates", [])),
+        "discarded_open_set_candidates": list(
+            open_set_data.get("discarded_open_set_candidates", [])
+        ),
+        "open_set_filter_summary": dict(
+            open_set_data.get("open_set_filter_summary", {})
+        ),
         "minimum_experience_years": job_criteria.get("minimum_experience_years", 0),
         "seniority": job_criteria.get("seniority", "Not specified"),
         "domain": job_criteria.get("domain", []),

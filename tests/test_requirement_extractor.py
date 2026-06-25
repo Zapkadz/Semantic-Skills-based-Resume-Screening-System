@@ -1,5 +1,6 @@
 from src.requirement_extractor import (
     build_screening_confidence,
+    extract_unknown_requirement_debug,
     extract_unknown_requirement_texts,
 )
 
@@ -26,10 +27,6 @@ def test_extract_unknown_requirement_texts_decomposes_long_security_requirements
         "Commvault",
         "Qualys",
         "patch upgrades for Windows",
-        "IT Security Operations",
-        "Governance",
-        "Compliance",
-        "Personal Data Protection",
         "vulnerability management",
         "access control",
         "CIPP/E",
@@ -38,6 +35,46 @@ def test_extract_unknown_requirement_texts_decomposes_long_security_requirements
         "ISO 27001",
         "Security+",
     ]
+
+
+def test_extract_unknown_requirement_debug_returns_kept_and_discarded_candidates() -> None:
+    job_criteria = {
+        "must_have_skills": [
+            "Linux",
+            "Governance",
+            "Qualys",
+            "Personal Data Protection",
+            "vulnerability management",
+        ]
+    }
+
+    debug_payload = extract_unknown_requirement_debug(job_criteria, "", {})
+
+    assert debug_payload["open_set_requirements"] == [
+        "Linux",
+        "Qualys",
+        "vulnerability management",
+    ]
+    assert [
+        (candidate["text"], candidate["status"], candidate["reason"])
+        for candidate in debug_payload["open_set_candidates"]
+    ] == [
+        ("Linux", "kept", "explicit_tool_signal"),
+        ("Governance", "discarded", "generic_context_only"),
+        ("Qualys", "kept", "explicit_tool_signal"),
+        ("Personal Data Protection", "discarded", "generic_context_only"),
+        ("vulnerability management", "kept", "technical_capability_phrase"),
+    ]
+    assert debug_payload["open_set_filter_summary"] == {
+        "candidate_count": 5,
+        "kept_count": 3,
+        "discarded_count": 2,
+        "kept_for_matching_count": 3,
+        "kept_for_suggestion_count": 3,
+        "discarded_reason_counts": {
+            "generic_context_only": 2,
+        },
+    }
 
 
 def test_extract_unknown_requirement_texts_skips_taxonomy_known_phrases() -> None:

@@ -26,6 +26,14 @@ def test_run_screening_pipeline_returns_ranked_demo_result(tmp_path: Path) -> No
     ]
     assert job["nice_to_have_skills"] == ["AWS", "Kafka", "Kubernetes"]
     assert job["open_set_requirements"] == []
+    assert job["open_set_filter_summary"] == {
+        "candidate_count": 0,
+        "kept_count": 0,
+        "discarded_count": 0,
+        "kept_for_matching_count": 0,
+        "kept_for_suggestion_count": 0,
+        "discarded_reason_counts": {},
+    }
     assert job["minimum_experience_years"] == 1
     assert job["seniority"] == "Junior"
     assert job["domain"] == ["Backend", "Web Application"]

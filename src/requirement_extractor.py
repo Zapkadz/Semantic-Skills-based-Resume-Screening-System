@@ -5,6 +5,10 @@ from __future__ import annotations
 import re
 from typing import Any
 
+from src.open_set_requirement_filter import (
+    build_open_set_filter_summary,
+    filter_open_set_requirement_candidates,
+)
 from src.skill_extractor import extract_taxonomy_skills_from_text, merge_skill_lists
 from src.requirement_types import (
     CERTIFICATION_REQUIREMENT,
@@ -148,8 +152,32 @@ def extract_unknown_requirement_texts(
     job_criteria: dict[str, Any],
     jd_text: str,
     taxonomy: dict[str, dict[str, Any]],
+    known_requirement_labels: list[str] | None = None,
 ) -> list[str]:
     """Return only unknown requirement text values for open-set matching."""
+    candidates = extract_unknown_requirement_candidates(
+        job_criteria,
+        jd_text,
+        taxonomy,
+        known_requirement_labels=known_requirement_labels,
+    )
+    return merge_skill_lists(
+        [
+            str(candidate.get("canonical_text", "")).strip()
+            for candidate in candidates
+            if candidate.get("keep_for_matching") is True
+            and str(candidate.get("canonical_text", "")).strip()
+        ]
+    )
+
+
+def extract_unknown_requirement_candidates(
+    job_criteria: dict[str, Any],
+    jd_text: str,
+    taxonomy: dict[str, dict[str, Any]],
+    known_requirement_labels: list[str] | None = None,
+) -> list[dict[str, Any]]:
+    """Return scored open-set requirement candidates before final text flattening."""
     typed_requirements = list(job_criteria.get("typed_requirements", []))
     if typed_requirements:
         relevant_lines = [
@@ -170,7 +198,43 @@ def extract_unknown_requirement_texts(
             job_criteria = {**job_criteria, "must_have_skills": relevant_lines}
 
     units = extract_requirement_units(job_criteria, jd_text, taxonomy)
-    return merge_skill_lists([unit["text"] for unit in units])
+    return filter_open_set_requirement_candidates(
+        units,
+        known_requirement_labels=known_requirement_labels,
+    )
+
+
+def extract_unknown_requirement_debug(
+    job_criteria: dict[str, Any],
+    jd_text: str,
+    taxonomy: dict[str, dict[str, Any]],
+    known_requirement_labels: list[str] | None = None,
+) -> dict[str, Any]:
+    """Return open-set requirement texts plus filter metadata for diagnostics."""
+    candidates = extract_unknown_requirement_candidates(
+        job_criteria,
+        jd_text,
+        taxonomy,
+        known_requirement_labels=known_requirement_labels,
+    )
+    kept_candidates = [
+        candidate for candidate in candidates if candidate.get("keep_for_matching") is True
+    ]
+    discarded_candidates = [
+        candidate for candidate in candidates if candidate.get("status") != "kept"
+    ]
+    return {
+        "open_set_requirements": merge_skill_lists(
+            [
+                str(candidate.get("canonical_text", "")).strip()
+                for candidate in kept_candidates
+                if str(candidate.get("canonical_text", "")).strip()
+            ]
+        ),
+        "open_set_candidates": candidates,
+        "discarded_open_set_candidates": discarded_candidates,
+        "open_set_filter_summary": build_open_set_filter_summary(candidates),
+    }
 
 
 def build_screening_confidence(

@@ -50,6 +50,7 @@ def test_build_screening_diagnostics_returns_payload_and_runtime_summary() -> No
             "screening_confidence": {"level": "low"},
             "taxonomy_coverage": {"coverage_ratio": 0.0},
             "open_set_requirements": [],
+            "open_set_filter_summary": {"candidate_count": 0},
         },
         ranked_candidates=[{"candidate_id": 2}],
         embedding_enabled=False,
@@ -59,6 +60,7 @@ def test_build_screening_diagnostics_returns_payload_and_runtime_summary() -> No
     assert result["payload"]["candidates"]["flagged_count"] == 1
     assert result["runtime"]["job_quality"]["quality_label"] == "insufficient_jd_data"
     assert result["runtime"]["candidate_count"] == 1
+    assert result["runtime"]["open_set_filter_summary"] == {"candidate_count": 0}
 
 
 def test_build_recommendation_diagnostics_returns_flagged_jobs_summary() -> None:
@@ -118,3 +120,4 @@ def test_build_recommendation_diagnostics_returns_flagged_jobs_summary() -> None
     assert result["payload"]["jobs"]["flagged_count"] == 1
     assert result["payload"]["jobs"]["excluded_job_ids"] == [4]
     assert result["runtime"]["top_job_ids"] == [10]
+    assert result["runtime"]["top_job_open_set_requirement_counts"] == {10: 0}

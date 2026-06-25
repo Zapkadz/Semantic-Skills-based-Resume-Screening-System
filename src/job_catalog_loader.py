@@ -18,7 +18,7 @@ from src.payload_pipeline import build_jd_text_from_payload
 from src.screening_pipeline import (
     DEFAULT_TAXONOMY_PATH,
     _build_job_skill_list,
-    _build_open_set_requirements,
+    _build_open_set_requirement_data,
 )
 from src.skill_taxonomy import load_taxonomy
 
@@ -53,12 +53,13 @@ def build_job_catalog(
             use_full_text_fallback=True,
             include_unknown_skills=False,
         )
-        open_set_requirements = _build_open_set_requirements(
+        open_set_data = _build_open_set_requirement_data(
             {**job_criteria, "must_have_skills": required_requirement_lines},
             "\n".join(required_requirement_lines),
             must_have_skills,
             taxonomy,
         )
+        open_set_requirements = open_set_data["open_set_requirements"]
         nice_to_have_skills = _build_job_skill_list(
             nice_to_have_requirement_lines,
             "\n".join(nice_to_have_requirement_lines),
@@ -89,6 +90,11 @@ def build_job_catalog(
                 "must_have_skills": must_have_skills,
                 "nice_to_have_skills": nice_to_have_skills,
                 "open_set_requirements": open_set_requirements,
+                "open_set_candidates": open_set_data["open_set_candidates"],
+                "discarded_open_set_candidates": open_set_data[
+                    "discarded_open_set_candidates"
+                ],
+                "open_set_filter_summary": open_set_data["open_set_filter_summary"],
                 "minimum_experience_years": job_criteria.get(
                     "minimum_experience_years",
                     0,

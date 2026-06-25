@@ -197,6 +197,7 @@ def test_core_logic_benchmark_open_set_technical_requirement_is_preserved() -> N
 
     assert result["job"]["must_have_skills"] == []
     assert result["job"]["open_set_requirements"] == ["identity verification"]
+    assert result["job"]["open_set_filter_summary"]["kept_count"] == 1
     assert result["job"]["taxonomy_coverage"]["unknown_count"] == 1
 
     match = result["candidates"][0]["matched_skills"][0]

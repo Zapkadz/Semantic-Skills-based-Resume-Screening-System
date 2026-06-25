@@ -46,6 +46,7 @@ def build_screening_diagnostics(
             "screening_confidence": job_output.get("screening_confidence", {}),
             "taxonomy_coverage": job_output.get("taxonomy_coverage", {}),
             "open_set_requirement_count": len(job_output.get("open_set_requirements", [])),
+            "open_set_filter_summary": job_output.get("open_set_filter_summary", {}),
         },
     }
 
@@ -81,6 +82,10 @@ def build_recommendation_diagnostics(
             **job_quality_stats,
             "top_job_ids": [job.get("job_id") for job in top_jobs],
             "excluded_job_ids": [job.get("job_id") for job in excluded_jobs],
+            "top_job_open_set_requirement_counts": {
+                job.get("job_id"): len(job.get("open_set_requirements", []))
+                for job in top_jobs
+            },
         },
     }
 

@@ -110,6 +110,12 @@ def score_retrieved_job_match(
         "taxonomy_coverage": job_output.get("taxonomy_coverage", {}),
         "screening_confidence": job_output.get("screening_confidence", {}),
         "open_set_requirements": job_output.get("open_set_requirements", []),
+        "open_set_candidates": job_output.get("open_set_candidates", []),
+        "discarded_open_set_candidates": job_output.get(
+            "discarded_open_set_candidates",
+            [],
+        ),
+        "open_set_filter_summary": job_output.get("open_set_filter_summary", {}),
         "typed_requirements": job_output.get("typed_requirements", []),
         "requirement_groups": job_output.get("requirement_groups", {}),
         "job_quality": job_card.get("job_quality", {}),

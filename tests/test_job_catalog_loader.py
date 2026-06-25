@@ -35,6 +35,14 @@ def test_build_job_catalog_returns_normalized_job_cards() -> None:
     assert job_card["minimum_experience_years"] == 1
     assert job_card["domain"] == ["Backend", "Web Application"]
     assert job_card["open_set_requirements"] == []
+    assert job_card["open_set_filter_summary"] == {
+        "candidate_count": 0,
+        "kept_count": 0,
+        "discarded_count": 0,
+        "kept_for_matching_count": 0,
+        "kept_for_suggestion_count": 0,
+        "discarded_reason_counts": {},
+    }
     assert job_card["taxonomy_coverage"]["coverage_ratio"] == 1.0
     assert job_card["payload_diagnostics"]["flags"] == [
         "jd_missing_responsibilities_input"
