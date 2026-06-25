@@ -232,6 +232,14 @@ def test_run_screening_payload_returns_ranked_candidates_with_web_ids() -> None:
         "Docker",
     ]
     assert result["job"]["open_set_requirements"] == []
+    assert result["job"]["open_set_filter_summary"] == {
+        "candidate_count": 0,
+        "kept_count": 0,
+        "discarded_count": 0,
+        "kept_for_matching_count": 0,
+        "kept_for_suggestion_count": 0,
+        "discarded_reason_counts": {},
+    }
     assert result["job"]["taxonomy_coverage"] == {
         "known_count": 5,
         "unknown_count": 0,
@@ -380,6 +388,7 @@ def test_run_screening_payload_can_use_injected_multilingual_embedding_matcher()
         "unknown_requirements": ["identity verification"],
     }
     assert result["job"]["open_set_requirements"] == ["identity verification"]
+    assert result["job"]["open_set_filter_summary"]["kept_count"] == 1
     assert result["job"]["screening_confidence"] == {
         "level": "medium",
         "known_requirement_count": 0,
@@ -455,6 +464,10 @@ def test_run_screening_payload_open_set_security_role_without_taxonomy(
     assert result["job"]["must_have_skills"] == []
     assert "Qualys" in result["job"]["open_set_requirements"]
     assert "vulnerability management" in result["job"]["open_set_requirements"]
+    assert "Governance" not in result["job"]["open_set_requirements"]
+    assert "Compliance" not in result["job"]["open_set_requirements"]
+    assert "Personal Data Protection" not in result["job"]["open_set_requirements"]
+    assert "open_set_filter_summary" in result["job"]
     assert result["job"]["screening_confidence"]["level"] == "medium"
     assert result["job"]["domain"] == ["IT Security/GRC"]
 
@@ -620,7 +633,10 @@ def test_run_screening_payload_handles_html_jd_from_php_editor(
 
     assert "Qualys" in result["job"]["open_set_requirements"]
     assert "vulnerability management" in result["job"]["open_set_requirements"]
+    assert "Governance" not in result["job"]["open_set_requirements"]
+    assert "Compliance" not in result["job"]["open_set_requirements"]
     assert result["job"]["screening_confidence"]["open_set_requirement_count"] > 1
+    assert "open_set_filter_summary" in result["job"]
 
     candidate = result["candidates"][0]
     assert candidate["experience_years"] >= 5

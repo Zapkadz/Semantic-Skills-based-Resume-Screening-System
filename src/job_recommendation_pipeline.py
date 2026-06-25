@@ -161,6 +161,12 @@ def _build_excluded_job_summary(job_card: dict[str, Any]) -> dict[str, Any]:
         "taxonomy_coverage": job_card.get("taxonomy_coverage", {}),
         "typed_requirements": job_card.get("typed_requirements", []),
         "open_set_requirements": job_card.get("open_set_requirements", []),
+        "open_set_candidates": job_card.get("open_set_candidates", []),
+        "discarded_open_set_candidates": job_card.get(
+            "discarded_open_set_candidates",
+            [],
+        ),
+        "open_set_filter_summary": job_card.get("open_set_filter_summary", {}),
         "requirement_groups": job_card.get("requirement_groups", {}),
     }
 
