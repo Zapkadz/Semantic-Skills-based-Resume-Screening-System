@@ -9,6 +9,7 @@ from src.role_family import (
     BACKEND_ENGINEERING,
     COMPUTER_VISION_EKYC,
     DEVOPS_CLOUD,
+    IT_SUPPORT_INFRA,
     SECURITY_GRC,
 )
 from src.skill_taxonomy import make_lookup_key
@@ -21,6 +22,10 @@ METHOD_CAPABILITY = "METHOD_CAPABILITY"
 SECURITY_CONTROL = "SECURITY_CONTROL"
 MODEL_TECHNIQUE = "MODEL_TECHNIQUE"
 DEPLOYMENT_RUNTIME = "DEPLOYMENT_RUNTIME"
+INFRA_IDENTITY_ADMIN = "INFRA_IDENTITY_ADMIN"
+NETWORK_OPERATIONS = "NETWORK_OPERATIONS"
+SYSTEM_OPERATIONS = "SYSTEM_OPERATIONS"
+WORKPLACE_ADMIN = "WORKPLACE_ADMIN"
 GENERIC_TECHNICAL = "GENERIC_TECHNICAL"
 
 CORE_INTENT = "core"
@@ -182,6 +187,61 @@ def infer_requirement_technical_intent(
         )
     ):
         return _intent(DEPLOYMENT_RUNTIME, CORE_INTENT, "devops_runtime_signal")
+
+    if role_family == IT_SUPPORT_INFRA and any(
+        phrase in normalized_text
+        for phrase in (
+            "active directory",
+            "google workspace",
+            "microsoft 365",
+            "office 365",
+            "user account",
+            "access provisioning",
+        )
+    ):
+        return _intent(
+            INFRA_IDENTITY_ADMIN,
+            CORE_INTENT,
+            "infra_identity_admin_signal",
+        )
+
+    if role_family == IT_SUPPORT_INFRA and any(
+        phrase in normalized_text
+        for phrase in (
+            "dns",
+            "dhcp",
+            "router",
+            "switch",
+            "vpn",
+            "wifi",
+            "wifi controller",
+            "firewall",
+        )
+    ):
+        return _intent(
+            NETWORK_OPERATIONS,
+            CORE_INTENT,
+            "infra_network_operations_signal",
+        )
+
+    if role_family == IT_SUPPORT_INFRA and any(
+        phrase in normalized_text
+        for phrase in (
+            "virtualization",
+            "vmware",
+            "hyper v",
+            "hyper-v",
+            "windows server",
+            "linux administration",
+            "server administration",
+            "server",
+        )
+    ):
+        return _intent(
+            SYSTEM_OPERATIONS,
+            SUPPORTING_INTENT,
+            "infra_system_operations_signal",
+        )
 
     if typed_requirement_type == CERTIFICATION_REQUIREMENT:
         return _intent(SECURITY_CONTROL, SUPPORTING_INTENT, "certification_requirement")

@@ -789,6 +789,7 @@ def test_run_screening_payload_exposes_responsibility_signal_metadata_without_ch
     result = run_screening_payload(payload)
     job = result["job"]
 
+    assert job["job_role_profile"]["primary_role_family"] == "IT_SUPPORT_INFRA"
     assert job["must_have_skills"] == []
     assert job["open_set_requirements"] == [
         "Active Directory",

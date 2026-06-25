@@ -15,6 +15,7 @@ DATA_AI_ENGINEERING = "DATA_AI_ENGINEERING"
 COMPUTER_VISION_EKYC = "COMPUTER_VISION_EKYC"
 SECURITY_GRC = "SECURITY_GRC"
 DEVOPS_CLOUD = "DEVOPS_CLOUD"
+IT_SUPPORT_INFRA = "IT_SUPPORT_INFRA"
 MOBILE_ENGINEERING = "MOBILE_ENGINEERING"
 QA_AUTOMATION = "QA_AUTOMATION"
 GENERIC_TECH = "GENERIC_TECH"
@@ -27,6 +28,7 @@ ROLE_FAMILIES = (
     COMPUTER_VISION_EKYC,
     SECURITY_GRC,
     DEVOPS_CLOUD,
+    IT_SUPPORT_INFRA,
     MOBILE_ENGINEERING,
     QA_AUTOMATION,
     GENERIC_TECH,
@@ -242,6 +244,57 @@ ROLE_FAMILY_DEFINITIONS = {
             "infrastructure",
         },
     },
+    IT_SUPPORT_INFRA: {
+        "title_terms": {
+            "desktop support",
+            "help desk",
+            "helpdesk",
+            "infrastructure engineer",
+            "it helpdesk",
+            "it infrastructure",
+            "it staff",
+            "it support",
+            "it support engineer",
+            "it support specialist",
+            "network support",
+            "sysadmin",
+            "system administrator",
+        },
+        "core_terms": {
+            "active directory",
+            "dhcp",
+            "dns",
+            "end user support",
+            "firewall",
+            "google workspace",
+            "hyper-v",
+            "incident support",
+            "linux administration",
+            "microsoft 365",
+            "office 365",
+            "router",
+            "server administration",
+            "support engineer",
+            "switch",
+            "troubleshooting",
+            "virtualization",
+            "vmware",
+            "vpn",
+            "windows server",
+        },
+        "supporting_terms": {
+            "access provisioning",
+            "hardware",
+            "monitoring",
+            "printer",
+            "sap",
+            "software installation",
+            "ticketing",
+            "user account",
+            "wifi controller",
+            "workplace support",
+        },
+    },
     MOBILE_ENGINEERING: {
         "title_terms": {
             "mobile",
@@ -300,6 +353,7 @@ RELATED_ROLE_FAMILIES = {
     COMPUTER_VISION_EKYC: {DATA_AI_ENGINEERING, MOBILE_ENGINEERING},
     SECURITY_GRC: set(),
     DEVOPS_CLOUD: {BACKEND_ENGINEERING},
+    IT_SUPPORT_INFRA: {DEVOPS_CLOUD, SECURITY_GRC, GENERIC_TECH},
     MOBILE_ENGINEERING: {FRONTEND_ENGINEERING, COMPUTER_VISION_EKYC},
     QA_AUTOMATION: {BACKEND_ENGINEERING, FRONTEND_ENGINEERING},
     GENERIC_TECH: set(),
