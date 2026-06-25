@@ -47,6 +47,7 @@ def build_screening_diagnostics(
             "taxonomy_coverage": job_output.get("taxonomy_coverage", {}),
             "open_set_requirement_count": len(job_output.get("open_set_requirements", [])),
             "open_set_filter_summary": job_output.get("open_set_filter_summary", {}),
+            "job_role_profile": job_output.get("job_role_profile", {}),
         },
     }
 

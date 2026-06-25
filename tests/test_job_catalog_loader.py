@@ -35,6 +35,11 @@ def test_build_job_catalog_returns_normalized_job_cards() -> None:
     assert job_card["minimum_experience_years"] == 1
     assert job_card["domain"] == ["Backend", "Web Application"]
     assert job_card["open_set_requirements"] == []
+    assert job_card["job_role_profile"]["primary_role_family"] == "BACKEND_ENGINEERING"
+    assert any(
+        item["text"] == "Java" and item["intent_type"] == "CORE_STACK"
+        for item in job_card["requirement_intent_summary"]
+    )
     assert job_card["open_set_filter_summary"] == {
         "candidate_count": 0,
         "kept_count": 0,

@@ -87,6 +87,8 @@ def score_retrieved_job_match(
         "recommendation": candidate_result.get("recommendation", ""),
         "scores": candidate_result.get("scores", {}),
         "hard_skill_gate": candidate_result.get("hard_skill_gate", {}),
+        "candidate_role_profile": candidate_result.get("candidate_role_profile", {}),
+        "role_family_alignment": candidate_result.get("role_family_alignment", {}),
         "matched_must_have_skills": _matched_required_skill_labels(
             candidate_result.get("matched_skills", [])
         ),
@@ -109,6 +111,7 @@ def score_retrieved_job_match(
         ),
         "taxonomy_coverage": job_output.get("taxonomy_coverage", {}),
         "screening_confidence": job_output.get("screening_confidence", {}),
+        "job_role_profile": job_output.get("job_role_profile", {}),
         "open_set_requirements": job_output.get("open_set_requirements", []),
         "open_set_candidates": job_output.get("open_set_candidates", []),
         "discarded_open_set_candidates": job_output.get(
@@ -116,6 +119,7 @@ def score_retrieved_job_match(
             [],
         ),
         "open_set_filter_summary": job_output.get("open_set_filter_summary", {}),
+        "requirement_intent_summary": job_output.get("requirement_intent_summary", []),
         "typed_requirements": job_output.get("typed_requirements", []),
         "requirement_groups": job_output.get("requirement_groups", {}),
         "job_quality": job_card.get("job_quality", {}),

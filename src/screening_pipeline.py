@@ -29,11 +29,16 @@ from src.review_card_generator import (
     format_review_card_markdown,
     generate_review_card,
 )
+from src.role_family import infer_job_role_profile
 from src.scorer import rank_candidates, score_candidate
 from src.semantic_matcher import match_skills
 from src.skill_extractor import extract_taxonomy_skills_from_text, merge_skill_lists
 from src.skill_normalizer import normalize_skills
 from src.skill_taxonomy import load_taxonomy, make_lookup_key
+from src.technical_intent import (
+    annotate_matches_with_requirement_intents,
+    build_requirement_intent_summary,
+)
 
 
 DEFAULT_TAXONOMY_PATH = "data/taxonomy/skills.json"
@@ -73,6 +78,16 @@ def run_screening_pipeline(
         required_skills,
         unknown_requirements,
     )
+    job_role_profile = infer_job_role_profile(
+        job_title=job_criteria.get("job_title", ""),
+        required_skills=required_skills,
+        open_set_requirements=unknown_requirements,
+        responsibilities=job_criteria.get("requirement_groups", {}).get(
+            "responsibilities",
+            [],
+        ),
+        typed_requirements=job_criteria.get("typed_requirements", []),
+    )
     nice_to_have_skills = _build_job_skill_list(
         nice_to_have_requirement_lines,
         "\n".join(nice_to_have_requirement_lines),
@@ -91,6 +106,17 @@ def run_screening_pipeline(
             nice_to_have_skills,
             nice_to_have_open_set_data["open_set_requirements"],
         )
+    requirement_intent_summary = build_requirement_intent_summary(
+        job_role_profile,
+        required_skills,
+        unknown_requirements,
+        typed_requirements=job_criteria.get("typed_requirements", []),
+    )
+    job_criteria = {
+        **job_criteria,
+        "job_role_profile": job_role_profile,
+        "requirement_intent_summary": requirement_intent_summary,
+    }
 
     candidate_results = [
         _process_candidate_document(
@@ -100,6 +126,7 @@ def run_screening_pipeline(
             required_skills,
             nice_to_have_skills,
             unknown_requirements,
+            requirement_intent_summary,
             embedding_matcher,
         )
         for document in cv_documents
@@ -116,6 +143,8 @@ def run_screening_pipeline(
             nice_to_have_skills,
             taxonomy_coverage,
             open_set_data,
+            job_role_profile,
+            requirement_intent_summary,
             embedding_matcher,
         ),
         "candidates": ranked_candidates,
@@ -192,6 +221,7 @@ def _process_candidate_document(
     required_skills: list[str],
     nice_to_have_skills: list[str],
     unknown_requirements: list[str],
+    requirement_intent_summary: list[dict[str, Any]],
     embedding_matcher: SemanticEmbeddingMatcher | None = None,
 ) -> dict[str, Any]:
     """Process one loaded CV document into a scored candidate result."""
@@ -210,7 +240,10 @@ def _process_candidate_document(
         resume_profile,
         embedding_matcher,
     )
-    scored_matches = [*enriched_matches, *open_set_matches]
+    scored_matches = annotate_matches_with_requirement_intents(
+        [*enriched_matches, *open_set_matches],
+        requirement_intent_summary,
+    )
     nice_to_have_matches = match_skills(
         nice_to_have_skills,
         candidate_skills,
@@ -345,6 +378,8 @@ def _build_job_output(
     nice_to_have_skills: list[str],
     taxonomy_coverage: dict[str, Any] | None = None,
     open_set_data: dict[str, Any] | None = None,
+    job_role_profile: dict[str, Any] | None = None,
+    requirement_intent_summary: list[dict[str, Any]] | None = None,
     embedding_matcher: SemanticEmbeddingMatcher | None = None,
 ) -> dict[str, Any]:
     """Build a stable job summary for pipeline output."""
@@ -365,6 +400,8 @@ def _build_job_output(
         "minimum_experience_years": job_criteria.get("minimum_experience_years", 0),
         "seniority": job_criteria.get("seniority", "Not specified"),
         "domain": job_criteria.get("domain", []),
+        "job_role_profile": dict(job_role_profile or {}),
+        "requirement_intent_summary": list(requirement_intent_summary or []),
         "taxonomy_coverage": taxonomy_coverage or build_taxonomy_coverage(
             required_skills,
             open_set_requirements,

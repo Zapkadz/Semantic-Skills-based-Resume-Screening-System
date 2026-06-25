@@ -6,6 +6,11 @@ import re
 from datetime import date
 from typing import Any
 
+from src.role_family import (
+    GENERIC_TECH,
+    calculate_role_family_alignment,
+    infer_candidate_role_profile,
+)
 from src.text_normalization import normalize_search_text, repair_mojibake, strip_accents
 
 
@@ -92,7 +97,20 @@ def score_candidate(
         ),
         "nice_to_have": calculate_nice_to_have_score(nice_to_have_matches),
     }
-    base_score = calculate_final_score(scores)
+    raw_base_score = calculate_final_score(scores)
+    candidate_role_profile = infer_candidate_role_profile(
+        resume_profile,
+        matches=matches,
+    )
+    role_family_alignment = calculate_role_family_alignment(
+        job_criteria.get("job_role_profile", {}),
+        candidate_role_profile,
+    )
+    role_alignment_adjustment = calculate_role_alignment_adjustment(
+        role_family_alignment,
+        matches,
+    )
+    base_score = max(0, min(100, raw_base_score + role_alignment_adjustment))
     final_score, hard_skill_gate = apply_hard_skill_gate(
         base_score,
         scores,
@@ -101,6 +119,7 @@ def score_candidate(
 
     return {
         "candidate_name": resume_profile.get("candidate_name", ""),
+        "raw_base_score": raw_base_score,
         "base_score": base_score,
         "final_score": final_score,
         "recommendation": get_recommendation_label(final_score),
@@ -112,6 +131,11 @@ def score_candidate(
         "seniority": candidate_seniority,
         "experience_years": round(candidate_years, 2),
         "domain": candidate_domains,
+        "candidate_role_profile": candidate_role_profile,
+        "role_family_alignment": {
+            **role_family_alignment,
+            "applied_adjustment": role_alignment_adjustment,
+        },
     }
 
 
@@ -242,6 +266,32 @@ def calculate_final_score(scores: dict[str, float]) -> int:
         for component, weight in SCORE_WEIGHTS.items()
     )
     return round(weighted_score * 100)
+
+
+def calculate_role_alignment_adjustment(
+    role_family_alignment: dict[str, Any],
+    matches: list[dict[str, Any]],
+) -> int:
+    """Apply a conservative penalty only for clear role-family mismatch cases."""
+    status = str(role_family_alignment.get("status", ""))
+    adjustment_hint = int(role_family_alignment.get("adjustment_hint", 0) or 0)
+    if adjustment_hint >= 0:
+        return 0
+
+    if status not in {"partial_alignment", "misaligned"}:
+        return 0
+
+    semantic_only_ratio = _semantic_only_ratio(matches)
+    if status == "misaligned":
+        if semantic_only_ratio >= 0.5:
+            return adjustment_hint
+        if semantic_only_ratio > 0.0:
+            return max(adjustment_hint, -4)
+
+    if status == "partial_alignment" and semantic_only_ratio >= 0.5:
+        return adjustment_hint
+
+    return 0
 
 
 def apply_hard_skill_gate(
@@ -513,6 +563,20 @@ def detect_candidate_domains(resume_profile: dict[str, Any]) -> list[str]:
         domains.append("Software")
 
     return domains
+
+
+def _semantic_only_ratio(matches: list[dict[str, Any]]) -> float:
+    """Return the ratio of positive matches that depend on semantic-only evidence."""
+    positive_matches = [match for match in matches if _is_positive_match(match)]
+    if not positive_matches:
+        return 0.0
+
+    semantic_only_matches = [
+        match
+        for match in positive_matches
+        if match.get("match_type") == "semantic_only_match"
+    ]
+    return _coverage(len(semantic_only_matches), len(positive_matches))
 
 
 def _duration_to_months(duration: str) -> int:

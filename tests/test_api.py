@@ -15,7 +15,7 @@ def test_health_endpoint_returns_service_status() -> None:
     assert result["status"] == "ok"
     assert result["service"] == "semantic-skills-resume-screening"
     assert result["phase"] == (
-        "Phase 28 - Open-set Technical Requirement Filtering"
+        "Phase 29 - Role-family Technical Intent Inference"
     )
     assert "embedding_enabled" in result
     assert "embedding_model" in result
@@ -34,6 +34,7 @@ def test_screening_endpoint_returns_ranked_candidates() -> None:
     assert result["job"]["job_id"] == 10
     assert result["job"]["title"] == "Backend Java Developer"
     assert len(result["candidates"]) == 1
+    assert result["job"]["job_role_profile"]["primary_role_family"] == "BACKEND_ENGINEERING"
 
     candidate = result["candidates"][0]
     assert candidate["rank"] == 1
@@ -43,6 +44,8 @@ def test_screening_endpoint_returns_ranked_candidates() -> None:
     assert candidate["final_score"] == 87
     assert candidate["recommendation"] == "Strong Review"
     assert candidate["base_score"] == 87
+    assert candidate["candidate_role_profile"]["primary_role_family"] == "BACKEND_ENGINEERING"
+    assert candidate["role_family_alignment"]["status"] == "strong_alignment"
     assert candidate["hard_skill_gate"]["passed"] is True
     assert candidate["review_card"]["summary"] == (
         "Nguyen Van A is a Strong Review candidate for Backend Java Developer "

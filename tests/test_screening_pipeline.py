@@ -37,6 +37,12 @@ def test_run_screening_pipeline_returns_ranked_demo_result(tmp_path: Path) -> No
     assert job["minimum_experience_years"] == 1
     assert job["seniority"] == "Junior"
     assert job["domain"] == ["Backend", "Web Application"]
+    assert job["job_role_profile"]["primary_role_family"] == "BACKEND_ENGINEERING"
+    assert job["job_role_profile"]["confidence"] >= 0.7
+    assert any(
+        item["text"] == "Java" and item["intent_type"] == "CORE_STACK"
+        for item in job["requirement_intent_summary"]
+    )
     assert job["taxonomy_coverage"] == {
         "known_count": 5,
         "unknown_count": 0,
@@ -97,6 +103,8 @@ def test_run_screening_pipeline_returns_ranked_demo_result(tmp_path: Path) -> No
     assert candidate["source_file"] == "cv_strong.txt"
     assert candidate["final_score"] == 87
     assert candidate["recommendation"] == "Strong Review"
+    assert candidate["candidate_role_profile"]["primary_role_family"] == "BACKEND_ENGINEERING"
+    assert candidate["role_family_alignment"]["status"] == "strong_alignment"
     assert candidate["review_card"]["summary"] == (
         "Nguyen Van A is a Strong Review candidate for Backend Java Developer "
         "with a final score of 87/100."
