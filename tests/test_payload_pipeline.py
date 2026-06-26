@@ -270,11 +270,18 @@ def test_run_screening_payload_returns_ranked_candidates_with_web_ids() -> None:
     assert candidate["recommendation"] == "Strong Review"
     assert candidate["raw_base_score"] == 87
     assert candidate["role_calibrated_score"] == 87
+    assert candidate["source_calibrated_score"] == 87
     assert candidate["role_score_adjustment"] == 0
+    assert candidate["source_score_adjustment"] == 0
     assert candidate["candidate_role_profile"]["primary_role_family"] == "BACKEND_ENGINEERING"
     assert candidate["role_family_alignment"]["status"] == "strong_alignment"
     assert candidate["role_alignment_impact"]["reason_code"] == "strong_same_role_alignment"
+    assert candidate["source_alignment_impact"]["reason_code"] in {
+        "explicit_requirements_well_covered",
+        "explicit_core_requirements_confirmed",
+    }
     assert candidate["core_requirement_fit_summary"]["core"]["total"] == 4
+    assert candidate["source_requirement_fit_summary"]["explicit_requirement"]["total"] == 5
     assert candidate["review_card"]["job_title"] == "Backend Java Developer"
     assert candidate["review_card"]["concerns"] == [
         "Optional nice-to-have gaps: AWS and Kafka."
@@ -448,6 +455,7 @@ def test_run_screening_payload_can_use_injected_multilingual_embedding_matcher()
     assert match["evidence_text"] == "digital identity verification"
     assert match["evidence_source"] == "skills"
     assert match["similarity"] == 0.9991
+    assert match["requirement_source_kind"] == "explicit_requirement"
     assert result["job"]["must_have_skills"] == []
     assert result["job"]["taxonomy_coverage"] == {
         "known_count": 0,
@@ -813,6 +821,36 @@ def test_run_screening_payload_exposes_responsibility_signal_metadata_without_ch
         "DNS",
         "DHCP",
         "Firewall",
+    ]
+    assert job["requirement_provenance_summary"] == [
+        {
+            "text": "Active Directory",
+            "requirement_source_kind": "promoted_responsibility",
+            "requirement_source_text": "Active Directory",
+            "requirement_priority": "must_have",
+            "taxonomy_status": "unknown",
+        },
+        {
+            "text": "DNS",
+            "requirement_source_kind": "promoted_responsibility",
+            "requirement_source_text": "DNS",
+            "requirement_priority": "must_have",
+            "taxonomy_status": "unknown",
+        },
+        {
+            "text": "DHCP",
+            "requirement_source_kind": "promoted_responsibility",
+            "requirement_source_text": "DHCP",
+            "requirement_priority": "must_have",
+            "taxonomy_status": "unknown",
+        },
+        {
+            "text": "Firewall",
+            "requirement_source_kind": "promoted_responsibility",
+            "requirement_source_text": "Firewall",
+            "requirement_priority": "must_have",
+            "taxonomy_status": "unknown",
+        },
     ]
     assert all(
         signal["signal_type"] == "TECHNICAL_TASK"

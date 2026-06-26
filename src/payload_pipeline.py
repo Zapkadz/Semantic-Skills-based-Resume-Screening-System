@@ -18,6 +18,7 @@ from src.payload_diagnostics import (
     diagnose_candidate_payload,
     diagnose_job_payload,
 )
+from src.requirement_provenance import build_requirement_provenance_summary
 from src.requirement_promotion import build_scoring_requirement_lines_from_entries
 from src.requirement_extractor import build_screening_confidence
 from src.role_family import infer_job_role_profile
@@ -198,16 +199,25 @@ def run_screening_payload(
             nice_to_have_skills,
             nice_to_have_open_set_data["open_set_requirements"],
         )
+    requirement_provenance_summary = build_requirement_provenance_summary(
+        required_skills,
+        unknown_requirements,
+        list(job_criteria.get("scoring_requirement_entries", [])),
+        list(open_set_data.get("open_set_candidates", [])),
+        taxonomy,
+    )
     requirement_intent_summary = build_requirement_intent_summary(
         job_role_profile,
         required_skills,
         unknown_requirements,
         typed_requirements=job_criteria.get("typed_requirements", []),
+        requirement_provenance_summary=requirement_provenance_summary,
     )
     job_criteria = {
         **job_criteria,
         "job_role_profile": job_role_profile,
         "requirement_intent_summary": requirement_intent_summary,
+        "requirement_provenance_summary": requirement_provenance_summary,
     }
 
     candidate_documents = [
@@ -313,6 +323,11 @@ def _process_candidate_payload(
         [*enriched_matches, *open_set_matches],
         requirement_intent_summary,
     )
+    annotated_open_set_matches = [
+        match
+        for match in scored_matches
+        if str(match.get("taxonomy_status", "")).strip() == "unknown"
+    ]
     nice_to_have_matches = match_skills(
         nice_to_have_skills,
         candidate_skills,
@@ -331,7 +346,7 @@ def _process_candidate_payload(
 
     return {
         **scored_candidate,
-        "open_set_requirement_matches": open_set_matches,
+        "open_set_requirement_matches": annotated_open_set_matches,
         "requirement_group_summary": _build_requirement_group_summary(
             scored_matches,
             nice_to_have_matches,
@@ -400,6 +415,10 @@ def _build_job_output(
         ),
         "requirement_groups": job_criteria.get("requirement_groups", {}),
         "typed_requirements": job_criteria.get("typed_requirements", []),
+        "requirement_provenance_summary": job_criteria.get(
+            "requirement_provenance_summary",
+            [],
+        ),
     }
 
 

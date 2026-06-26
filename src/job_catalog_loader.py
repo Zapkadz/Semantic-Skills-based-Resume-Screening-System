@@ -13,6 +13,7 @@ from src.job_quality_gate import evaluate_job_quality
 from src.open_set_matcher import build_taxonomy_coverage
 from src.payload_diagnostics import diagnose_job_payload
 from src.payload_pipeline import build_jd_text_from_payload
+from src.requirement_provenance import build_requirement_provenance_summary
 from src.requirement_promotion import build_scoring_requirement_lines_from_entries
 from src.role_family import infer_job_role_profile
 from src.screening_pipeline import (
@@ -72,11 +73,19 @@ def build_job_catalog(
             responsibilities=requirement_groups.get("responsibilities", []),
             typed_requirements=typed_requirements,
         )
+        requirement_provenance_summary = build_requirement_provenance_summary(
+            must_have_skills,
+            open_set_requirements,
+            list(job_criteria.get("scoring_requirement_entries", [])),
+            list(open_set_data.get("open_set_candidates", [])),
+            taxonomy,
+        )
         requirement_intent_summary = build_requirement_intent_summary(
             job_role_profile,
             must_have_skills,
             open_set_requirements,
             typed_requirements=typed_requirements,
+            requirement_provenance_summary=requirement_provenance_summary,
         )
         nice_to_have_skills = _build_job_skill_list(
             nice_to_have_requirement_lines,
@@ -121,6 +130,7 @@ def build_job_catalog(
                 "domain": job_criteria.get("domain", []),
                 "job_role_profile": job_role_profile,
                 "requirement_intent_summary": requirement_intent_summary,
+                "requirement_provenance_summary": requirement_provenance_summary,
                 "taxonomy_coverage": build_taxonomy_coverage(
                     must_have_skills,
                     open_set_requirements,

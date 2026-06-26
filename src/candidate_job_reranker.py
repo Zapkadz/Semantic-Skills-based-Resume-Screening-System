@@ -91,6 +91,8 @@ def score_retrieved_job_match(
         "raw_base_score": candidate_result.get("raw_base_score", 0),
         "role_calibrated_score": candidate_result.get("role_calibrated_score", 0),
         "role_score_adjustment": candidate_result.get("role_score_adjustment", 0),
+        "source_calibrated_score": candidate_result.get("source_calibrated_score", 0),
+        "source_score_adjustment": candidate_result.get("source_score_adjustment", 0),
         "base_score": candidate_result.get("base_score", 0),
         "recommendation": candidate_result.get("recommendation", ""),
         "scores": candidate_result.get("scores", {}),
@@ -99,9 +101,14 @@ def score_retrieved_job_match(
             "core_requirement_fit_summary",
             {},
         ),
+        "source_requirement_fit_summary": candidate_result.get(
+            "source_requirement_fit_summary",
+            {},
+        ),
         "candidate_role_profile": candidate_result.get("candidate_role_profile", {}),
         "role_family_alignment": candidate_result.get("role_family_alignment", {}),
         "role_alignment_impact": candidate_result.get("role_alignment_impact", {}),
+        "source_alignment_impact": candidate_result.get("source_alignment_impact", {}),
         "matched_must_have_skills": _matched_required_skill_labels(
             candidate_result.get("matched_skills", [])
         ),

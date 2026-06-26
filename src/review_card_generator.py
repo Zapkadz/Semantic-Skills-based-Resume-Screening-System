@@ -62,6 +62,7 @@ def generate_review_card(
         role_family_alignment,
         role_alignment_impact,
         core_requirement_fit_summary,
+        candidate_result.get("source_alignment_impact", {}),
     )
     interview_questions = build_interview_questions(
         evidence_highlights,
@@ -79,12 +80,20 @@ def generate_review_card(
         "raw_base_score": candidate_result.get("raw_base_score"),
         "role_calibrated_score": candidate_result.get("role_calibrated_score"),
         "role_score_adjustment": candidate_result.get("role_score_adjustment", 0),
+        "source_calibrated_score": candidate_result.get("source_calibrated_score"),
+        "source_score_adjustment": candidate_result.get("source_score_adjustment", 0),
         "base_score": candidate_result.get("base_score"),
         "hard_skill_gate": hard_skill_gate,
         "candidate_role_profile": dict(candidate_result.get("candidate_role_profile", {})),
         "role_family_alignment": role_family_alignment,
         "role_alignment_impact": role_alignment_impact,
         "core_requirement_fit_summary": core_requirement_fit_summary,
+        "source_requirement_fit_summary": dict(
+            candidate_result.get("source_requirement_fit_summary", {})
+        ),
+        "source_alignment_impact": dict(
+            candidate_result.get("source_alignment_impact", {})
+        ),
         "seniority": candidate_result.get("seniority", ""),
         "experience_years": candidate_result.get("experience_years", 0),
         "domain": list(candidate_result.get("domain", [])),
@@ -182,7 +191,12 @@ def build_summary(candidate_result: dict[str, Any], job_title: str = "") -> str:
     raw_base_score = candidate_result.get("raw_base_score")
     role_calibrated_score = candidate_result.get("role_calibrated_score", base_score)
     role_score_adjustment = int(candidate_result.get("role_score_adjustment", 0) or 0)
+    source_calibrated_score = candidate_result.get("source_calibrated_score", base_score)
+    source_score_adjustment = int(
+        candidate_result.get("source_score_adjustment", 0) or 0
+    )
     role_alignment_impact = _get_role_alignment_impact(candidate_result)
+    source_alignment_impact = _get_source_alignment_impact(candidate_result)
     hard_skill_gate = _get_hard_skill_gate(candidate_result)
     role_text = f" for {job_title}" if job_title else ""
     notes: list[str] = []
@@ -201,6 +215,23 @@ def build_summary(candidate_result: dict[str, Any], job_title: str = "") -> str:
             role_note += f" because {role_reason[:1].casefold() + role_reason[1:]}"
         role_note += "."
         notes.append(role_note)
+
+    if (
+        source_score_adjustment != 0
+        and role_calibrated_score is not None
+        and source_calibrated_score is not None
+    ):
+        source_reason = _strip_sentence_end(
+            str(source_alignment_impact.get("reason", "")).strip()
+        )
+        source_note = (
+            "Source-aware calibration adjusted the score from "
+            f"{role_calibrated_score}/100 to {source_calibrated_score}/100"
+        )
+        if source_reason:
+            source_note += f" because {source_reason[:1].casefold() + source_reason[1:]}"
+        source_note += "."
+        notes.append(source_note)
 
     if hard_skill_gate.get("applied") is True and base_score is not None:
         notes.append(
@@ -323,6 +354,7 @@ def build_concerns(
     role_family_alignment: dict[str, Any] | None = None,
     role_alignment_impact: dict[str, Any] | None = None,
     core_requirement_fit_summary: dict[str, Any] | None = None,
+    source_alignment_impact: dict[str, Any] | None = None,
 ) -> list[str]:
     """Build rule-based concerns from missing skills and low score components."""
     concerns: list[str] = []
@@ -331,6 +363,7 @@ def build_concerns(
     role_family_alignment = role_family_alignment or {}
     role_alignment_impact = role_alignment_impact or {}
     core_requirement_fit_summary = core_requirement_fit_summary or {}
+    source_alignment_impact = source_alignment_impact or {}
     core_bucket = _requirement_fit_bucket(core_requirement_fit_summary, "core")
 
     if hard_skill_gate.get("applied") is True:
@@ -403,6 +436,13 @@ def build_concerns(
         if impact_reason:
             concerns.append(
                 f"Role-aware calibration reduced the score: {impact_reason}"
+            )
+
+    if source_alignment_impact.get("applied") is True:
+        impact_reason = str(source_alignment_impact.get("reason", "")).strip()
+        if impact_reason:
+            concerns.append(
+                f"Source-aware calibration adjusted the score: {impact_reason}"
             )
 
     if (
@@ -626,6 +666,12 @@ def _get_core_requirement_fit_summary(candidate_result: dict[str, Any]) -> dict[
     """Return requirement-fit summary metadata when available."""
     summary = candidate_result.get("core_requirement_fit_summary", {})
     return summary if isinstance(summary, dict) else {}
+
+
+def _get_source_alignment_impact(candidate_result: dict[str, Any]) -> dict[str, Any]:
+    """Return source-aware score impact metadata when available."""
+    impact = candidate_result.get("source_alignment_impact", {})
+    return impact if isinstance(impact, dict) else {}
 
 
 def _requirement_fit_bucket(summary: dict[str, Any], bucket_name: str) -> dict[str, Any]:

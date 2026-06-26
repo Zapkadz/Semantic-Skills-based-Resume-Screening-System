@@ -9,6 +9,7 @@ from src.scorer import (
     calculate_hard_skill_gate_metrics,
     calculate_nice_to_have_score,
     calculate_requirement_fit_summary,
+    calculate_source_requirement_fit_summary,
     calculate_skill_semantic_score,
     detect_candidate_domains,
     detect_candidate_seniority,
@@ -139,6 +140,40 @@ def test_calculate_requirement_fit_summary_tracks_core_and_semantic_only_coverag
     }
 
 
+def test_calculate_source_requirement_fit_summary_tracks_explicit_and_promoted_buckets() -> None:
+    matches = [
+        {
+            "required_skill": "Qualys",
+            "match_type": "semantic_only_match",
+            "score": 0.65,
+            "evidence_level": 3,
+            "requirement_source_kind": "explicit_requirement",
+        },
+        {
+            "required_skill": "DNS",
+            "match_type": "semantic_only_match",
+            "score": 0.65,
+            "evidence_level": 1,
+            "requirement_source_kind": "promoted_responsibility",
+        },
+        {
+            "required_skill": "DHCP",
+            "match_type": "no_semantic_evidence",
+            "score": 0.0,
+            "evidence_level": 0,
+            "requirement_source_kind": "promoted_responsibility",
+        },
+    ]
+
+    summary = calculate_source_requirement_fit_summary(matches)
+
+    assert summary["explicit_requirement"]["confirmed_coverage"] == 1.0
+    assert summary["explicit_requirement"]["semantic_only_ratio"] == 1.0
+    assert summary["promoted_responsibility"]["positive_coverage"] == 0.5
+    assert summary["promoted_responsibility"]["confirmed_coverage"] == 0.0
+    assert summary["overall"]["total"] == 3
+
+
 def test_get_recommendation_label_uses_thresholds() -> None:
     assert get_recommendation_label(85) == "Strong Review"
     assert get_recommendation_label(70) == "Review"
@@ -232,12 +267,19 @@ def test_score_candidate_returns_explainable_demo_result() -> None:
     assert result["recommendation"] == "Strong Review"
     assert result["raw_base_score"] == 87
     assert result["role_calibrated_score"] == 87
+    assert result["source_calibrated_score"] == 87
     assert result["base_score"] == 87
     assert result["role_score_adjustment"] == 0
+    assert result["source_score_adjustment"] == 0
     assert result["hard_skill_gate"]["passed"] is True
     assert result["hard_skill_gate"]["applied"] is False
     assert result["role_alignment_impact"]["reason_code"] == "strong_same_role_alignment"
+    assert result["source_alignment_impact"]["reason_code"] in {
+        "explicit_requirements_well_covered",
+        "explicit_core_requirements_confirmed",
+    }
     assert result["core_requirement_fit_summary"]["overall"]["confirmed_match_count"] == 5
+    assert result["source_requirement_fit_summary"]["explicit_requirement"]["total"] == 5
     assert result["scores"] == {
         "skill_semantic": 0.95,
         "evidence": 1.0,
@@ -438,6 +480,122 @@ def test_score_candidate_penalizes_misaligned_semantic_core_overlap() -> None:
         "adjacent_role_semantic_core_overlap"
     )
     assert result["core_requirement_fit_summary"]["core"]["semantic_only_ratio"] == 1.0
+
+
+def test_score_candidate_keeps_explicit_open_set_core_when_confirmed() -> None:
+    criteria = {
+        "minimum_experience_years": 3,
+        "seniority": "Middle",
+        "domain": ["IT Security/GRC"],
+        "job_role_profile": {
+            "primary_role_family": "SECURITY_GRC",
+            "confidence": 0.9,
+        },
+    }
+    profile = {
+        "candidate_name": "Security Candidate",
+        "headline": "Senior IT Security Officer",
+        "summary": "Hands-on security operations and vulnerability management experience.",
+        "raw_skills": ["Qualys", "Linux"],
+        "work_experience": [],
+        "projects": [],
+    }
+    matches = [
+        {
+            "required_skill": "Qualys",
+            "candidate_skill": None,
+            "match_type": "semantic_only_match",
+            "score": 0.65,
+            "evidence_level": 3,
+            "intent_strength": "core",
+            "requirement_source_kind": "explicit_requirement",
+        },
+        {
+            "required_skill": "vulnerability management",
+            "candidate_skill": None,
+            "match_type": "semantic_only_match",
+            "score": 0.65,
+            "evidence_level": 2,
+            "intent_strength": "core",
+            "requirement_source_kind": "explicit_requirement",
+        },
+        {
+            "required_skill": "Commvault",
+            "candidate_skill": None,
+            "match_type": "no_semantic_evidence",
+            "score": 0.0,
+            "evidence_level": 0,
+            "intent_strength": "contextual",
+            "requirement_source_kind": "explicit_requirement",
+        },
+    ]
+
+    result = score_candidate(criteria, profile, matches, [])
+
+    assert result["source_score_adjustment"] == 0
+    assert result["source_alignment_impact"]["reason_code"] == (
+        "explicit_core_requirements_confirmed"
+    )
+    assert result["source_requirement_fit_summary"]["explicit_requirement"][
+        "confirmed_coverage"
+    ] == 0.6667
+
+
+def test_score_candidate_boosts_sparse_promoted_core_when_confirmed() -> None:
+    criteria = {
+        "minimum_experience_years": 1,
+        "seniority": "Junior",
+        "domain": ["Software"],
+        "job_role_profile": {
+            "primary_role_family": "IT_SUPPORT_INFRA",
+            "confidence": 0.85,
+        },
+    }
+    profile = {
+        "candidate_name": "Infra Candidate",
+        "headline": "IT Support Engineer",
+        "summary": "IT support engineer with AD, DNS, and firewall troubleshooting.",
+        "raw_skills": ["Active Directory", "DNS", "Firewall"],
+        "work_experience": [],
+        "projects": [],
+    }
+    matches = [
+        {
+            "required_skill": "Active Directory",
+            "candidate_skill": None,
+            "match_type": "semantic_only_match",
+            "score": 0.65,
+            "evidence_level": 3,
+            "intent_strength": "core",
+            "requirement_source_kind": "promoted_responsibility",
+        },
+        {
+            "required_skill": "DNS",
+            "candidate_skill": None,
+            "match_type": "semantic_only_match",
+            "score": 0.65,
+            "evidence_level": 2,
+            "intent_strength": "core",
+            "requirement_source_kind": "promoted_responsibility",
+        },
+        {
+            "required_skill": "Firewall",
+            "candidate_skill": None,
+            "match_type": "semantic_only_match",
+            "score": 0.65,
+            "evidence_level": 2,
+            "intent_strength": "core",
+            "requirement_source_kind": "promoted_responsibility",
+        },
+    ]
+
+    result = score_candidate(criteria, profile, matches, [])
+
+    assert result["source_score_adjustment"] == 4
+    assert result["source_calibrated_score"] == result["role_calibrated_score"] + 4
+    assert result["source_alignment_impact"]["reason_code"] == (
+        "promoted_core_requirements_confirmed_in_sparse_jd"
+    )
 
 
 def test_rank_candidates_sorts_by_score_evidence_then_name() -> None:
