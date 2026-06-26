@@ -149,14 +149,60 @@ def test_find_semantic_requirement_evidence_skips_when_embedding_disabled() -> N
         "projects": [],
     }
 
-    assert (
-        find_semantic_requirement_evidence(
-            ["carbon footprint analysis"],
-            resume_profile,
-            embedding_matcher=None,
-        )
-        == []
+    assert find_semantic_requirement_evidence(
+        ["carbon footprint analysis"],
+        resume_profile,
+        embedding_matcher=None,
+    ) == [
+        {
+            "required_skill": "carbon footprint analysis",
+            "candidate_skill": None,
+            "match_type": "no_semantic_evidence",
+            "taxonomy_status": "unknown",
+            "score": 0.0,
+            "similarity": None,
+            "evidence_level": 0,
+            "evidence_text": "",
+            "evidence_source": "none",
+        }
+    ]
+
+
+def test_find_semantic_requirement_evidence_uses_exact_lexical_match_without_embedding() -> None:
+    resume_profile = {
+        "summary": "",
+        "headline": "",
+        "raw_skills": ["DNS"],
+        "work_experience": [
+            {
+                "title": "IT Support Engineer",
+                "company": "ABC",
+                "duration": "",
+                "description": ["Managed DNS and DHCP operations for office network."],
+            }
+        ],
+        "projects": [],
+    }
+
+    matches = find_semantic_requirement_evidence(
+        ["DNS"],
+        resume_profile,
+        embedding_matcher=None,
     )
+
+    assert matches == [
+        {
+            "required_skill": "DNS",
+            "candidate_skill": "DNS",
+            "match_type": "lexical_evidence_match",
+            "taxonomy_status": "unknown",
+            "score": OPEN_SET_MATCH_SCORE,
+            "similarity": 1.0,
+            "evidence_level": 3,
+            "evidence_text": "Managed DNS and DHCP operations for office network.",
+            "evidence_source": "work_experience",
+        }
+    ]
 
 
 def test_find_semantic_requirement_evidence_uses_synthesized_project_context() -> None:

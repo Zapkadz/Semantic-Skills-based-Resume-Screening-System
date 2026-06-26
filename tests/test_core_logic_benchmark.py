@@ -201,7 +201,8 @@ def test_core_logic_benchmark_open_set_technical_requirement_is_preserved() -> N
     assert result["job"]["taxonomy_coverage"]["unknown_count"] == 1
 
     match = result["candidates"][0]["matched_skills"][0]
-    assert match["match_type"] == "semantic_only_match"
+    assert match["candidate_skill"] == "identity verification"
+    assert match["match_type"] == "lexical_evidence_match"
     assert match["taxonomy_status"] == "unknown"
     assert match["evidence_text"] == "digital identity verification"
 

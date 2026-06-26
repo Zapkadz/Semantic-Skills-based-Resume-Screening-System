@@ -179,3 +179,37 @@ def test_enrich_job_criteria_adds_responsibility_signal_metadata() -> None:
         "TECHNICAL_TASK",
         "OPERATIONAL_TASK",
     ]
+
+
+def test_classify_jd_requirements_keeps_english_soft_skills_out_of_technical_bucket() -> None:
+    jd_text = (
+        "IT Staff / IT Support / IT Helpdesk\n"
+        "\n"
+        "Requirements\n"
+        "- Good at writing & speaking English to work with oversea team.\n"
+        "- Enthusiastic and eager to learn.\n"
+        "\n"
+        "Responsibilities\n"
+        "- Manage Active Directory and troubleshoot DNS/DHCP issues.\n"
+    )
+    criteria = parse_jd(jd_text)
+
+    enriched = enrich_job_criteria_with_requirement_metadata(criteria, jd_text, taxonomy={})
+    groups = enriched["requirement_groups"]
+
+    assert groups["must_have_technical"] == []
+    assert groups["soft_skills"] == ["Enthusiastic and eager to learn."]
+    assert groups["language"] == [
+        "Good at writing & speaking English to work with oversea team."
+    ]
+    assert enriched["explicit_technical_recovery_summary"] == {
+        "raw_explicit_technical_count": 0,
+        "usable_explicit_technical_count": 0,
+        "explicit_technical_contamination_count": 0,
+        "usable_explicit_technical_lines": [],
+        "contaminated_explicit_technical_lines": [],
+        "supported_high_specificity_signal_count": 1,
+        "technical_responsibility_candidate_count": 3,
+        "recovery_triggered": True,
+        "recovery_reason": "sparse_explicit_technical_requirements",
+    }

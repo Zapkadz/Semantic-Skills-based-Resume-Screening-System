@@ -72,3 +72,22 @@ def test_filter_open_set_requirement_candidates_discards_known_requirement_dupli
             "keep_for_suggestion": False,
         }
     ]
+
+
+def test_filter_open_set_requirement_candidates_discards_generic_it_systems_phrase() -> None:
+    candidates = filter_open_set_requirement_candidates(
+        [{"text": "Knowledge of IT systems"}]
+    )
+
+    assert candidates == [
+        {
+            "text": "Knowledge of IT systems",
+            "canonical_text": "Knowledge of IT systems",
+            "normalized_text": "knowledge of it systems",
+            "status": "discarded",
+            "reason": "low_technical_specificity",
+            "technical_confidence": 0.0,
+            "keep_for_matching": False,
+            "keep_for_suggestion": False,
+        }
+    ]

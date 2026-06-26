@@ -396,7 +396,7 @@ def test_run_screening_payload_applies_role_family_penalty_for_semantic_only_mis
                     "Skills:\n"
                     "- Python\n"
                     "- Machine Learning\n"
-                    "- digital identity verification"
+                    "- eKYC"
                 ),
             }
         ],
@@ -435,15 +435,15 @@ def test_run_screening_payload_can_use_injected_multilingual_embedding_matcher()
                 "application_id": 777,
                 "candidate_name": "Digital ID Candidate",
                 "cv_text": (
-                    "Digital ID Candidate\n"
-                    "Identity Engineer\n"
-                    "\n"
-                    "Skills:\n"
-                    "- digital identity verification"
-                ),
-            }
-        ],
-    }
+                "Digital ID Candidate\n"
+                "Identity Engineer\n"
+                "\n"
+                "Skills:\n"
+                "- eKYC"
+            ),
+        }
+    ],
+}
 
     result = run_screening_payload(payload, embedding_matcher=embedding_matcher)
 
@@ -452,9 +452,9 @@ def test_run_screening_payload_can_use_injected_multilingual_embedding_matcher()
     assert match["candidate_skill"] is None
     assert match["match_type"] == "semantic_only_match"
     assert match["taxonomy_status"] == "unknown"
-    assert match["evidence_text"] == "digital identity verification"
+    assert match["evidence_text"] == "eKYC"
     assert match["evidence_source"] == "skills"
-    assert match["similarity"] == 0.9991
+    assert match["similarity"] == 0.9939
     assert match["requirement_source_kind"] == "explicit_requirement"
     assert result["job"]["must_have_skills"] == []
     assert result["job"]["taxonomy_coverage"] == {
@@ -779,6 +779,8 @@ def test_run_screening_payload_exposes_responsibility_signal_metadata_without_ch
             "requirements": [
                 "At least 3 years experience working in IT.",
                 "Good at writing and speaking English.",
+                "Enthusiastic and eager to learn.",
+                "Have experience in SAP or program is an advantage.",
             ],
             "responsibilities": [
                 "Manage Active Directory and troubleshoot DNS/DHCP issues.",
@@ -799,6 +801,17 @@ def test_run_screening_payload_exposes_responsibility_signal_metadata_without_ch
 
     assert job["job_role_profile"]["primary_role_family"] == "IT_SUPPORT_INFRA"
     assert job["must_have_skills"] == []
+    assert job["explicit_technical_recovery_summary"] == {
+        "raw_explicit_technical_count": 0,
+        "usable_explicit_technical_count": 0,
+        "explicit_technical_contamination_count": 0,
+        "usable_explicit_technical_lines": [],
+        "contaminated_explicit_technical_lines": [],
+        "supported_high_specificity_signal_count": 2,
+        "technical_responsibility_candidate_count": 8,
+        "recovery_triggered": True,
+        "recovery_reason": "sparse_explicit_technical_requirements",
+    }
     assert job["open_set_requirements"] == [
         "Active Directory",
         "DNS",
@@ -856,6 +869,28 @@ def test_run_screening_payload_exposes_responsibility_signal_metadata_without_ch
         signal["signal_type"] == "TECHNICAL_TASK"
         for signal in job["responsibility_signals"]
     )
+
+    candidate = result["candidates"][0]
+    lexical_match = next(
+        match
+        for match in candidate["open_set_requirement_matches"]
+        if match["required_skill"] == "Active Directory"
+    )
+    assert lexical_match["candidate_skill"] == "Active Directory"
+    assert lexical_match["match_type"] == "lexical_evidence_match"
+    assert lexical_match["taxonomy_status"] == "unknown"
+    assert lexical_match["score"] == 0.65
+    assert lexical_match["similarity"] == 1.0
+    assert lexical_match["evidence_level"] == 1
+    assert lexical_match["evidence_text"] == "Active Directory"
+    assert lexical_match["evidence_source"] == "skills"
+    assert lexical_match["intent_type"] == "INFRA_IDENTITY_ADMIN"
+    assert lexical_match["intent_strength"] == "core"
+    assert lexical_match["intent_reason"] == "infra_identity_admin_signal"
+    assert lexical_match["role_family"] == "IT_SUPPORT_INFRA"
+    assert lexical_match["requirement_source_kind"] == "promoted_responsibility"
+    assert lexical_match["requirement_source_text"] == "Active Directory"
+    assert lexical_match["requirement_priority"] == "must_have"
 
 
 def _demo_screening_payload() -> dict:

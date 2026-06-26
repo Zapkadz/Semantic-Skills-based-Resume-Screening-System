@@ -186,6 +186,7 @@ ACRONYM_OR_CERT_PATTERN = re.compile(
     r"(?![A-Za-z0-9])"
 )
 CAMEL_OR_BRAND_PATTERN = re.compile(r"[A-Z][a-z]+[A-Z][A-Za-z0-9]*")
+LOW_SIGNAL_ACRONYMS = {"it"}
 
 
 def filter_open_set_requirement_candidates(
@@ -371,7 +372,11 @@ def _has_explicit_acronym_or_cert_signal(text: str) -> bool:
     if text.endswith("+"):
         return True
 
-    return bool(ACRONYM_OR_CERT_PATTERN.search(text))
+    for match in ACRONYM_OR_CERT_PATTERN.findall(text):
+        if normalize_search_text(match) not in LOW_SIGNAL_ACRONYMS:
+            return True
+
+    return False
 
 
 def _has_product_or_platform_signal(tokens: list[str], normalized_text: str) -> bool:
