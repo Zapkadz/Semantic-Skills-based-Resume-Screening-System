@@ -6,6 +6,10 @@ import re
 from typing import Any
 
 from src.api_models import CandidatePayload, JobPayload, ScreeningRequest
+from src.confidence_guardrails import (
+    build_decision_confidence,
+    build_job_confidence_guardrails,
+)
 from src.embedding_matcher import SemanticEmbeddingMatcher
 from src.evidence_detector import detect_all_evidence
 from src.jd_parser import parse_jd
@@ -240,6 +244,19 @@ def run_screening_payload(
         nice_to_have_skills,
         unknown_requirements,
     )
+    job_output = _build_job_output(
+        job_payload,
+        job_criteria,
+        required_skills,
+        nice_to_have_skills,
+        taxonomy_coverage,
+        open_set_data,
+        job_role_profile,
+        requirement_intent_summary,
+        embedding_matcher,
+        job_quality=job_quality,
+        payload_diagnostics=job_payload_diagnostics,
+    )
     candidate_results = [
         _process_candidate_payload(
             candidate_payload,
@@ -260,19 +277,11 @@ def run_screening_payload(
     ranked_candidates = rank_candidates(candidate_results)
 
     for candidate in ranked_candidates:
+        candidate["decision_confidence"] = build_decision_confidence(
+            candidate,
+            job_confidence_guardrails=job_output.get("confidence_guardrails", {}),
+        )
         candidate["review_card"] = generate_review_card(candidate, job_criteria)
-
-    job_output = _build_job_output(
-        job_payload,
-        job_criteria,
-        required_skills,
-        nice_to_have_skills,
-        taxonomy_coverage,
-        open_set_data,
-        job_role_profile,
-        requirement_intent_summary,
-        embedding_matcher,
-    )
 
     return {
         "trace_id": trace_id,
@@ -372,10 +381,34 @@ def _build_job_output(
     job_role_profile: dict[str, Any] | None = None,
     requirement_intent_summary: list[dict[str, Any]] | None = None,
     embedding_matcher: SemanticEmbeddingMatcher | None = None,
+    *,
+    job_quality: dict[str, Any] | None = None,
+    payload_diagnostics: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Build a stable API job response object."""
     open_set_data = open_set_data or {}
     open_set_requirements = list(open_set_data.get("open_set_requirements", []))
+    screening_confidence = build_screening_confidence(
+        required_skills,
+        open_set_requirements,
+        embedding_matcher,
+    )
+    confidence_guardrails = build_job_confidence_guardrails(
+        screening_confidence,
+        taxonomy_coverage=taxonomy_coverage,
+        open_set_filter_summary=open_set_data.get("open_set_filter_summary", {}),
+        explicit_technical_recovery_summary=job_criteria.get(
+            "explicit_technical_recovery_summary",
+            {},
+        ),
+        requirement_provenance_summary=job_criteria.get(
+            "requirement_provenance_summary",
+            [],
+        ),
+        payload_diagnostics=payload_diagnostics,
+        job_quality=job_quality,
+        job_role_profile=job_role_profile,
+    )
     return {
         "job_id": job_payload.get("job_id"),
         "title": job_criteria.get("job_title", "") or job_payload.get("job_title", ""),
@@ -398,11 +431,8 @@ def _build_job_output(
             required_skills,
             open_set_requirements,
         ),
-        "screening_confidence": build_screening_confidence(
-            required_skills,
-            open_set_requirements,
-            embedding_matcher,
-        ),
+        "screening_confidence": screening_confidence,
+        "confidence_guardrails": confidence_guardrails,
         "explicit_technical_recovery_summary": job_criteria.get(
             "explicit_technical_recovery_summary",
             {},

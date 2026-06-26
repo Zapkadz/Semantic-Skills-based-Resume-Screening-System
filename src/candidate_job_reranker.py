@@ -109,6 +109,7 @@ def score_retrieved_job_match(
         "role_family_alignment": candidate_result.get("role_family_alignment", {}),
         "role_alignment_impact": candidate_result.get("role_alignment_impact", {}),
         "source_alignment_impact": candidate_result.get("source_alignment_impact", {}),
+        "decision_confidence": candidate_result.get("decision_confidence", {}),
         "matched_must_have_skills": _matched_required_skill_labels(
             candidate_result.get("matched_skills", [])
         ),
@@ -131,6 +132,7 @@ def score_retrieved_job_match(
         ),
         "taxonomy_coverage": job_output.get("taxonomy_coverage", {}),
         "screening_confidence": job_output.get("screening_confidence", {}),
+        "job_confidence_guardrails": job_output.get("confidence_guardrails", {}),
         "job_role_profile": job_output.get("job_role_profile", {}),
         "open_set_requirements": job_output.get("open_set_requirements", []),
         "open_set_candidates": job_output.get("open_set_candidates", []),

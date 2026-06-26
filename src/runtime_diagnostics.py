@@ -5,6 +5,10 @@ from __future__ import annotations
 from typing import Any
 from uuid import uuid4
 
+from src.confidence_guardrails import (
+    summarize_confidence_levels,
+    summarize_reason_codes,
+)
 from src.payload_diagnostics import (
     summarize_candidate_payload_diagnostics,
     summarize_job_payload_diagnostics,
@@ -44,10 +48,19 @@ def build_screening_diagnostics(
             "ranked_candidate_count": len(ranked_candidates),
             "job_quality": _runtime_job_quality(job_quality),
             "screening_confidence": job_output.get("screening_confidence", {}),
+            "confidence_guardrails": job_output.get("confidence_guardrails", {}),
             "taxonomy_coverage": job_output.get("taxonomy_coverage", {}),
             "open_set_requirement_count": len(job_output.get("open_set_requirements", [])),
             "open_set_filter_summary": job_output.get("open_set_filter_summary", {}),
             "job_role_profile": job_output.get("job_role_profile", {}),
+            "candidate_decision_confidence_levels": summarize_confidence_levels(
+                ranked_candidates,
+                field_name="decision_confidence",
+            ),
+            "candidate_decision_reason_counts": summarize_reason_codes(
+                ranked_candidates,
+                field_name="decision_confidence",
+            ),
         },
     }
 
@@ -91,6 +104,22 @@ def build_recommendation_diagnostics(
                 job.get("job_id"): len(job.get("open_set_requirements", []))
                 for job in top_jobs
             },
+            "top_job_decision_confidence_levels": summarize_confidence_levels(
+                top_jobs,
+                field_name="decision_confidence",
+            ),
+            "top_job_decision_reason_counts": summarize_reason_codes(
+                top_jobs,
+                field_name="decision_confidence",
+            ),
+            "top_job_guardrail_levels": summarize_confidence_levels(
+                top_jobs,
+                field_name="job_confidence_guardrails",
+            ),
+            "top_job_guardrail_reason_counts": summarize_reason_codes(
+                top_jobs,
+                field_name="job_confidence_guardrails",
+            ),
         },
     }
 

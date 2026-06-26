@@ -88,6 +88,7 @@ def test_generate_review_card_returns_structured_explanation() -> None:
         "Nguyen Van A is a Strong Review candidate for Backend Java Developer "
         "with a final score of 87/100."
     )
+    assert card["decision_confidence"] == {}
     assert card["score_breakdown"] == candidate_result["scores"]
     assert card["strengths"] == [
         "Strong must-have skill coverage.",
