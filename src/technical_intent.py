@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from src.requirement_provenance import build_requirement_provenance_lookup
 from src.requirement_types import CERTIFICATION_REQUIREMENT, TOOL_PLATFORM
 from src.role_family import (
     BACKEND_ENGINEERING,
@@ -38,6 +39,7 @@ def build_requirement_intent_summary(
     required_skills: list[str],
     open_set_requirements: list[str],
     typed_requirements: list[dict[str, Any]] | None = None,
+    requirement_provenance_summary: list[dict[str, Any]] | None = None,
 ) -> list[dict[str, Any]]:
     """Build role-aware technical intent metadata for required/open-set items."""
     typed_lookup = {
@@ -45,16 +47,25 @@ def build_requirement_intent_summary(
         for item in typed_requirements or []
         if str(item.get("text", "")).strip()
     }
+    provenance_lookup = build_requirement_provenance_lookup(
+        requirement_provenance_summary or []
+    )
     role_family = str(job_role_profile.get("primary_role_family", "GENERIC_TECH"))
     summary: list[dict[str, Any]] = []
 
     for skill in required_skills:
         typed_requirement = typed_lookup.get(make_lookup_key(skill), {})
+        provenance = provenance_lookup.get(make_lookup_key(skill), {})
         summary.append(
             {
                 "text": skill,
                 "taxonomy_status": "known",
                 "role_family": role_family,
+                **{
+                    key: value
+                    for key, value in provenance.items()
+                    if key not in {"text"}
+                },
                 **infer_requirement_technical_intent(
                     skill,
                     role_family=role_family,
@@ -65,11 +76,17 @@ def build_requirement_intent_summary(
 
     for requirement in open_set_requirements:
         typed_requirement = typed_lookup.get(make_lookup_key(requirement), {})
+        provenance = provenance_lookup.get(make_lookup_key(requirement), {})
         summary.append(
             {
                 "text": requirement,
                 "taxonomy_status": "unknown",
                 "role_family": role_family,
+                **{
+                    key: value
+                    for key, value in provenance.items()
+                    if key not in {"text"}
+                },
                 **infer_requirement_technical_intent(
                     requirement,
                     role_family=role_family,

@@ -9,7 +9,10 @@ from src.open_set_requirement_filter import (
     build_open_set_filter_summary,
     filter_open_set_requirement_candidates,
 )
-from src.requirement_promotion import PROMOTED_RESPONSIBILITY_SOURCE
+from src.requirement_promotion import (
+    EXPLICIT_REQUIREMENT_SOURCE,
+    PROMOTED_RESPONSIBILITY_SOURCE,
+)
 from src.skill_extractor import extract_taxonomy_skills_from_text, merge_skill_lists
 from src.requirement_types import (
     CERTIFICATION_REQUIREMENT,
@@ -141,6 +144,7 @@ def extract_requirement_units(
                 {
                     "text": unit_text,
                     "source": DEFAULT_REQUIREMENT_SOURCE,
+                    "source_kind": EXPLICIT_REQUIREMENT_SOURCE,
                     "taxonomy_status": taxonomy_status,
                     "extraction_method": method,
                 }
@@ -204,6 +208,9 @@ def extract_unknown_requirement_candidates(
             {
                 "text": text,
                 "source": str(entry.get("source_kind", DEFAULT_REQUIREMENT_SOURCE)),
+                "source_kind": str(
+                    entry.get("source_kind", PROMOTED_RESPONSIBILITY_SOURCE)
+                ),
                 "taxonomy_status": taxonomy_status,
                 "extraction_method": str(
                     entry.get("source_kind", "scoring_requirement_entry")
