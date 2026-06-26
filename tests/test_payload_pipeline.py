@@ -254,6 +254,26 @@ def test_run_screening_payload_returns_ranked_candidates_with_web_ids() -> None:
         "embedding_enabled": False,
         "warnings": [],
     }
+    assert result["job"]["confidence_guardrails"] == {
+        "level": "high",
+        "review_required": False,
+        "reason_codes": [],
+        "messages": [],
+        "metrics": {
+            "known_requirement_count": 5,
+            "open_set_requirement_count": 0,
+            "explicit_requirement_count": 5,
+            "promoted_requirement_count": 0,
+            "taxonomy_coverage_ratio": 1.0,
+            "open_set_candidate_count": 0,
+            "sparse_recovery_active": False,
+            "usable_explicit_technical_count": 4,
+            "explicit_technical_contamination_count": 1,
+            "role_family_confidence": 0.7822,
+            "payload_warning_count": 0,
+            "job_quality_flag_count": 0,
+        },
+    }
     assert result["job"]["job_role_profile"]["primary_role_family"] == "BACKEND_ENGINEERING"
     assert any(
         item["text"] == "Java" and item["intent_type"] == "CORE_STACK"
@@ -280,6 +300,18 @@ def test_run_screening_payload_returns_ranked_candidates_with_web_ids() -> None:
         "explicit_requirements_well_covered",
         "explicit_core_requirements_confirmed",
     }
+    assert candidate["decision_confidence"] == {
+        "level": "high",
+        "review_required": False,
+        "reason_codes": [],
+        "messages": [],
+        "confirmed_core_ratio": 1.0,
+        "semantic_only_ratio": 0.0,
+        "core_semantic_only_ratio": 0.0,
+        "evidence_score": 1.0,
+        "core_requirement_total": 4,
+        "direct_confirmed_evidence_count": 5,
+    }
     assert candidate["core_requirement_fit_summary"]["core"]["total"] == 4
     assert candidate["source_requirement_fit_summary"]["explicit_requirement"]["total"] == 5
     assert candidate["review_card"]["job_title"] == "Backend Java Developer"
@@ -290,6 +322,12 @@ def test_run_screening_payload_returns_ranked_candidates_with_web_ids() -> None:
     assert result["diagnostics"]["payload"]["job"]["flags"] == []
     assert result["diagnostics"]["payload"]["candidates"]["flagged_count"] == 0
     assert result["diagnostics"]["runtime"]["job_quality"]["recommendation_eligible"] is True
+    assert result["diagnostics"]["runtime"]["confidence_guardrails"]["level"] == "high"
+    assert result["diagnostics"]["runtime"]["candidate_decision_confidence_levels"] == {
+        "high": 1,
+        "medium": 0,
+        "low": 0,
+    }
 
 
 def test_run_screening_payload_rejects_missing_job_text() -> None:

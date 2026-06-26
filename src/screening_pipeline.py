@@ -8,6 +8,10 @@ from pathlib import Path
 from typing import Any
 
 from src.document_loader import load_text_file, load_text_files_from_directory
+from src.confidence_guardrails import (
+    build_decision_confidence,
+    build_job_confidence_guardrails,
+)
 from src.embedding_matcher import SemanticEmbeddingMatcher
 from src.evidence_detector import detect_all_evidence
 from src.jd_parser import parse_jd
@@ -128,6 +132,16 @@ def run_screening_pipeline(
         "requirement_intent_summary": requirement_intent_summary,
         "requirement_provenance_summary": requirement_provenance_summary,
     }
+    job_output = _build_job_output(
+        job_criteria,
+        required_skills,
+        nice_to_have_skills,
+        taxonomy_coverage,
+        open_set_data,
+        job_role_profile,
+        requirement_intent_summary,
+        embedding_matcher,
+    )
 
     candidate_results = [
         _process_candidate_document(
@@ -145,19 +159,14 @@ def run_screening_pipeline(
     ranked_candidates = rank_candidates(candidate_results)
 
     for candidate in ranked_candidates:
+        candidate["decision_confidence"] = build_decision_confidence(
+            candidate,
+            job_confidence_guardrails=job_output.get("confidence_guardrails", {}),
+        )
         candidate["review_card"] = generate_review_card(candidate, job_criteria)
 
     return {
-        "job": _build_job_output(
-            job_criteria,
-            required_skills,
-            nice_to_have_skills,
-            taxonomy_coverage,
-            open_set_data,
-            job_role_profile,
-            requirement_intent_summary,
-            embedding_matcher,
-        ),
+        "job": job_output,
         "candidates": ranked_candidates,
     }
 
@@ -401,6 +410,25 @@ def _build_job_output(
     """Build a stable job summary for pipeline output."""
     open_set_data = open_set_data or {}
     open_set_requirements = list(open_set_data.get("open_set_requirements", []))
+    screening_confidence = build_screening_confidence(
+        required_skills,
+        open_set_requirements,
+        embedding_matcher,
+    )
+    confidence_guardrails = build_job_confidence_guardrails(
+        screening_confidence,
+        taxonomy_coverage=taxonomy_coverage,
+        open_set_filter_summary=open_set_data.get("open_set_filter_summary", {}),
+        explicit_technical_recovery_summary=job_criteria.get(
+            "explicit_technical_recovery_summary",
+            {},
+        ),
+        requirement_provenance_summary=job_criteria.get(
+            "requirement_provenance_summary",
+            [],
+        ),
+        job_role_profile=job_role_profile,
+    )
     return {
         "title": job_criteria.get("job_title", ""),
         "must_have_skills": required_skills,
@@ -422,11 +450,8 @@ def _build_job_output(
             required_skills,
             open_set_requirements,
         ),
-        "screening_confidence": build_screening_confidence(
-            required_skills,
-            open_set_requirements,
-            embedding_matcher,
-        ),
+        "screening_confidence": screening_confidence,
+        "confidence_guardrails": confidence_guardrails,
         "explicit_technical_recovery_summary": job_criteria.get(
             "explicit_technical_recovery_summary",
             {},

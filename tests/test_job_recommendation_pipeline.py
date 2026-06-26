@@ -34,6 +34,11 @@ def test_run_job_recommendation_payload_returns_ranked_top_jobs() -> None:
     assert result["diagnostics"]["payload"]["jobs"]["received_count"] == 3
     assert result["diagnostics"]["runtime"]["top_job_ids"][0] == 10
     assert len(result["diagnostics"]["runtime"]["top_job_ids"]) == 2
+    assert result["diagnostics"]["runtime"]["top_job_decision_confidence_levels"] == {
+        "high": 1,
+        "medium": 0,
+        "low": 1,
+    }
 
     assert len(result["top_jobs"]) == 2
 
@@ -53,6 +58,23 @@ def test_run_job_recommendation_payload_returns_ranked_top_jobs() -> None:
     assert top_job["candidate_role_profile"]["primary_role_family"] == "BACKEND_ENGINEERING"
     assert top_job["role_family_alignment"]["status"] == "strong_alignment"
     assert top_job["role_alignment_impact"]["reason_code"] == "strong_same_role_alignment"
+    assert top_job["decision_confidence"] == {
+        "level": "high",
+        "review_required": False,
+        "reason_codes": [],
+        "messages": [],
+        "confirmed_core_ratio": 1.0,
+        "semantic_only_ratio": 0.0,
+        "core_semantic_only_ratio": 0.0,
+        "evidence_score": 1.0,
+        "core_requirement_total": 4,
+        "direct_confirmed_evidence_count": 5,
+    }
+    assert top_job["job_confidence_guardrails"]["level"] == "medium"
+    assert top_job["job_confidence_guardrails"]["reason_codes"] == [
+        "job_payload_warning_present",
+        "jd_quality_warning_present",
+    ]
     assert top_job["core_requirement_fit_summary"]["core"]["total"] == 4
     assert top_job["matched_must_have_skills"] == [
         "Java",

@@ -48,12 +48,24 @@ def test_build_screening_diagnostics_returns_payload_and_runtime_summary() -> No
         },
         job_output={
             "screening_confidence": {"level": "low"},
+            "confidence_guardrails": {
+                "level": "medium",
+                "reason_codes": ["sparse_recovery_active"],
+            },
             "taxonomy_coverage": {"coverage_ratio": 0.0},
             "open_set_requirements": [],
             "open_set_filter_summary": {"candidate_count": 0},
             "job_role_profile": {"primary_role_family": "GENERIC_TECH"},
         },
-        ranked_candidates=[{"candidate_id": 2}],
+        ranked_candidates=[
+            {
+                "candidate_id": 2,
+                "decision_confidence": {
+                    "level": "medium",
+                    "reason_codes": ["confirmed_core_ratio_low"],
+                },
+            }
+        ],
         embedding_enabled=False,
     )
 
@@ -61,7 +73,18 @@ def test_build_screening_diagnostics_returns_payload_and_runtime_summary() -> No
     assert result["payload"]["candidates"]["flagged_count"] == 1
     assert result["runtime"]["job_quality"]["quality_label"] == "insufficient_jd_data"
     assert result["runtime"]["candidate_count"] == 1
+    assert result["runtime"]["confidence_guardrails"]["reason_codes"] == [
+        "sparse_recovery_active"
+    ]
     assert result["runtime"]["open_set_filter_summary"] == {"candidate_count": 0}
+    assert result["runtime"]["candidate_decision_confidence_levels"] == {
+        "high": 0,
+        "medium": 1,
+        "low": 0,
+    }
+    assert result["runtime"]["candidate_decision_reason_counts"] == {
+        "confirmed_core_ratio_low": 1
+    }
     assert result["runtime"]["job_role_profile"]["primary_role_family"] == "GENERIC_TECH"
 
 
@@ -113,7 +136,20 @@ def test_build_recommendation_diagnostics_returns_flagged_jobs_summary() -> None
             "eligible_jobs": 1,
             "excluded_jobs": 1,
         },
-        top_jobs=[{"job_id": 10, "role_score_adjustment": -4}],
+        top_jobs=[
+            {
+                "job_id": 10,
+                "role_score_adjustment": -4,
+                "decision_confidence": {
+                    "level": "medium",
+                    "reason_codes": ["semantic_only_ratio_high"],
+                },
+                "job_confidence_guardrails": {
+                    "level": "medium",
+                    "reason_codes": ["job_payload_warning_present"],
+                },
+            }
+        ],
         excluded_jobs=[{"job_id": 4}],
         embedding_enabled=False,
     )
@@ -124,3 +160,19 @@ def test_build_recommendation_diagnostics_returns_flagged_jobs_summary() -> None
     assert result["runtime"]["top_job_ids"] == [10]
     assert result["runtime"]["top_job_role_score_adjustments"] == {10: -4}
     assert result["runtime"]["top_job_open_set_requirement_counts"] == {10: 0}
+    assert result["runtime"]["top_job_decision_confidence_levels"] == {
+        "high": 0,
+        "medium": 1,
+        "low": 0,
+    }
+    assert result["runtime"]["top_job_decision_reason_counts"] == {
+        "semantic_only_ratio_high": 1
+    }
+    assert result["runtime"]["top_job_guardrail_levels"] == {
+        "high": 0,
+        "medium": 1,
+        "low": 0,
+    }
+    assert result["runtime"]["top_job_guardrail_reason_counts"] == {
+        "job_payload_warning_present": 1
+    }

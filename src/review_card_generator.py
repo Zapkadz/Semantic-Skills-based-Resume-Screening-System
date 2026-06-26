@@ -94,6 +94,7 @@ def generate_review_card(
         "source_alignment_impact": dict(
             candidate_result.get("source_alignment_impact", {})
         ),
+        "decision_confidence": dict(candidate_result.get("decision_confidence", {})),
         "seniority": candidate_result.get("seniority", ""),
         "experience_years": candidate_result.get("experience_years", 0),
         "domain": list(candidate_result.get("domain", [])),

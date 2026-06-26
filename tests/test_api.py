@@ -15,7 +15,7 @@ def test_health_endpoint_returns_service_status() -> None:
     assert result["status"] == "ok"
     assert result["service"] == "semantic-skills-resume-screening"
     assert result["phase"] == (
-        "Phase 36 - Source-aware Scoring Calibration"
+        "Phase 38 - Confidence and Diagnostics Guardrails"
     )
     assert "embedding_enabled" in result
     assert "embedding_model" in result
@@ -55,6 +55,7 @@ def test_screening_endpoint_returns_ranked_candidates() -> None:
         "explicit_requirements_well_covered",
         "explicit_core_requirements_confirmed",
     }
+    assert candidate["decision_confidence"]["level"] == "high"
     assert candidate["hard_skill_gate"]["passed"] is True
     assert candidate["review_card"]["summary"] == (
         "Nguyen Van A is a Strong Review candidate for Backend Java Developer "
@@ -62,6 +63,7 @@ def test_screening_endpoint_returns_ranked_candidates() -> None:
     )
     assert result["diagnostics"]["trace_id"] == result["trace_id"]
     assert result["diagnostics"]["payload"]["candidates"]["received_count"] == 1
+    assert result["diagnostics"]["runtime"]["confidence_guardrails"]["level"] == "high"
 
 
 def test_screening_endpoint_returns_422_for_invalid_schema() -> None:
@@ -117,6 +119,11 @@ def test_recommend_jobs_endpoint_returns_ranked_top_jobs() -> None:
     assert result["warnings"] == []
     assert result["diagnostics"]["trace_id"] == result["trace_id"]
     assert result["diagnostics"]["payload"]["jobs"]["received_count"] == 3
+    assert result["diagnostics"]["runtime"]["top_job_decision_confidence_levels"] == {
+        "high": 1,
+        "medium": 0,
+        "low": 1,
+    }
     assert len(result["top_jobs"]) == 2
 
     top_job = result["top_jobs"][0]
@@ -131,6 +138,8 @@ def test_recommend_jobs_endpoint_returns_ranked_top_jobs() -> None:
     assert "Strong Fit" in top_job["fit_summary"]
     assert top_job["role_score_adjustment"] == 0
     assert top_job["source_score_adjustment"] == 0
+    assert top_job["decision_confidence"]["level"] == "high"
+    assert top_job["job_confidence_guardrails"]["level"] == "medium"
     assert top_job["core_requirement_fit_summary"]["core"]["total"] == 4
     assert top_job["matched_must_have_skills"] == [
         "Java",
