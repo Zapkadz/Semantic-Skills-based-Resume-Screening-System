@@ -4,7 +4,14 @@ from __future__ import annotations
 
 from typing import Any
 
-from src.requirement_types import MUST_HAVE_PRIORITY, NICE_TO_HAVE_PRIORITY
+from src.open_set_requirement_filter import filter_open_set_requirement_candidates
+from src.requirement_types import (
+    CERTIFICATION_REQUIREMENT,
+    MUST_HAVE_PRIORITY,
+    NICE_TO_HAVE_PRIORITY,
+    TECH_SKILL,
+    TOOL_PLATFORM,
+)
 from src.responsibility_signal_extractor import SPECIFICITY_HIGH, SUPPORTED_SIGNAL_TYPES
 from src.skill_extractor import merge_skill_lists
 
@@ -14,6 +21,7 @@ PROMOTED_RESPONSIBILITY_SOURCE = "promoted_responsibility"
 
 DEFAULT_PROMOTION_REASON = "sparse_explicit_technical_requirements"
 MAX_PROMOTED_REQUIREMENTS = 4
+MIN_USABLE_EXPLICIT_TECHNICAL_LINES = 2
 
 
 def build_scoring_requirement_entries(
@@ -80,12 +88,8 @@ def build_scoring_requirement_lines_from_entries(
 
 def build_promoted_requirements(job_criteria: dict[str, Any]) -> list[dict[str, Any]]:
     """Promote high-specificity responsibility signals when explicit technical input is empty."""
-    requirement_groups = dict(job_criteria.get("requirement_groups", {}))
-    explicit_required_lines = merge_skill_lists(
-        requirement_groups.get("must_have_technical", []),
-        requirement_groups.get("certifications", []),
-    )
-    if explicit_required_lines:
+    recovery_summary = build_explicit_technical_recovery_summary(job_criteria)
+    if not recovery_summary.get("recovery_triggered", False):
         return []
 
     responsibility_signals = list(job_criteria.get("responsibility_signals", []))
@@ -131,6 +135,77 @@ def build_promoted_requirements(job_criteria: dict[str, Any]) -> list[dict[str, 
     return promoted_entries
 
 
+def build_explicit_technical_recovery_summary(
+    job_criteria: dict[str, Any],
+) -> dict[str, Any]:
+    """Summarize whether explicit technical requirements are strong enough to block recovery."""
+    requirement_groups = dict(job_criteria.get("requirement_groups", {}))
+    typed_lookup = {
+        str(item.get("text", "")).strip(): str(item.get("type", "")).strip()
+        for item in job_criteria.get("typed_requirements", [])
+        if str(item.get("text", "")).strip()
+    }
+    explicit_required_lines = merge_skill_lists(
+        requirement_groups.get("must_have_technical", []),
+        requirement_groups.get("certifications", []),
+    )
+    usable_lines: list[str] = []
+    contaminated_lines: list[str] = []
+
+    for line in explicit_required_lines:
+        requirement_type = typed_lookup.get(line, "")
+        if _is_usable_explicit_technical_line(line, requirement_type):
+            usable_lines.append(line)
+        else:
+            contaminated_lines.append(line)
+
+    usable_count = len(usable_lines)
+    responsibility_signals = list(job_criteria.get("responsibility_signals", []))
+    supported_high_specificity_signal_count = sum(
+        1
+        for signal in responsibility_signals
+        if str(signal.get("signal_type", "")) in SUPPORTED_SIGNAL_TYPES
+        and str(signal.get("specificity", "")) == SPECIFICITY_HIGH
+        and bool(signal.get("technical_terms"))
+    )
+    technical_responsibility_candidates = list(
+        job_criteria.get("technical_responsibility_candidates", [])
+    )
+
+    recovery_triggered = (
+        usable_count < MIN_USABLE_EXPLICIT_TECHNICAL_LINES
+        and supported_high_specificity_signal_count > 0
+        and len(technical_responsibility_candidates) > 0
+    )
+
+    if usable_count >= MIN_USABLE_EXPLICIT_TECHNICAL_LINES:
+        reason = "usable_explicit_technical_requirements_present"
+    elif not technical_responsibility_candidates:
+        reason = "no_recoverable_responsibility_signals"
+    elif not supported_high_specificity_signal_count:
+        reason = "responsibility_signals_not_specific_enough"
+    elif usable_count == 1:
+        reason = "explicit_technical_too_thin_for_sparse_jd"
+    elif contaminated_lines:
+        reason = "explicit_technical_contamination_detected"
+    else:
+        reason = DEFAULT_PROMOTION_REASON
+
+    return {
+        "raw_explicit_technical_count": len(explicit_required_lines),
+        "usable_explicit_technical_count": usable_count,
+        "explicit_technical_contamination_count": len(contaminated_lines),
+        "usable_explicit_technical_lines": usable_lines,
+        "contaminated_explicit_technical_lines": contaminated_lines,
+        "supported_high_specificity_signal_count": supported_high_specificity_signal_count,
+        "technical_responsibility_candidate_count": len(
+            technical_responsibility_candidates
+        ),
+        "recovery_triggered": recovery_triggered,
+        "recovery_reason": reason,
+    }
+
+
 def _entry(
     text: str,
     *,
@@ -166,3 +241,20 @@ def _dedupe_entries(entries: list[dict[str, Any]]) -> list[dict[str, Any]]:
         deduped.append(entry)
 
     return deduped
+
+
+def _is_usable_explicit_technical_line(text: str, requirement_type: str) -> bool:
+    """Return True when an explicit technical line is specific enough to block sparse-JD recovery."""
+    if requirement_type == CERTIFICATION_REQUIREMENT:
+        return True
+    if requirement_type == TOOL_PLATFORM:
+        return True
+    if requirement_type != TECH_SKILL:
+        return False
+
+    candidates = filter_open_set_requirement_candidates([{"text": text}])
+    if not candidates:
+        return False
+
+    candidate = candidates[0]
+    return candidate.get("keep_for_matching") is True

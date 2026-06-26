@@ -22,6 +22,7 @@ from src.requirement_types import (
     UNKNOWN_REQUIREMENT,
 )
 from src.requirement_promotion import (
+    build_explicit_technical_recovery_summary,
     build_promoted_requirements,
     build_scoring_requirement_entries,
 )
@@ -113,6 +114,7 @@ LANGUAGE_MARKERS = (
 
 SOFT_SKILL_MARKERS = (
     "analytical",
+    "careful",
     "chiu ap luc",
     "communication",
     "dam me hoc hoi",
@@ -120,19 +122,27 @@ SOFT_SKILL_MARKERS = (
     "detail-oriented",
     "doc lap",
     "giao tiep",
+    "good attitude",
+    "hard working",
+    "hard-working",
     "lam viec doc lap",
     "lam viec nhom",
     "mindset",
     "nhiet tinh",
     "presentation",
+    "positive attitude",
     "problem solving",
+    "proactive",
     "process driven",
     "process-driven",
     "teamwork",
     "thuyet trinh",
     "trinh bay",
     "under pressure",
+    "willing to learn",
     "work independently",
+    "enthusiastic",
+    "eager to learn",
 )
 
 DOMAIN_MARKERS = (
@@ -156,16 +166,21 @@ CERTIFICATION_MARKERS = (
 )
 
 TOOL_PLATFORM_MARKERS = (
+    "active directory",
     "aws",
     "azure",
     "cloud",
     "container",
     "database",
+    "dhcp",
+    "dns",
     "docker",
+    "firewall",
     "framework",
     "git",
     "gitlab",
     "gcp",
+    "google workspace",
     "jenkins",
     "kubernetes",
     "library",
@@ -175,12 +190,16 @@ TOOL_PLATFORM_MARKERS = (
     "postgres",
     "pytorch",
     "qualys",
+    "router",
     "sap",
     "server",
     "spring boot",
+    "switch",
     "tensorflow",
     "tool",
+    "vpn",
     "vmware",
+    "windows server",
 )
 
 EXPERIENCE_PATTERN = re.compile(
@@ -284,10 +303,14 @@ def enrich_job_criteria_with_requirement_metadata(
         "requirement_groups": requirement_groups,
         **responsibility_signal_metadata,
     }
+    explicit_technical_recovery_summary = build_explicit_technical_recovery_summary(
+        enriched_job_criteria
+    )
     scoring_requirement_entries = build_scoring_requirement_entries(enriched_job_criteria)
     promoted_requirements = build_promoted_requirements(enriched_job_criteria)
     return {
         **enriched_job_criteria,
+        "explicit_technical_recovery_summary": explicit_technical_recovery_summary,
         "promoted_requirements": promoted_requirements,
         "scoring_requirement_entries": scoring_requirement_entries,
     }

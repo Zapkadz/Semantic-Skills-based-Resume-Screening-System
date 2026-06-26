@@ -19,6 +19,7 @@ from src.text_normalization import normalize_search_text
 DEFAULT_OPEN_SET_SIMILARITY_THRESHOLD = 0.74
 OPEN_SET_MATCH_SCORE = 0.65
 SEMANTIC_ONLY_MATCH_TYPE = "semantic_only_match"
+LEXICAL_EVIDENCE_MATCH_TYPE = "lexical_evidence_match"
 NO_SEMANTIC_EVIDENCE_MATCH_TYPE = "no_semantic_evidence"
 UNKNOWN_TAXONOMY_STATUS = "unknown"
 
@@ -93,14 +94,9 @@ def find_semantic_requirement_evidence(
     threshold: float = DEFAULT_OPEN_SET_SIMILARITY_THRESHOLD,
 ) -> list[dict[str, Any]]:
     """Match unknown JD requirements against resume evidence sentences."""
-    if not unknown_requirements or embedding_matcher is None:
+    if not unknown_requirements:
         return []
 
-    effective_threshold = (
-        getattr(embedding_matcher, "threshold", threshold)
-        if threshold == DEFAULT_OPEN_SET_SIMILARITY_THRESHOLD
-        else threshold
-    )
     evidence_candidates = _collect_open_set_evidence_candidates(resume_profile)
     if not evidence_candidates:
         return [
@@ -108,19 +104,37 @@ def find_semantic_requirement_evidence(
             for requirement in unknown_requirements
         ]
 
-    evidence_texts = [candidate["text"] for candidate in evidence_candidates]
-    similarities = embedding_matcher.similarity_matrix(
-        unknown_requirements,
-        evidence_texts,
+    effective_threshold = (
+        getattr(embedding_matcher, "threshold", threshold)
+        if embedding_matcher is not None
+        and threshold == DEFAULT_OPEN_SET_SIMILARITY_THRESHOLD
+        else threshold
     )
-    if similarities is None:
-        return []
+    evidence_texts = [candidate["text"] for candidate in evidence_candidates]
+    similarities = (
+        embedding_matcher.similarity_matrix(
+            unknown_requirements,
+            evidence_texts,
+        )
+        if embedding_matcher is not None
+        else None
+    )
 
     matches: list[dict[str, Any]] = []
-    for requirement, requirement_similarities in zip(
-        unknown_requirements,
-        similarities,
-    ):
+    for index, requirement in enumerate(unknown_requirements):
+        exact_candidate = _best_exact_evidence_candidate(
+            requirement,
+            evidence_candidates,
+        )
+        if exact_candidate is not None:
+            matches.append(_build_lexical_evidence_match(requirement, exact_candidate))
+            continue
+
+        if similarities is None:
+            matches.append(_build_no_semantic_evidence_match(requirement))
+            continue
+
+        requirement_similarities = similarities[index]
         best_candidate = _best_evidence_candidate(
             requirement,
             requirement_similarities,
@@ -263,6 +277,32 @@ def _best_evidence_candidate(
     )
 
 
+def _best_exact_evidence_candidate(
+    requirement: str,
+    evidence_candidates: list[dict[str, str]],
+) -> dict[str, Any] | None:
+    """Return the strongest exact lexical evidence candidate for one requirement."""
+    exact_candidates = [
+        {
+            **candidate,
+            "similarity": 1.0,
+            "evidence_level": calculate_candidate_evidence_level(candidate),
+        }
+        for candidate in evidence_candidates
+        if _contains_requirement_phrase(candidate["text"], requirement)
+    ]
+    if not exact_candidates:
+        return None
+
+    return max(
+        exact_candidates,
+        key=lambda candidate: (
+            candidate["evidence_level"],
+            candidate["similarity"],
+        ),
+    )
+
+
 def _contains_requirement_phrase(text: str, requirement: str) -> bool:
     """Return True when evidence text contains the open-set requirement phrase."""
     normalized_text = normalize_search_text(text)
@@ -286,6 +326,24 @@ def _build_semantic_only_match(
         "taxonomy_status": UNKNOWN_TAXONOMY_STATUS,
         "score": OPEN_SET_MATCH_SCORE,
         "similarity": evidence_candidate["similarity"],
+        "evidence_level": evidence_candidate["evidence_level"],
+        "evidence_text": evidence_candidate["text"],
+        "evidence_source": evidence_candidate["source"],
+    }
+
+
+def _build_lexical_evidence_match(
+    requirement: str,
+    evidence_candidate: dict[str, Any],
+) -> dict[str, Any]:
+    """Build a scored exact-evidence match for an unknown requirement."""
+    return {
+        "required_skill": requirement,
+        "candidate_skill": requirement,
+        "match_type": LEXICAL_EVIDENCE_MATCH_TYPE,
+        "taxonomy_status": UNKNOWN_TAXONOMY_STATUS,
+        "score": OPEN_SET_MATCH_SCORE,
+        "similarity": 1.0,
         "evidence_level": evidence_candidate["evidence_level"],
         "evidence_text": evidence_candidate["text"],
         "evidence_source": evidence_candidate["source"],

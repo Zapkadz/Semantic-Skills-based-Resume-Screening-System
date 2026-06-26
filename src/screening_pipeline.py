@@ -427,6 +427,10 @@ def _build_job_output(
             open_set_requirements,
             embedding_matcher,
         ),
+        "explicit_technical_recovery_summary": job_criteria.get(
+            "explicit_technical_recovery_summary",
+            {},
+        ),
         "promoted_requirements": job_criteria.get("promoted_requirements", []),
         "scoring_requirement_entries": job_criteria.get(
             "scoring_requirement_entries",
