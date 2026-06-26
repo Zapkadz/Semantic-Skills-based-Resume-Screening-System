@@ -21,7 +21,11 @@
       "expected": {
         "min_final_score": 85,
         "recommendation": "Strong Review",
-        "missing_skills": []
+        "missing_skills": [],
+        "job_confidence_level": "high",
+        "job_reason_codes_contains": [],
+        "decision_confidence_level": "high",
+        "decision_reason_codes": []
       }
     },
     {
@@ -42,7 +46,13 @@
       "expected": {
         "min_final_score": 85,
         "recommendation": "Strong Review",
-        "missing_skills": []
+        "missing_skills": [],
+        "job_confidence_level": "medium",
+        "job_reason_codes_contains": [
+          "job_payload_warning_present"
+        ],
+        "decision_confidence_level": "high",
+        "decision_reason_codes": []
       }
     },
     {
@@ -65,6 +75,16 @@
         "missing_skills_contains": [
           "SQL",
           "Docker"
+        ],
+        "job_confidence_level": "medium",
+        "job_reason_codes_contains": [
+          "job_payload_warning_present"
+        ],
+        "decision_confidence_level": "medium",
+        "decision_reason_codes_contains": [
+          "confirmed_core_ratio_low",
+          "evidence_mostly_keyword_level",
+          "direct_evidence_sparse"
         ]
       }
     },
@@ -85,10 +105,92 @@
       ],
       "expected": {
         "min_final_score": 80,
+        "recommendation": "Review",
         "required_skills": [
           "Face Recognition",
           "Anti-Spoofing",
           "Python"
+        ],
+        "job_confidence_level": "medium",
+        "job_reason_codes_contains": [
+          "job_payload_warning_present",
+          "jd_quality_warning_present"
+        ],
+        "decision_confidence_level": "medium",
+        "decision_reason_codes_contains": [
+          "weak_hard_skill_confirmation"
+        ]
+      }
+    },
+    {
+      "case_id": "screening_sparse_infra_recovery",
+      "endpoint": "screening",
+      "payload_file": "payloads/screening_sparse_infra_recovery.json",
+      "tags": [
+        "sparse_jd",
+        "infra_support",
+        "promoted_source_recovery"
+      ],
+      "failure_taxonomy_watch": [
+        "OPEN_SET_NOISE",
+        "CONFIDENCE_GUARDRAIL_MISS"
+      ],
+      "expected": {
+        "max_final_score": 35,
+        "recommendation": "Not Enough Evidence",
+        "open_set_requirements": [
+          "Active Directory",
+          "DNS",
+          "DHCP",
+          "Firewall"
+        ],
+        "job_confidence_level": "low",
+        "job_reason_codes_contains": [
+          "sparse_recovery_active",
+          "explicit_technical_core_sparse",
+          "promoted_source_dominant",
+          "unknown_requirement_count_high",
+          "open_set_heavy_embedding_disabled"
+        ],
+        "decision_confidence_level": "medium",
+        "decision_reason_codes_contains": [
+          "confirmed_core_ratio_low",
+          "evidence_mostly_keyword_level",
+          "direct_evidence_sparse"
+        ]
+      }
+    },
+    {
+      "case_id": "screening_open_set_identity_requirement",
+      "endpoint": "screening",
+      "payload_file": "payloads/screening_open_set_identity.json",
+      "tags": [
+        "open_set",
+        "explicit_unknown_requirement",
+        "weak_evidence"
+      ],
+      "failure_taxonomy_watch": [
+        "OPEN_SET_NOISE",
+        "CONFIDENCE_GUARDRAIL_MISS"
+      ],
+      "expected": {
+        "min_final_score": 65,
+        "max_final_score": 70,
+        "recommendation": "Maybe Review",
+        "open_set_requirements": [
+          "identity verification"
+        ],
+        "job_confidence_level": "medium",
+        "job_reason_codes_contains": [
+          "job_payload_warning_present",
+          "jd_quality_warning_present",
+          "role_family_low_confidence"
+        ],
+        "decision_confidence_level": "low",
+        "decision_reason_codes_contains": [
+          "weak_hard_skill_confirmation",
+          "evidence_mostly_keyword_level",
+          "direct_evidence_sparse"
         ]
       }
     },
@@ -106,7 +208,29 @@
       "expected": {
         "excluded_jobs_min": 2,
         "eligible_jobs": 1,
-        "top_job_id": 3
+        "top_job_id": 3,
+        "top_job_fit_label": "Potential Fit",
+        "top_job_decision_confidence_level": "low",
+        "top_job_decision_reason_codes_contains": [
+          "weak_hard_skill_confirmation",
+          "confirmed_core_ratio_low",
+          "direct_evidence_sparse"
+        ],
+        "top_job_guardrail_level": "medium",
+        "top_job_guardrail_reason_codes_contains": [
+          "job_payload_warning_present",
+          "jd_quality_warning_present"
+        ],
+        "diagnostic_top_job_decision_confidence_levels": {
+          "high": 0,
+          "medium": 0,
+          "low": 1
+        },
+        "diagnostic_top_job_guardrail_levels": {
+          "high": 0,
+          "medium": 1,
+          "low": 0
+        }
       }
     }
   ]

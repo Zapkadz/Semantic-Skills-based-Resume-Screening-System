@@ -1,0 +1,21 @@
+{
+  "job": {
+    "job_title": "IT Staff / IT Support / IT Helpdesk",
+    "requirements": [
+      "At least 3 years experience working in IT.",
+      "Good at writing and speaking English.",
+      "Enthusiastic and eager to learn.",
+      "Have experience in SAP or program is an advantage."
+    ],
+    "responsibilities": [
+      "Manage Active Directory and troubleshoot DNS/DHCP issues.",
+      "Support firewall, router, switch, VPN, and Google Workspace incidents."
+    ]
+  },
+  "candidates": [
+    {
+      "candidate_name": "Infra Candidate",
+      "cv_text": "Infra Candidate\nIT Support Engineer\n\nSkills:\n- Active Directory"
+    }
+  ]
+}
