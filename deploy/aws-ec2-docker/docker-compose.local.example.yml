@@ -1,0 +1,7 @@
+services:
+  web:
+    build:
+      context: C:\xampp\htdocs\topcv_lite
+      dockerfile: C:\SEMANTIC_SKILLS_RESUME\deploy\aws-ec2-docker\web\Dockerfile
+    ports: !override
+      - "8088:80"

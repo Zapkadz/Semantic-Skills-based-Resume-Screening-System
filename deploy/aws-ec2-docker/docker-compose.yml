@@ -1,0 +1,67 @@
+services:
+  db:
+    image: mariadb:11.4
+    container_name: topcv-db
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      TZ: ${TZ:-Asia/Ho_Chi_Minh}
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+    volumes:
+      - ./volumes/mysql:/var/lib/mysql
+    healthcheck:
+      test: ["CMD-SHELL", "mariadb-admin ping -h 127.0.0.1 -uroot -p$$MARIADB_ROOT_PASSWORD --silent"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  ai-api:
+    build:
+      context: ../..
+      dockerfile: deploy/aws-ec2-docker/ai/Dockerfile
+    container_name: semantic-skills-api
+    restart: unless-stopped
+    environment:
+      TZ: ${TZ:-Asia/Ho_Chi_Minh}
+      HF_HOME: /hf-cache
+      SEMANTIC_EMBEDDING_ENABLED: "true"
+      SEMANTIC_EMBEDDING_MODEL: "BAAI/bge-m3"
+      SEMANTIC_EMBEDDING_LOCAL_ONLY: "false"
+    volumes:
+      - ./volumes/hf_cache:/hf-cache
+      - ./volumes/topcv_ai_runtime:/var/lib/topcv_ai_runtime
+    ports:
+      - "127.0.0.1:8000:8000"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=5).read()"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+
+  web:
+    build:
+      context: ../../../topcv_lite
+      dockerfile: ../semantic_skills_resume/deploy/aws-ec2-docker/web/Dockerfile
+    container_name: topcv-web
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+      ai-api:
+        condition: service_healthy
+    environment:
+      TZ: ${TZ:-Asia/Ho_Chi_Minh}
+    ports:
+      - "80:80"
+    volumes:
+      - ./config/db.local.php:/var/www/html/topcv_lite/config/db.local.php:ro
+      - ./config/ai.local.php:/var/www/html/topcv_lite/config/ai.local.php:ro
+      - ./config/ai_screening.local.php:/var/www/html/topcv_lite/config/ai_screening.local.php:ro
+      - ./config/ai_taxonomy.local.php:/var/www/html/topcv_lite/config/ai_taxonomy.local.php:ro
+      - ../..:/opt/semantic_skills_resume:ro
+      - ./volumes/topcv_ai_runtime:/var/lib/topcv_ai_runtime
+      - ./volumes/topcv_uploads:/var/www/html/topcv_lite/uploads
+      - ./volumes/topcv_storage:/var/www/html/topcv_lite/storage
