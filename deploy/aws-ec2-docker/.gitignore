@@ -1,4 +1,5 @@
-.env
+/.env
+!.env.example
 docker-compose.local.yml
 config/*.php
 !config/*.example.php
