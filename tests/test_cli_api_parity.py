@@ -28,6 +28,13 @@ def test_cli_and_payload_pipelines_match_for_backend_strong_case(tmp_path: Path)
     assert cli_candidate["final_score"] == payload_candidate["final_score"]
     assert cli_candidate["recommendation"] == payload_candidate["recommendation"]
     assert cli_candidate["missing_skills"] == payload_candidate["missing_skills"]
+    assert (
+        cli_candidate["decision_confidence"]
+        == payload_candidate["decision_confidence"]
+    )
+    assert cli_result["job"]["confidence_guardrails"]["level"] == "high"
+    assert payload_result["job"]["confidence_guardrails"]["level"] == "high"
+    assert payload_result["job"]["confidence_guardrails"]["reason_codes"] == []
 
 
 def test_cli_and_payload_pipelines_keep_same_cross_lingual_skills(tmp_path: Path) -> None:
@@ -54,6 +61,16 @@ def test_cli_and_payload_pipelines_keep_same_cross_lingual_skills(tmp_path: Path
     assert cli_result["job"]["must_have_skills"] == payload_result["job"]["must_have_skills"]
     assert cli_result["candidates"][0]["final_score"] == payload_result["candidates"][0]["final_score"]
     assert cli_result["candidates"][0]["missing_skills"] == payload_result["candidates"][0]["missing_skills"]
+    assert (
+        cli_result["candidates"][0]["decision_confidence"]
+        == payload_result["candidates"][0]["decision_confidence"]
+    )
+    assert cli_result["job"]["confidence_guardrails"]["level"] == "high"
+    assert payload_result["job"]["confidence_guardrails"]["level"] == "medium"
+    assert payload_result["job"]["confidence_guardrails"]["reason_codes"] == [
+        "job_payload_warning_present",
+        "jd_quality_warning_present",
+    ]
 
 
 def _load_json(relative_path: str) -> dict:

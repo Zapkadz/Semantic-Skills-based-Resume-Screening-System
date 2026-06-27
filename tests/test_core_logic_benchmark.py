@@ -54,6 +54,7 @@ def test_core_logic_benchmark_backend_strong_case() -> None:
         "SQL",
         "Docker",
     ]
+    _assert_screening_confidence_expectations(result, expected)
 
 
 def test_core_logic_benchmark_evidence_only_cv_still_scores_as_real_fit() -> None:
@@ -69,6 +70,7 @@ def test_core_logic_benchmark_evidence_only_cv_still_scores_as_real_fit() -> Non
     assert candidate["missing_skills"] == expected["missing_skills"]
     assert candidate["scores"]["evidence"] >= 0.9
     assert candidate["scores"]["skill_semantic"] == 1.0
+    _assert_screening_confidence_expectations(result, expected)
 
 
 def test_core_logic_benchmark_hard_skill_deficit_is_not_overrated() -> None:
@@ -83,6 +85,7 @@ def test_core_logic_benchmark_hard_skill_deficit_is_not_overrated() -> None:
     assert candidate["recommendation"] == expected["recommendation"]
     for skill in expected["missing_skills_contains"]:
         assert skill in candidate["missing_skills"]
+    _assert_screening_confidence_expectations(result, expected)
 
 
 def test_core_logic_benchmark_cross_lingual_case_keeps_semantic_signal() -> None:
@@ -95,6 +98,7 @@ def test_core_logic_benchmark_cross_lingual_case_keeps_semantic_signal() -> None
 
     assert result["job"]["must_have_skills"] == expected["required_skills"]
     assert candidate["final_score"] >= expected["min_final_score"]
+    assert candidate["recommendation"] == expected["recommendation"]
     assert candidate["missing_skills"] == []
     assert [
         (match["required_skill"], match["evidence_level"])
@@ -104,6 +108,7 @@ def test_core_logic_benchmark_cross_lingual_case_keeps_semantic_signal() -> None
         ("Anti-Spoofing", 3),
         ("Python", 1),
     ]
+    _assert_screening_confidence_expectations(result, expected)
 
 
 def test_core_logic_benchmark_placeholder_jobs_are_excluded_from_recommendation() -> None:
@@ -116,6 +121,31 @@ def test_core_logic_benchmark_placeholder_jobs_are_excluded_from_recommendation(
     assert result["job_quality_stats"]["eligible_jobs"] == expected["eligible_jobs"]
     assert len(result["excluded_jobs"]) >= expected["excluded_jobs_min"]
     assert result["top_jobs"][0]["job_id"] == expected["top_job_id"]
+    assert result["top_jobs"][0]["fit_label"] == expected["top_job_fit_label"]
+    assert (
+        result["top_jobs"][0]["decision_confidence"]["level"]
+        == expected["top_job_decision_confidence_level"]
+    )
+    assert (
+        result["top_jobs"][0]["job_confidence_guardrails"]["level"]
+        == expected["top_job_guardrail_level"]
+    )
+    _assert_codes_include(
+        result["top_jobs"][0]["decision_confidence"]["reason_codes"],
+        expected["top_job_decision_reason_codes_contains"],
+    )
+    _assert_codes_include(
+        result["top_jobs"][0]["job_confidence_guardrails"]["reason_codes"],
+        expected["top_job_guardrail_reason_codes_contains"],
+    )
+    assert (
+        result["diagnostics"]["runtime"]["top_job_decision_confidence_levels"]
+        == expected["diagnostic_top_job_decision_confidence_levels"]
+    )
+    assert (
+        result["diagnostics"]["runtime"]["top_job_guardrail_levels"]
+        == expected["diagnostic_top_job_guardrail_levels"]
+    )
     assert any("excluded" in warning.casefold() for warning in result["warnings"])
 
 
@@ -205,6 +235,40 @@ def test_core_logic_benchmark_open_set_technical_requirement_is_preserved() -> N
     assert match["match_type"] == "lexical_evidence_match"
     assert match["taxonomy_status"] == "unknown"
     assert match["evidence_text"] == "digital identity verification"
+
+
+def test_core_logic_benchmark_sparse_infra_recovery_case_sets_guardrails() -> None:
+    case = _case("screening_sparse_infra_recovery")
+
+    result = run_screening_payload(_screening_payload_from_case(case))
+    candidate = result["candidates"][0]
+    expected = case["expected"]
+
+    assert candidate["final_score"] <= expected["max_final_score"]
+    assert candidate["recommendation"] == expected["recommendation"]
+    assert result["job"]["open_set_requirements"] == expected["open_set_requirements"]
+    _assert_screening_confidence_expectations(result, expected)
+
+
+def test_core_logic_benchmark_open_set_identity_requirement_keeps_low_confidence_review() -> None:
+    case = _case("screening_open_set_identity_requirement")
+    embedding_matcher = SemanticEmbeddingMatcher(
+        model=FakeMultilingualEmbeddingModel(),
+        threshold=0.70,
+    )
+
+    result = run_screening_payload(
+        _screening_payload_from_case(case),
+        embedding_matcher=embedding_matcher,
+    )
+    candidate = result["candidates"][0]
+    expected = case["expected"]
+
+    assert candidate["final_score"] >= expected["min_final_score"]
+    assert candidate["final_score"] <= expected["max_final_score"]
+    assert candidate["recommendation"] == expected["recommendation"]
+    assert result["job"]["open_set_requirements"] == expected["open_set_requirements"]
+    _assert_screening_confidence_expectations(result, expected)
 
 
 def test_core_logic_benchmark_context_split_evidence_is_recovered() -> None:
@@ -319,6 +383,9 @@ def _load_json(relative_path: str) -> dict:
 
 
 def _screening_payload_from_case(case: dict) -> dict:
+    if case.get("payload_file"):
+        return _load_json(case["payload_file"])
+
     return {
         "job": {
             "raw_text": _load_text(case["jd_file"]),
@@ -331,3 +398,34 @@ def _screening_payload_from_case(case: dict) -> dict:
             for cv_file in case["cv_files"]
         ],
     }
+
+
+def _assert_screening_confidence_expectations(
+    result: dict,
+    expected: dict,
+) -> None:
+    job_guardrails = result["job"]["confidence_guardrails"]
+    decision_confidence = result["candidates"][0]["decision_confidence"]
+
+    assert job_guardrails["level"] == expected["job_confidence_level"]
+    assert decision_confidence["level"] == expected["decision_confidence_level"]
+
+    if "job_reason_codes_contains" in expected:
+        _assert_codes_include(
+            job_guardrails["reason_codes"],
+            expected["job_reason_codes_contains"],
+        )
+
+    if "decision_reason_codes" in expected:
+        assert decision_confidence["reason_codes"] == expected["decision_reason_codes"]
+
+    if "decision_reason_codes_contains" in expected:
+        _assert_codes_include(
+            decision_confidence["reason_codes"],
+            expected["decision_reason_codes_contains"],
+        )
+
+
+def _assert_codes_include(actual_codes: list[str], expected_codes: list[str]) -> None:
+    for code in expected_codes:
+        assert code in actual_codes

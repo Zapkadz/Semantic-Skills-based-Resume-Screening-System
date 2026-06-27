@@ -61,10 +61,45 @@ tro di. Moi case duoc chon vi no tung bat ra mot nhom benh logic that:
   - chi job that moi vao `top_jobs`
   - day la case de bat `JD_QUALITY_GATE_MISS`
 
+### 6. `screening_sparse_infra_recovery`
+
+- Loai: employer-side screening
+- Muc tieu: sparse JD support/infra van phuc hoi duoc technical core tu responsibilities
+- Ky vong:
+  - `open_set_requirements` giu duoc `Active Directory`, `DNS`, `DHCP`, `Firewall`
+  - `confidence_guardrails.level = low`
+  - co cac reason code sparse/open-set/prompted-source quan trong
+  - `decision_confidence` cua candidate khong duoc "tu tin ao"
+- Failure taxonomy watch:
+  - `OPEN_SET_NOISE`
+  - `CONFIDENCE_GUARDRAIL_MISS`
+
+### 7. `screening_open_set_identity_requirement`
+
+- Loai: employer-side screening
+- Muc tieu: requirement explicit nhung ngoai taxonomy van duoc giu lai va match dung
+- Ky vong:
+  - `identity verification` van nam trong `open_set_requirements`
+  - candidate co the dat `Maybe Review`
+  - `decision_confidence.level = low` vi evidence moi chi o muc keyword-level
+  - day la case de bat `OPEN_SET_NOISE` va `CONFIDENCE_GUARDRAIL_MISS`
+
+### 8. Confidence/Diagnostics contrast
+
+- Loai: ca employer-side screening va candidate-side recommendation
+- Muc tieu: tach ro `score` va `confidence`
+- Ky vong:
+  - strong explicit-rich case co the co `score` cao va `decision_confidence = high`
+  - sparse/noisy/open-set-heavy case co the co `score` khong qua thap nhung van phai `review_required = true`
+  - runtime diagnostics phai tong hop dung level counts va reason-code counts
+- Failure taxonomy watch:
+  - `CONFIDENCE_GUARDRAIL_MISS`
+  - `DIAGNOSTICS_SUMMARY_DRIFT`
+
 ## Cac case payload-driven bo sung
 
 Ngoai cac fixture file-backed cases o tren, test suite Phase 26 con giu them 2 case
-payload-driven:
+payload-driven va duoc Phase 39 nang cap tiep:
 
 ### Soft-skill separation case
 
@@ -94,3 +129,8 @@ Moi phase sua logic sau Phase 26 nen hoi nguoc 3 cau:
 
 Neu mot thay doi parser/scoring khong tra loi duoc 3 cau nay, thay doi do chua du
 an toan de merge.
+
+Sau Phase 39, can hoi them 2 cau nua:
+
+4. Case do co lam drift `confidence_guardrails` hay `decision_confidence` khong?
+5. Runtime diagnostics co con tong hop dung level/reason codes cho case nay khong?

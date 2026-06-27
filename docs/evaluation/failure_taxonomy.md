@@ -60,6 +60,22 @@ Dung khi:
 - local file path va API payload path cho ket qua lech lon
 - web payload va CLI path parse ra khac nhau ma khong co canh bao ro
 
+### `CONFIDENCE_GUARDRAIL_MISS`
+
+Dung khi:
+
+- score co the van dung, nhung `confidence_guardrails` khong phan anh dung muc do tin cay cua case
+- sparse/open-set-heavy/noisy case dang thieu reason code quan trong
+- case can review nhung `review_required` lai khong bat
+
+### `DIAGNOSTICS_SUMMARY_DRIFT`
+
+Dung khi:
+
+- runtime diagnostics khong tong hop dung level counts hoac reason-code counts
+- screening/recommendation response van co output chinh, nhung lop diagnostics tong hop bi drift
+- web/doc diagnostics khong con noi dung duoc case kho nhu benchmark mong doi
+
 ## Cach dung trong quy trinh
 
 Khi gap mot bug, nen ghi log hoac note theo mau:
@@ -69,6 +85,15 @@ Case: job-22
 Primary failure taxonomy: REQUIREMENT_TYPE_ERROR
 Secondary failure taxonomy: OPEN_SET_NOISE
 Symptom: soft requirements entered the open-set technical path
+```
+
+Hoac:
+
+```text
+Case: sparse-infra-benchmark
+Primary failure taxonomy: CONFIDENCE_GUARDRAIL_MISS
+Secondary failure taxonomy: DIAGNOSTICS_SUMMARY_DRIFT
+Symptom: sparse recovery did run, but response did not surface the low-confidence warning set
 ```
 
 Lam nhu vay giup:

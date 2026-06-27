@@ -1,0 +1,5 @@
+.env
+docker-compose.local.yml
+config/*.php
+!config/*.example.php
+volumes/
